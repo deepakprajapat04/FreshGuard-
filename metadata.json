@@ -1,0 +1,10 @@
+{
+  "name": "Remix: FreshGuard Supply Platform",
+  "description": "Enterprise Fresh Supply \u0026 Shrinkage Reduction Management Platform with AI-powered QC and real-time logistics.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
