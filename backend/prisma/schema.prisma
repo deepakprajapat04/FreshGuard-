@@ -1,0 +1,176 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// AUTHENTICATION — registered platform users (login by email OR phone)
+model AppUser {
+  id                       String    @id @default(uuid()) @map("user_id") @db.Uuid
+  fullName                 String    @map("full_name") @db.VarChar(150)
+  email                    String?   @unique @db.VarChar(255)
+  phone                    String?   @unique @db.VarChar(30)
+  passwordHash             String    @map("password_hash") @db.VarChar(255)
+  role                     String    @default("BUYER") @map("role") @db.VarChar(20)
+  emailVerified            Boolean   @default(false) @map("email_verified")
+  emailVerificationCode    String?   @map("email_verification_code") @db.VarChar(10)
+  emailVerificationExpires DateTime? @map("email_verification_expires") @db.Timestamptz
+  createdAt                DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastLoginAt              DateTime? @map("last_login_at") @db.Timestamptz
+
+  @@map("app_users")
+}
+
+// 0. VENDOR / BUYER ORGANIZATIONS DIRECTORY
+model Vendor {
+  id               String          @id @map("vendor_id") @db.VarChar(50)
+  organizationName String          @unique @map("organization_name") @db.VarChar(255)
+  role             String          @default("VENDOR") @map("role") @db.VarChar(20)
+  createdAt        DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  bids             VendorBid[]
+  purchaseOrders   PurchaseOrder[]
+
+  @@map("vendors")
+}
+
+// 1. PROCUREMENT BIDS DEMAND TRACKER
+model PurchaseRequirement {
+  id                String         @id @map("requirement_id") @db.VarChar(50)
+  itemName          String         @map("item_name") @db.VarChar(255)
+  category          String?        @map("category") @db.VarChar(100)
+  targetVolume      Int            @map("target_volume")
+  volumeUnit        String         @default("Cases") @map("volume_unit") @db.VarChar(50)
+  operationalStatus String         @default("OPEN") @map("operational_status") @db.VarChar(50)
+  detailsPayload    Json?          @map("details_payload")
+  createdAt         DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  vendorBids        VendorBid[]
+  slaAgreements     SlaAgreement[]
+
+  @@map("purchase_requirements")
+}
+
+// 2. VENDOR LIVE BIDS QUOTATIONS
+model VendorBid {
+  id                   String              @id @default(uuid()) @map("bid_id") @db.Uuid
+  requirementId        String              @map("requirement_id") @db.VarChar(50)
+  vendorId             String              @map("vendor_id") @db.VarChar(50)
+  aiQualificationScore Int                 @map("ai_qualification_score")
+  casePricing          Decimal             @map("case_pricing") @db.Decimal(10, 2)
+  maxVolumeAvailable   Int                 @map("max_volume_available")
+  postHarvestAgeHours  Int                 @default(24) @map("post_harvest_age_hours")
+  selectedForSplit     Boolean             @default(false) @map("selected_for_split")
+  quoteDetails         Json?               @map("quote_details")
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  requirement          PurchaseRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  vendor               Vendor              @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  slaAgreements        SlaAgreement[]
+
+  @@unique([requirementId, vendorId])
+  @@map("vendor_bids")
+}
+
+// 3. CORE LEGAL CONTRACTS (SLA) — acts as the Master Blanket PO umbrella record
+model SlaAgreement {
+  id                    String               @id @map("sla_id") @db.VarChar(50)
+  bidId                 String?              @map("bid_id") @db.Uuid
+  requirementId         String?              @map("requirement_id") @db.VarChar(50)
+  volumeCommitmentValue Decimal              @map("volume_commitment_value") @db.Decimal(12, 2)
+  contractStartDate     DateTime             @map("contract_start_date") @db.Date
+  contractEndDate       DateTime             @map("contract_end_date") @db.Date
+  totalContractMonths   Int                  @default(3) @map("total_contract_months")
+  totalScheduledBatches Int                  @default(12) @map("total_scheduled_batches")
+  operationalStatus     String               @default("ACTIVE") @map("operational_status") @db.VarChar(50)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  bid                   VendorBid?           @relation(fields: [bidId], references: [id])
+  requirement           PurchaseRequirement? @relation(fields: [requirementId], references: [id])
+  purchaseOrders        PurchaseOrder[]
+
+  @@map("sla_agreements")
+}
+
+// 4. TRANSACTIONAL PURCHASE ORDERS — child release POs split per vendor
+model PurchaseOrder {
+  id                   String           @id @map("po_number") @db.VarChar(50)
+  slaId                String           @map("sla_id") @db.VarChar(50)
+  vendorId             String?          @map("vendor_id") @db.VarChar(50)
+  cargoDescription     String           @map("cargo_description") @db.Text
+  totalAmount          Decimal          @map("total_amount") @db.Decimal(12, 2)
+  allocationPercentage Int              @default(0) @map("allocation_percentage")
+  allocatedQuantity    Int              @default(0) @map("allocated_quantity")
+  containerId          String?          @map("container_id") @db.VarChar(100)
+  iotBeaconId          String?          @map("iot_beacon_id") @db.VarChar(100)
+  adjustedEta          String?          @map("adjusted_eta") @db.VarChar(50)
+  issueDate            DateTime         @default(now()) @map("issue_date") @db.Date
+  fulfillmentStatus    String           @default("packing") @map("fulfillment_status") @db.VarChar(50)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  sla                  SlaAgreement     @relation(fields: [slaId], references: [id])
+  vendor               Vendor?          @relation(fields: [vendorId], references: [id])
+  aiInspections        AiQcInspection[]
+
+  @@map("purchase_orders")
+}
+
+// 5. AI COMPUTER VISION INSPECTION METRICS
+model AiQcInspection {
+  id                     String               @id @default(uuid()) @map("inspection_id") @db.Uuid
+  poNumber               String               @map("po_number") @db.VarChar(50)
+  aiQualityScore         Int                  @map("ai_quality_score")
+  freshnessIndex         Decimal              @map("freshness_index") @db.Decimal(3, 1)
+  estimatedShelfLifeDays Decimal              @map("estimated_shelf_life_days") @db.Decimal(4, 1)
+  anomaliesFlagged       String?              @map("anomalies_flagged") @db.Text
+  createdAt              DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  purchaseOrder          PurchaseOrder        @relation(fields: [poNumber], references: [id], onDelete: Cascade)
+  batchSplitRoutings     BatchSplitRouting[]
+  vendorClaimsDisputes   VendorClaimsDispute[]
+
+  @@map("ai_qc_inspections")
+}
+
+// 6. METRIC BATCH ALLOCATION SPLIT DISTRIBUTION
+model BatchSplitRouting {
+  id                    String         @id @default(uuid()) @map("split_id") @db.Uuid
+  inspectionId          String         @map("inspection_id") @db.Uuid
+  totalBatchVolume      Int            @default(10) @map("total_batch_volume")
+  storeFulfillmentCount Int            @map("store_fulfillment_count")
+  claimsMitigationCount Int            @map("claims_mitigation_count")
+  createdAt             DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  inspection            AiQcInspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+
+  @@map("batch_split_routings")
+}
+
+// 7. FINANCIAL CHARGEBACK VENDOR DISPUTES
+model VendorClaimsDispute {
+  id                     String          @id @default(uuid()) @map("dispute_id") @db.Uuid
+  inspectionId           String?         @map("inspection_id") @db.Uuid
+  purchaseOrderRef       String?         @map("purchase_order_ref") @db.VarChar(50)
+  damagedSkuName         String          @map("damaged_sku_name") @db.VarChar(255)
+  calculatedLossAmount   Decimal         @map("calculated_loss_amount") @db.Decimal(10, 2)
+  evidenceValidationCode String          @map("evidence_validation_code") @db.VarChar(100)
+  buyerComments          String?         @map("buyer_comments") @db.Text
+  disputeStatus          String          @default("PENDING_VENDOR_RESPONSE") @map("dispute_status") @db.VarChar(50)
+  claimPayload           Json?           @map("claim_payload")
+  createdAt              DateTime        @default(now()) @map("created_at") @db.Timestamptz
+  inspection             AiQcInspection? @relation(fields: [inspectionId], references: [id])
+
+  @@map("vendor_claims_disputes")
+}
+
+// 8. SUPPLIER NEGOTIATION CHAT THREADS
+// No FK to requirements so demo/UI-only requirement IDs can also have threads.
+model NegotiationMessage {
+  id            String   @id @default(uuid()) @map("message_id") @db.Uuid
+  requirementId String   @map("requirement_id") @db.VarChar(50)
+  sender        String   @db.VarChar(100)
+  avatar        String?  @db.VarChar(10)
+  text          String   @db.Text
+  isSelf        Boolean  @default(false) @map("is_self")
+  senderRole    String   @default("BUYER") @map("sender_role") @db.VarChar(20)
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([requirementId])
+  @@map("negotiation_messages")
+}

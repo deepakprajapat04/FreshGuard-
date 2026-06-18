@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@variant dark (&:where(.dark, .dark *));
+
+/* Shared input styling for the authentication forms */
+.auth-input {
+  width: 100%;
+  padding: 0.625rem 0.75rem 0.625rem 2.25rem;
+  border: 1px solid #e2e8f0; /* slate-200 */
+  border-radius: 0.625rem;
+  font-size: 0.875rem;
+  background-color: #ffffff;
+  color: #0f172a; /* slate-900 */
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.auth-input::placeholder {
+  color: #94a3b8; /* slate-400 */
+}
+.auth-input:focus {
+  border-color: #10b981; /* emerald-500 */
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
+
+/* Base dark class configuration */
+.dark {
+  color-scheme: dark;
+}
+
+/* Smooth fade-in for theme transition */
+* {
+  transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 200ms;
+}
+
+/* Custom mapping for standard tailwind utility classes when inside a .dark element */
+.dark .bg-white {
+  background-color: #0f172a !important; /* slate-900 */
+}
+
+.dark .bg-slate-50 {
+  background-color: #020617 !important; /* slate-950 */
+}
+
+.dark .bg-slate-100 {
+  background-color: #1e293b !important; /* slate-800 */
+}
+
+.dark .text-slate-900 {
+  color: #f8fafc !important; /* slate-50 */
+}
+
+.dark .text-slate-800 {
+  color: #f1f5f9 !important; /* slate-100 */
+}
+
+.dark .text-slate-700 {
+  color: #e2e8f0 !important; /* slate-200 */
+}
+
+.dark .text-slate-600 {
+  color: #cbd5e1 !important; /* slate-300 */
+}
+
+.dark .text-slate-500 {
+  color: #94a3b8 !important; /* slate-400 */
+}
+
+.dark .border-slate-100 {
+  border-color: #1e293b !important; /* slate-800 */
+}
+
+.dark .border-slate-200 {
+  border-color: #334155 !important; /* slate-700 */
+}
+
+.dark .hover\:bg-slate-50\/50:hover {
+  background-color: rgba(30, 41, 59, 0.3) !important;
+}
+
+.dark .hover\:bg-slate-50:hover {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: #1e293b !important;
+}
+
+.dark select,
+.dark input,
+.dark textarea {
+  background-color: #0b0f19 !important;
+  border-color: #334155 !important;
+  color: #f8fafc !important;
+}
+
+.dark select::placeholder,
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #475569 !important;
+}
+
+.dark select:focus,
+.dark input:focus,
+.dark textarea:focus {
+  border-color: #10b981 !important;
+}
+
+/* Modals background adjustment in dark mode */
+.dark div.bg-white.rounded-2xl {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+
+/* Adjust Recharts in dark mode */
+.dark .recharts-cartesian-grid-horizontal line,
+.dark .recharts-cartesian-grid-vertical line {
+  stroke: #1e293b !important;
+}
+
+.dark .recharts-default-tooltip {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+/* NavLinks override to verify they don't lose hover text color */
+.dark .text-emerald-300:hover {
+  color: #ffffff !important;
+}

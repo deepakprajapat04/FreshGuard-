@@ -1,0 +1,42 @@
+# Render.com blueprint — deploys both FreshGuard services from one repo.
+# Docs: https://render.com/docs/blueprint-spec
+services:
+  # 1. Backend API (Express + Prisma + PostgreSQL)
+  - type: web
+    name: freshguard-backend
+    runtime: node
+    rootDir: backend
+    plan: free
+    buildCommand: npm install && npx prisma generate
+    startCommand: node script.js
+    envVars:
+      - key: DATABASE_URL
+        sync: false # paste your PostgreSQL connection string in the Render dashboard
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: NEWS_API_KEY
+        sync: false
+      - key: RAZORPAY_KEY_ID
+        sync: false
+      - key: RAZORPAY_KEY_SECRET
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASS
+        sync: false
+
+  # 2. Frontend app (Vite build served by Express, proxies /api to backend)
+  - type: web
+    name: freshguard-app
+    runtime: node
+    rootDir: main
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: BACKEND_URL
+        sync: false # set to the backend URL, e.g. https://freshguard-backend.onrender.com
+      - key: VITE_GOOGLE_MAPS_PLATFORM_KEY
+        sync: false
