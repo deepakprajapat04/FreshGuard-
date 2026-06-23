@@ -1,0 +1,11 @@
+.git
+.gitignore
+**/.env
+**/.env.*
+**/node_modules
+**/dist
+.DS_Store
+*.md
+!deploy/README.md
+.cursor
+assets
