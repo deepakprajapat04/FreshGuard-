@@ -1,0 +1,8 @@
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/00-title.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/01-intro-video.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/02-buyer-dashboard-procurement-video.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/03-vendor-video.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/04-logistics-qc-video.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/05-store-claims-video.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/06-reports-video.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/07-ai-agents-video.mp4'

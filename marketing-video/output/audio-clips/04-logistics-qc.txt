@@ -1,0 +1,1 @@
+During transit, continuous IoT beacon tracking monitors real-time internal container temperatures. Once shipments arrive at the warehouse, our FreshDetect AI core scans the pallets to instantly grade freshness and flag thermal defects.

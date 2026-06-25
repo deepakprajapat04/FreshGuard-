@@ -1,0 +1,11 @@
+This is FreshGuard—an end-to-end cold-chain intelligence platform designed to stop fresh produce spoilage before it costs your business. We handle everything from automated bidding to live IoT logistics. Let's log into our secure portal and see how it works.
+
+As a Buyer, the Executive Dashboard monitors shrinkage telemetry and live pipeline risks in real time. Moving to Procurement, buyers can set strict biological parameters and instantly compare competing vendor quotes side-by-side to optimize contract allocation.
+
+Switching to the Vendor view, suppliers receive automated requests and can submit detailed quotes with fleet specs and transit routes. The platform even tracks warehouse pre-cooling readiness before the trucks roll out.
+
+During transit, continuous IoT beacon tracking monitors real-time internal container temperatures. Once shipments arrive at the warehouse, our FreshDetect AI core scans the pallets to instantly grade freshness and flag thermal defects.
+
+Approved batches are routed to retail nodes using a secure blockchain ledger. If any compliance slip-ups happen, the Claims module automatically flags the issue, providing identical transparency to both buyers and vendors to quickly resolve financial disputes.
+
+Finally, robust analytics break down long-term shrinkage trends for buyers and product performance patterns for vendors. FreshGuard aligns the entire supply chain under one smart dashboard. Thanks for watching!

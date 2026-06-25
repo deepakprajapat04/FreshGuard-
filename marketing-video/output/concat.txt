@@ -1,0 +1,2 @@
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/title-card.mp4'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/walkthrough-processed.mp4'

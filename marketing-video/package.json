@@ -1,0 +1,16 @@
+{
+  "name": "freshguard-marketing-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "voice": "node generate-voiceover.mjs",
+    "record": "node record-walkthrough.mjs",
+    "build": "node assemble-video.mjs",
+    "all": "node generate-voiceover.mjs && node record-walkthrough.mjs && node assemble-video.mjs",
+    "setup": "playwright install chromium"
+  },
+  "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "playwright": "^1.52.0"
+  }
+}

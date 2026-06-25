@@ -1,0 +1,8 @@
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/synced-scenes/silence-2s.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/01-intro.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/02-buyer-dashboard-procurement.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/03-vendor.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/04-logistics-qc.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/05-store-claims.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/06-reports.mp3'
+file '/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/07-ai-agents.mp3'

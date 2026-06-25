@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
-import { ZoomIn, ZoomOut, Navigation, Info, ShieldCheck, Activity, CloudRain } from 'lucide-react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { ZoomIn, ZoomOut, Navigation, Activity } from 'lucide-react';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 declare global {
   interface Window {
@@ -34,915 +36,575 @@ interface LogisticsGoogleMapProps {
   isScanningWeather?: boolean;
 }
 
-const YOUR_GCP_MAPS_API_KEY = process.env.GOOGLE_MAPS_PLATFORM_KEY || (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || '';
+const MAPS_KEY =
+  process.env.GOOGLE_MAPS_PLATFORM_KEY ||
+  (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY ||
+  '';
 
-const hasValidKey = Boolean(YOUR_GCP_MAPS_API_KEY) && 
-                    YOUR_GCP_MAPS_API_KEY !== 'YOUR_API_KEY' && 
-                    YOUR_GCP_MAPS_API_KEY.trim() !== '';
+const hasValidKey =
+  Boolean(MAPS_KEY) && MAPS_KEY !== 'YOUR_API_KEY' && MAPS_KEY.trim() !== '';
 
-// High-fidelity dark roadmap design: land is dark charcoal (#121214), water is deep navy blue (#000814), and highways stand out in clear gray tracks (#4b5563)
-const SLATE_THEME_STYLES = [
-  {
-    elementType: "geometry",
-    stylers: [{ color: "#121214" }]
-  },
-  {
-    elementType: "labels.text.fill",
-    stylers: [{ color: "#6b7280" }]
-  },
-  {
-    elementType: "labels.text.stroke",
-    stylers: [{ color: "#121214" }]
-  },
-  {
-    featureType: "administrative",
-    elementType: "geometry",
-    stylers: [{ color: "#1f2937" }]
-  },
-  {
-    featureType: "road",
-    elementType: "geometry",
-    stylers: [{ color: "#1f2937" }]
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry",
-    stylers: [{ color: "#4b5563" }] // clear gray highway tracks
-  },
-  {
-    featureType: "road.highway",
-    elementType: "geometry.stroke",
-    stylers: [{ color: "#1d2432" }]
-  },
-  {
-    featureType: "water",
-    elementType: "geometry",
-    stylers: [{ color: "#000814" }] // deep navy blue water
-  },
-  {
-    featureType: "poi",
-    stylers: [{ visibility: "off" }]
-  },
-  {
-    featureType: "transit",
-    stylers: [{ visibility: "off" }]
+type ViewMode = 'roadmap' | 'satellite';
+
+const STREET_TILES = {
+  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  attribution:
+    '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
+};
+
+const SATELLITE_TILES = {
+  url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  attribution: 'Tiles &copy; Esri',
+};
+
+const SATELLITE_LABELS = {
+  url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png',
+  attribution: '',
+};
+
+function getCoordinatesForRoute(shipment: Shipment | null) {
+  if (!shipment) {
+    return {
+      origin: { lat: 47.6062, lng: -122.3321 },
+      dest: { lat: 41.8781, lng: -87.6298 },
+      originName: 'Seattle Fishery Warehouse, WA',
+      destName: 'Chicago DC East, IL',
+    };
   }
-];
+  const id = shipment.id;
 
-const MOCK_CITIES = [
-  { name: "Seattle, WA", lat: 47.6062, lng: -122.3321 },
-  { name: "Chicago, IL", lat: 41.8781, lng: -87.6298 },
-  { name: "Miami, FL", lat: 25.7617, lng: -80.1918 },
-  { name: "Wisconsin, WI", lat: 44.5191, lng: -88.0198 },
-  { name: "Oakland, CA", lat: 37.8044, lng: -122.2711 }
-];
+  if (id.includes('8842')) {
+    return {
+      origin: { lat: 25.7617, lng: -80.1918 },
+      dest: { lat: 41.8781, lng: -87.6298 },
+      originName: 'Miami Port, FL',
+      destName: 'Chicago DC East, IL',
+    };
+  }
+  if (id.includes('9912')) {
+    return {
+      origin: { lat: 47.6062, lng: -122.3321 },
+      dest: { lat: 41.8781, lng: -87.6298 },
+      originName: 'Seattle Fishery Warehouse',
+      destName: 'Chicago DC East, IL',
+    };
+  }
+  if (id.includes('7731')) {
+    return {
+      origin: { lat: 44.5191, lng: -88.0198 },
+      dest: { lat: 41.8781, lng: -87.6298 },
+      originName: 'Wisconsin Farm Store, WI',
+      destName: 'Chicago DC East, IL',
+    };
+  }
+  return {
+    origin: { lat: 37.8044, lng: -122.2711 },
+    dest: { lat: 41.8781, lng: -87.6298 },
+    originName: 'Oakland Port, CA',
+    destName: 'Chicago DC East, IL',
+  };
+}
 
-export default function LogisticsGoogleMap({ selectedShipment, onSelectShipment, isScanningWeather = false }: LogisticsGoogleMapProps) {
+function curvedPath(
+  origin: { lat: number; lng: number },
+  dest: { lat: number; lng: number },
+  steps = 48
+): L.LatLng[] {
+  const midLat = (origin.lat + dest.lat) / 2 + 1.2;
+  const midLng = (origin.lng + dest.lng) / 2;
+  const points: L.LatLng[] = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const lat =
+      (1 - t) * (1 - t) * origin.lat + 2 * (1 - t) * t * midLat + t * t * dest.lat;
+    const lng =
+      (1 - t) * (1 - t) * origin.lng + 2 * (1 - t) * t * midLng + t * t * dest.lng;
+    points.push(L.latLng(lat, lng));
+  }
+  return points;
+}
+
+function dotIcon(color: string, size = 14) {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:${size}px;height:${size}px;border-radius:50%;
+      background:${color};border:2.5px solid #fff;
+      box-shadow:0 2px 8px rgba(0,0,0,0.35);
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+function vehicleIcon() {
+  return L.divIcon({
+    className: '',
+    html: `<div style="
+      width:28px;height:28px;border-radius:8px;
+      background:#4f46e5;border:2px solid #fff;
+      box-shadow:0 4px 14px rgba(79,70,229,0.55);
+      display:flex;align-items:center;justify-content:center;
+    "><div style="width:8px;height:8px;border-radius:50%;background:#10b981"></div></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
+  });
+}
+
+export default function LogisticsGoogleMap({
+  selectedShipment,
+  isScanningWeather = false,
+}: LogisticsGoogleMapProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const directionsRendererRef = useRef<any>(null);
-  const infoWindowRef = useRef<any>(null);
-  const vehicleMarkerRef = useRef<any>(null);
-  const hazardCircleRef = useRef<any>(null);
-  const hazardMarkerRef = useRef<any>(null);
+  const googleMapRef = useRef<any>(null);
+  const googleRendererRef = useRef<any>(null);
+  const googleOverlaysRef = useRef<any[]>([]);
+  const leafletMapRef = useRef<L.Map | null>(null);
+  const leafletLayersRef = useRef<L.LayerGroup | null>(null);
+  const leafletBaseRef = useRef<L.Layer[]>([]);
 
-  // References for reliable fallbacks
-  const fallbackPolylineRef = useRef<any>(null);
-  const fallbackOriginMarkerRef = useRef<any>(null);
-  const fallbackDestMarkerRef = useRef<any>(null);
+  const [useGoogle, setUseGoogle] = useState(hasValidKey);
+  const [googleReady, setGoogleReady] = useState(false);
+  const [viewMode, setViewMode] = useState<ViewMode>('roadmap');
 
-  // Fallback states for premium SVG map engine
-  const [useFallbackMock, setUseFallbackMock] = useState(() => !hasValidKey);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [mapViewMode, setViewMode] = useState<'vector' | 'satellite'>('vector');
-  const [activeTelemOpen, setActiveTelemOpen] = useState(false);
-  const [activeHazardOpen, setActiveHazardOpen] = useState(false);
+  const routeCoords = getCoordinatesForRoute(selectedShipment);
+  const isRerouted = !!selectedShipment?.rerouted;
+  const hasAnomaly = selectedShipment?.status === 'delayed' && !isRerouted;
 
-  // Custom Zoom and Pan structures for offline interactive mockup
-  const [zoomLevel, setZoomLevel] = useState(1);
-  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const clearGoogleOverlays = useCallback(() => {
+    googleOverlaysRef.current.forEach((o) => o.setMap?.(null));
+    googleOverlaysRef.current = [];
+  }, []);
 
-  // Address coordinate lookup
-  const getCoordinatesForRoute = (shipment: Shipment | null) => {
-    if (!shipment) {
-      return {
-        origin: { lat: 47.6062, lng: -122.3321 }, // Seattle, WA
-        dest: { lat: 41.8781, lng: -87.6298 },    // Chicago DC East
-        originName: "Seattle Fishery Warehouse, WA",
-        destName: "Chicago DC East, IL"
-      };
-    }
-    const id = shipment.id;
-
-    if (id.includes('8842')) {
-      return {
-        origin: { lat: 25.7617, lng: -80.1918 }, // Miami Port, FL
-        dest: { lat: 41.8781, lng: -87.6298 },   // Chicago DC East, IL
-        originName: "Miami Port, FL",
-        destName: "Chicago DC East, IL"
-      };
-    }
-    if (id.includes('9912')) {
-      return {
-        origin: { lat: 47.6062, lng: -122.3321 }, // Seattle, WA
-        dest: { lat: 41.8781, lng: -87.6298 },    // Chicago DC East, IL
-        originName: "Seattle Fishery Warehouse",
-        destName: "Chicago DC East, IL"
-      };
-    }
-    if (id.includes('7731')) {
-      return {
-        origin: { lat: 44.5191, lng: -88.0198 }, // Green Bay, WI
-        dest: { lat: 41.8781, lng: -87.6298 },   // Chicago DC East, IL
-        originName: "Wisconsin Farm Store, WI",
-        destName: "Chicago DC East, IL"
-      };
-    }
-    return {
-      origin: { lat: 37.8044, lng: -122.2711 }, // Oakland, CA
-      dest: { lat: 41.8781, lng: -87.6298 },    // Chicago DC East, IL
-      originName: "Oakland Port, CA",
-      destName: "Chicago DC East, IL"
-    };
-  };
-
-  // Coordinates translation tool for high-fidelity interactive map
-  const getCanvasCoords = (lat: number, lng: number) => {
-    // US map bounds approximation inside 1000x600 viewBox
-    // Longitude: -125 (West) to -70 (East)
-    // Latitude: 24 (South) to 50 (North)
-    const x = ((lng - (-125)) / 55) * 1000;
-    const y = (1 - (lat - 24) / 26) * 600;
-    
-    return {
-      x: Math.max(100, Math.min(900, x)),
-      y: Math.max(60, Math.min(540, y))
-    };
-  };
-
-  // Google Maps Auth Failure Capturer
+  // Google auth failure → fall back to Leaflet
   useEffect(() => {
     window.gm_authFailure = () => {
-      console.warn("Google Maps authentication failure. Safely loaded premium secure offline GIS dashboard mapping fallback system.");
-      setUseFallbackMock(true);
-    };
-    return () => {
-      // Keep global handler active or cleanup gently
+      console.warn('Google Maps auth failed — using OpenStreetMap.');
+      setUseGoogle(false);
     };
   }, []);
 
-  // 1. Unconditional Google Maps integration script loader (Skipped if initially in Mock Fallback mode to save footprint)
+  // Load Google Maps script
   useEffect(() => {
-    if (typeof window === 'undefined' || useFallbackMock) return;
-
+    if (!useGoogle) return;
     if (window.google?.maps) {
-      setIsLoaded(true);
+      setGoogleReady(true);
       return;
     }
 
-    const existingScript = document.getElementById('google-maps-bootstrap-loader');
-    if (existingScript) {
-      const waitInterval = setInterval(() => {
+    const existing = document.getElementById('google-maps-bootstrap-loader');
+    if (existing) {
+      const interval = setInterval(() => {
         if (window.google?.maps) {
-          setIsLoaded(true);
-          clearInterval(waitInterval);
+          setGoogleReady(true);
+          clearInterval(interval);
         }
       }, 200);
-      return () => clearInterval(waitInterval);
+      return () => clearInterval(interval);
     }
 
     const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${YOUR_GCP_MAPS_API_KEY}&v=weekly&libraries=geometry,places`;
     script.id = 'google-maps-bootstrap-loader';
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&v=weekly&libraries=geometry,places`;
     script.async = true;
     script.defer = true;
-
-    script.onload = () => {
-      setIsLoaded(true);
-    };
-    script.onerror = () => {
-      console.error("Failed to load GCP Google Maps script context. Transitioned securely to interactive supply chain fallback framework.");
-      setUseFallbackMock(true);
-    };
-
+    script.onload = () => setGoogleReady(true);
+    script.onerror = () => setUseGoogle(false);
     document.head.appendChild(script);
-  }, [useFallbackMock]);
+  }, [useGoogle]);
 
-  // 2. Map container initialization (Only active for real GCP loading)
+  // Init Google Map
   useEffect(() => {
-    if (useFallbackMock) return;
-    if (!isLoaded || !mapContainerRef.current || !window.google?.maps) return;
+    if (!useGoogle || !googleReady || !mapContainerRef.current || !window.google?.maps) return;
 
-    try {
-      const gMaps = window.google.maps;
-      const initialCoords = getCoordinatesForRoute(selectedShipment);
-      const centerCoords = {
-        lat: (initialCoords.origin.lat + initialCoords.dest.lat) / 2,
-        lng: (initialCoords.origin.lng + initialCoords.dest.lng) / 2
-      };
+    const g = window.google.maps;
+    const center = {
+      lat: (routeCoords.origin.lat + routeCoords.dest.lat) / 2,
+      lng: (routeCoords.origin.lng + routeCoords.dest.lng) / 2,
+    };
 
-      const mapOptions = {
-        center: centerCoords,
-        zoom: 4,
-        mapTypeId: mapViewMode === 'satellite' ? gMaps.MapTypeId.HYBRID : gMaps.MapTypeId.ROADMAP,
-        styles: mapViewMode === 'satellite' ? [] : SLATE_THEME_STYLES,
+    if (!googleMapRef.current) {
+      googleMapRef.current = new g.Map(mapContainerRef.current, {
+        center,
+        zoom: 5,
+        mapTypeId: viewMode === 'satellite' ? g.MapTypeId.HYBRID : g.MapTypeId.ROADMAP,
         disableDefaultUI: true,
         zoomControl: false,
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: false
-      };
-
-      const map = new gMaps.Map(mapContainerRef.current, mapOptions);
-      mapRef.current = map;
-
-      const directionsRenderer = new gMaps.DirectionsRenderer({
-        map: map,
+        fullscreenControl: false,
+        gestureHandling: 'greedy',
+      });
+      googleRendererRef.current = new g.DirectionsRenderer({
+        map: googleMapRef.current,
         suppressMarkers: true,
         polylineOptions: {
-          strokeColor: "#3b82f6",
-          strokeWeight: 4,
-          strokeOpacity: 0.9
-        }
-      });
-      directionsRendererRef.current = directionsRenderer;
-
-      const infoWindow = new gMaps.InfoWindow();
-      infoWindowRef.current = infoWindow;
-
-    } catch (e) {
-      console.error("Could not construct live map instance", e);
-      setUseFallbackMock(true);
-    }
-  }, [isLoaded, useFallbackMock]);
-
-  // 3. Keep satellite vs styled vector map state synchronized smoothly
-  useEffect(() => {
-    if (useFallbackMock) return;
-    if (!mapRef.current || !window.google?.maps) return;
-    const gMaps = window.google.maps;
-    const map = mapRef.current;
-
-    if (mapViewMode === 'satellite') {
-      map.setOptions({
-        mapTypeId: gMaps.MapTypeId.HYBRID,
-        styles: []
+          strokeColor: hasAnomaly ? '#ef4444' : '#4f46e5',
+          strokeWeight: 5,
+          strokeOpacity: 0.9,
+        },
       });
     } else {
-      map.setOptions({
-        mapTypeId: gMaps.MapTypeId.ROADMAP,
-        styles: SLATE_THEME_STYLES
-      });
-    }
-  }, [mapViewMode, useFallbackMock]);
-
-  // 4. Dynamic routing calculations, geohazard circles, and telemetry popups
-  useEffect(() => {
-    if (useFallbackMock) return;
-    if (!isLoaded || !mapRef.current || !window.google?.maps) return;
-
-    const gMaps = window.google.maps;
-    const map = mapRef.current;
-    const directionsService = new gMaps.DirectionsService();
-    const routeCoords = getCoordinatesForRoute(selectedShipment);
-
-    // Clear previous elements
-    if (fallbackPolylineRef.current) fallbackPolylineRef.current.setMap(null);
-    if (fallbackOriginMarkerRef.current) fallbackOriginMarkerRef.current.setMap(null);
-    if (fallbackDestMarkerRef.current) fallbackDestMarkerRef.current.setMap(null);
-    if (vehicleMarkerRef.current) vehicleMarkerRef.current.setMap(null);
-    if (hazardCircleRef.current) hazardCircleRef.current.setMap(null);
-    if (hazardMarkerRef.current) hazardMarkerRef.current.setMap(null);
-
-    // Determine anomaly status
-    const isRerouted = !!selectedShipment?.rerouted;
-    const hasAnomaly = selectedShipment?.status === 'delayed' && !isRerouted;
-
-    // Custom function to handle custom pulsing dot and data overlays
-    const updateActiveVehicle = (position: any) => {
-      if (vehicleMarkerRef.current) vehicleMarkerRef.current.setMap(null);
-
-      const contentString = `
-        <div style="font-family: inherit; font-size: 11px; padding: 6px; line-height: 1.4; color: #1e293b; min-width: 190px;">
-          <strong style="color: #4f46e5; display: block; margin-bottom: 4px; font-family: monospace;">TELEMETRY LINK: ACTIVE</strong>
-          <div style="border-top: 1px solid #f1f5f9; margin-top: 4px; padding-top: 4px;">
-            <div style="font-weight: 700; color: #0f172a;">📦 Fleet Container MSKU 7842</div>
-            <div style="color: #64748b; font-family: monospace; font-size: 9.5px; margin: 2px 0;">LAT/LNG: ${position.lat().toFixed(4)}°, ${position.lng().toFixed(4)}°</div>
-            <div style="font-weight: 700; color: #10b981; margin-top: 2px;">🌡️ Cargo Temp Window: ${selectedShipment?.temp || '3.0°C'}</div>
-          </div>
-        </div>
-      `;
-
-      const marker = new gMaps.Marker({
-        position: position,
-        map: map,
-        title: "Active Carrier Reefer",
-        icon: {
-          path: gMaps.SymbolPath.CIRCLE,
-          scale: 8,
-          fillColor: "#4f46e5",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-        }
-      });
-
-      vehicleMarkerRef.current = marker;
-
-      marker.addListener('click', () => {
-        infoWindowRef.current.setContent(contentString);
-        infoWindowRef.current.open(map, marker);
-        setActiveTelemOpen(true);
-      });
-    };
-
-    // Construct raw fallback line in case Directions API fails or requires elevation bypass
-    const drawHighFidelityFallback = () => {
-      const pathCoordinates = [
-        new gMaps.LatLng(routeCoords.origin.lat, routeCoords.origin.lng),
-        new gMaps.LatLng((routeCoords.origin.lat + routeCoords.dest.lat) / 2 + 1.5, (routeCoords.origin.lng + routeCoords.dest.lng) / 2),
-        new gMaps.LatLng(routeCoords.dest.lat, routeCoords.dest.lng)
-      ];
-
-      const polyline = new gMaps.Polyline({
-        path: pathCoordinates,
-        strokeColor: hasAnomaly ? "#f43f5e" : "#4f46e5",
-        strokeOpacity: 0.9,
-        strokeWeight: 4.5,
-        map: map
-      });
-      fallbackPolylineRef.current = polyline;
-
-      // Custom markers
-      const originMarker = new gMaps.Marker({
-        position: routeCoords.origin,
-        map: map,
-        title: `Origin: ${routeCoords.originName}`,
-        icon: {
-          path: gMaps.SymbolPath.CIRCLE,
-          scale: 6,
-          fillColor: "#818cf8",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 1.5
-        }
-      });
-      fallbackOriginMarkerRef.current = originMarker;
-
-      const destMarker = new gMaps.Marker({
-        position: routeCoords.dest,
-        map: map,
-        title: `Destination: ${routeCoords.destName}`,
-        icon: {
-          path: gMaps.SymbolPath.CIRCLE,
-          scale: 6,
-          fillColor: "#10b981",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 1.5
-        }
-      });
-      fallbackDestMarkerRef.current = destMarker;
-
-      const midPoint = new gMaps.LatLng(
-        (routeCoords.origin.lat + routeCoords.dest.lat) / 2 + 0.75,
-        (routeCoords.origin.lng + routeCoords.dest.lng) / 2
+      googleMapRef.current.setMapTypeId(
+        viewMode === 'satellite' ? g.MapTypeId.HYBRID : g.MapTypeId.ROADMAP
       );
-      updateActiveVehicle(midPoint);
+    }
+  }, [useGoogle, googleReady, viewMode, routeCoords.origin, routeCoords.dest, hasAnomaly]);
 
-      const bounds = new gMaps.LatLngBounds();
-      bounds.extend(new gMaps.LatLng(routeCoords.origin.lat, routeCoords.origin.lng));
-      bounds.extend(new gMaps.LatLng(routeCoords.dest.lat, routeCoords.dest.lng));
-      map.fitBounds(bounds);
-    };
+  // Google route + markers
+  useEffect(() => {
+    if (!useGoogle || !googleReady || !googleMapRef.current || !window.google?.maps) return;
 
-    // Calculate directions or cleanly trigger fallback design with explicit authentication checks
-    const requestOptions = {
-      origin: new gMaps.LatLng(routeCoords.origin.lat, routeCoords.origin.lng),
-      destination: new gMaps.LatLng(routeCoords.dest.lat, routeCoords.dest.lng),
-      travelMode: gMaps.TravelMode.DRIVING
-    };
+    const g = window.google.maps;
+    const map = googleMapRef.current;
+    clearGoogleOverlays();
 
-    directionsService.route(requestOptions, (result: any, status: any) => {
-      if (status === gMaps.DirectionsStatus.OK && result) {
-        if (directionsRendererRef.current) {
-          directionsRendererRef.current.setDirections(result);
-        }
-        const legs = result.routes[0].legs[0];
-        const midpointStep = legs.steps[Math.floor(legs.steps.length / 2)];
-        const vehiclePos = midpointStep?.end_location || legs.end_location;
-        updateActiveVehicle(vehiclePos);
+    const origin = new g.LatLng(routeCoords.origin.lat, routeCoords.origin.lng);
+    const dest = new g.LatLng(routeCoords.dest.lat, routeCoords.dest.lng);
 
-        if (result.routes[0].bounds) {
-          map.fitBounds(result.routes[0].bounds);
-        }
-      } else {
-        console.log("Using high-fidelity geodesic polyline vector routing fallback context:", status);
-        drawHighFidelityFallback();
-      }
+    const originMarker = new g.Marker({
+      position: origin,
+      map,
+      title: routeCoords.originName,
+      icon: {
+        path: g.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#4f46e5',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      },
     });
+    const destMarker = new g.Marker({
+      position: dest,
+      map,
+      title: routeCoords.destName,
+      icon: {
+        path: g.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: '#10b981',
+        fillOpacity: 1,
+        strokeColor: '#ffffff',
+        strokeWeight: 2,
+      },
+    });
+    googleOverlaysRef.current.push(originMarker, destMarker);
 
-    // Add severe climate anomaly zone overlays
-    if (hasAnomaly) {
-      let hazardCoord = null;
-      let hazardLabel = "";
-
-      if (selectedShipment?.id.includes('8842')) {
-        hazardCoord = new gMaps.LatLng(27.6648, -81.5158); // Florida location flooding
-        hazardLabel = "Severity Level Red: Flash Flood Inundation Corridor";
-      } else if (selectedShipment?.id.includes('9912')) {
-        hazardCoord = new gMaps.LatLng(47.7511, -120.7401); // Seattle storm
-        hazardLabel = "Severity Level Warning: Thunderstorm Winds Front";
+    const directionsService = new g.DirectionsService();
+    directionsService.route(
+      { origin, destination: dest, travelMode: g.TravelMode.DRIVING },
+      (result: any, status: any) => {
+        if (status === g.DirectionsStatus.OK && result) {
+          googleRendererRef.current?.setDirections(result);
+          const legs = result.routes[0].legs[0];
+          const mid =
+            legs.steps[Math.floor(legs.steps.length / 2)]?.end_location || legs.end_location;
+          const vehicle = new g.Marker({
+            position: mid,
+            map,
+            title: 'Active carrier',
+            icon: {
+              path: g.SymbolPath.CIRCLE,
+              scale: 10,
+              fillColor: '#4f46e5',
+              fillOpacity: 1,
+              strokeColor: '#ffffff',
+              strokeWeight: 2,
+            },
+          });
+          googleOverlaysRef.current.push(vehicle);
+          if (result.routes[0].bounds) map.fitBounds(result.routes[0].bounds, 48);
+        } else {
+          googleRendererRef.current?.setDirections({ routes: [] });
+          const path = curvedPath(routeCoords.origin, routeCoords.dest).map(
+            (p) => new g.LatLng(p.lat, p.lng)
+          );
+          const line = new g.Polyline({
+            path,
+            strokeColor: hasAnomaly ? '#ef4444' : '#4f46e5',
+            strokeWeight: 5,
+            strokeOpacity: 0.9,
+            map,
+          });
+          googleOverlaysRef.current.push(line);
+          const mid = path[Math.floor(path.length / 2)];
+          const vehicle = new g.Marker({ position: mid, map, title: 'Active carrier' });
+          googleOverlaysRef.current.push(vehicle);
+          const bounds = new g.LatLngBounds();
+          bounds.extend(origin);
+          bounds.extend(dest);
+          map.fitBounds(bounds, 48);
+        }
       }
+    );
 
-      if (hazardCoord) {
-        const circle = new gMaps.Circle({
-          strokeColor: '#f43f5e',
+    if (hasAnomaly) {
+      let hazard: { lat: number; lng: number } | null = null;
+      if (selectedShipment?.id.includes('8842')) hazard = { lat: 27.6648, lng: -81.5158 };
+      else if (selectedShipment?.id.includes('9912')) hazard = { lat: 47.7511, lng: -120.7401 };
+
+      if (hazard) {
+        const circle = new g.Circle({
+          map,
+          center: hazard,
+          radius: 120000,
+          strokeColor: '#ef4444',
           strokeOpacity: 0.8,
           strokeWeight: 1.5,
           fillColor: '#ef4444',
-          fillOpacity: 0.25,
-          map: map,
-          center: hazardCoord,
-          radius: 120000
+          fillOpacity: 0.2,
         });
-        hazardCircleRef.current = circle;
-
-        const marker = new gMaps.Marker({
-          position: hazardCoord,
-          map: map,
-          title: hazardLabel,
-          icon: {
-            path: gMaps.SymbolPath.FORWARD_CLOSED_ARROW,
-            scale: 5,
-            fillColor: "#ef4444",
-            fillOpacity: 0.9,
-            strokeColor: "#ffffff",
-            strokeWeight: 1.5
-          }
-        });
-        hazardMarkerRef.current = marker;
-
-        const threatInfoString = `
-          <div style="font-family: inherit; font-size: 10.5px; padding: 4px; color: #9f1239; line-height: 1.35; max-width: 220px;">
-            <div style="font-weight: 800; display: flex; items-center gap: 5px; color: #ef4444;">
-              ⚠️ EXTREME CLIMATE HAZARD AREA
-            </div>
-            <div style="margin-top: 4px; font-weight: 500; color: #4c0519;">
-              ${hazardLabel}
-            </div>
-          </div>
-        `;
-
-        marker.addListener('click', () => {
-          infoWindowRef.current.setContent(threatInfoString);
-          infoWindowRef.current.open(map, marker);
-        });
+        googleOverlaysRef.current.push(circle);
       }
     }
-  }, [selectedShipment, isLoaded, useFallbackMock]);
+  }, [
+    useGoogle,
+    googleReady,
+    selectedShipment,
+    routeCoords,
+    hasAnomaly,
+    clearGoogleOverlays,
+  ]);
 
-  // HUD actions - fully responsive across both live and high-fidelity mock settings
-  const handleZoomIn = () => {
-    if (!useFallbackMock && mapRef.current) {
-      try {
-        mapRef.current.setZoom(mapRef.current.getZoom() + 1);
-      } catch (e) {
-        setZoomLevel(prev => Math.min(prev + 0.5, 4));
+  // Tear down Google map when falling back to Leaflet
+  useEffect(() => {
+    if (!useGoogle && googleMapRef.current) {
+      googleMapRef.current = null;
+      googleRendererRef.current = null;
+      if (mapContainerRef.current) {
+        mapContainerRef.current.innerHTML = '';
       }
+    }
+  }, [useGoogle]);
+
+  // Leaflet map (OpenStreetMap / Esri — no API key required)
+  useEffect(() => {
+    if (useGoogle || !mapContainerRef.current) return;
+
+    if (!leafletMapRef.current) {
+      leafletMapRef.current = L.map(mapContainerRef.current, {
+        zoomControl: false,
+        attributionControl: true,
+      }).setView([39.5, -98.5], 4);
+
+      leafletLayersRef.current = L.layerGroup().addTo(leafletMapRef.current);
+    }
+
+    const map = leafletMapRef.current;
+
+    leafletBaseRef.current.forEach((layer) => map.removeLayer(layer));
+    leafletBaseRef.current = [];
+
+    if (viewMode === 'satellite') {
+      leafletBaseRef.current.push(
+        L.tileLayer(SATELLITE_TILES.url, { attribution: SATELLITE_TILES.attribution, maxZoom: 19 }).addTo(map)
+      );
+      leafletBaseRef.current.push(
+        L.tileLayer(SATELLITE_LABELS.url, { attribution: '', maxZoom: 19, pane: 'overlayPane' }).addTo(map)
+      );
     } else {
-      setZoomLevel(prev => Math.min(prev + 0.5, 4));
+      leafletBaseRef.current.push(
+        L.tileLayer(STREET_TILES.url, { attribution: STREET_TILES.attribution, maxZoom: 19 }).addTo(map)
+      );
+    }
+
+    leafletLayersRef.current?.clearLayers();
+
+    const path = curvedPath(routeCoords.origin, routeCoords.dest);
+    L.polyline(path, {
+      color: hasAnomaly ? '#ef4444' : '#4f46e5',
+      weight: 5,
+      opacity: 0.9,
+      lineCap: 'round',
+    }).addTo(leafletLayersRef.current!);
+
+    L.polyline(path, {
+      color: '#ffffff',
+      weight: 2,
+      opacity: 0.6,
+      dashArray: '8, 12',
+      lineCap: 'round',
+    }).addTo(leafletLayersRef.current!);
+
+    L.marker([routeCoords.origin.lat, routeCoords.origin.lng], {
+      icon: dotIcon('#4f46e5', 16),
+      title: routeCoords.originName,
+    })
+      .bindPopup(`<strong>Origin</strong><br/>${routeCoords.originName}`)
+      .addTo(leafletLayersRef.current!);
+
+    L.marker([routeCoords.dest.lat, routeCoords.dest.lng], {
+      icon: dotIcon('#10b981', 16),
+      title: routeCoords.destName,
+    })
+      .bindPopup(`<strong>Destination</strong><br/>${routeCoords.destName}`)
+      .addTo(leafletLayersRef.current!);
+
+    const mid = path[Math.floor(path.length / 2)];
+    L.marker(mid, {
+      icon: vehicleIcon(),
+      title: 'Active carrier',
+    })
+      .bindPopup(
+        `<div style="font-family:monospace;font-size:11px;line-height:1.5">
+          <strong style="color:#4f46e5">Live telemetry</strong><br/>
+          ${selectedShipment?.vendor || 'Carrier'} · ${selectedShipment?.temp || '3.2°C'}<br/>
+          Container MSKU-${selectedShipment?.id || '7842'}
+        </div>`
+      )
+      .addTo(leafletLayersRef.current!);
+
+    if (hasAnomaly) {
+      let hazard: { lat: number; lng: number } | null = null;
+      if (selectedShipment?.id.includes('8842')) hazard = { lat: 27.6648, lng: -81.5158 };
+      else if (selectedShipment?.id.includes('9912')) hazard = { lat: 47.7511, lng: -120.7401 };
+
+      if (hazard) {
+        L.circle(hazard, {
+          radius: 120000,
+          color: '#ef4444',
+          fillColor: '#ef4444',
+          fillOpacity: 0.15,
+          weight: 2,
+          dashArray: '6, 6',
+        })
+          .bindPopup('<strong style="color:#ef4444">Climate hazard zone</strong>')
+          .addTo(leafletLayersRef.current!);
+      }
+    }
+
+    map.fitBounds(L.latLngBounds(path), { padding: [48, 48] });
+
+    return () => {
+      // keep map instance; layers cleared on next run
+    };
+  }, [useGoogle, viewMode, selectedShipment, routeCoords, hasAnomaly]);
+
+  // Cleanup Leaflet on unmount
+  useEffect(() => {
+    return () => {
+      leafletMapRef.current?.remove();
+      leafletMapRef.current = null;
+    };
+  }, []);
+
+  const handleZoomIn = () => {
+    if (useGoogle && googleMapRef.current) {
+      googleMapRef.current.setZoom(googleMapRef.current.getZoom() + 1);
+    } else {
+      leafletMapRef.current?.zoomIn();
     }
   };
 
   const handleZoomOut = () => {
-    if (!useFallbackMock && mapRef.current) {
-      try {
-        mapRef.current.setZoom(mapRef.current.getZoom() - 1);
-      } catch (e) {
-        setZoomLevel(prev => Math.max(prev - 0.5, 1));
-      }
+    if (useGoogle && googleMapRef.current) {
+      googleMapRef.current.setZoom(googleMapRef.current.getZoom() - 1);
     } else {
-      setZoomLevel(prev => Math.max(prev - 0.5, 1));
+      leafletMapRef.current?.zoomOut();
     }
   };
 
   const handleRecenter = () => {
-    if (!useFallbackMock && mapRef.current) {
-      try {
-        const coords = getCoordinatesForRoute(selectedShipment);
-        const bounds = new window.google.maps.LatLngBounds();
-        bounds.extend(new window.google.maps.LatLng(coords.origin.lat, coords.origin.lng));
-        bounds.extend(new window.google.maps.LatLng(coords.dest.lat, coords.dest.lng));
-        mapRef.current.fitBounds(bounds);
-      } catch (e) {
-        setZoomLevel(1);
-        setPanOffset({ x: 0, y: 0 });
-      }
+    const path = curvedPath(routeCoords.origin, routeCoords.dest);
+    if (useGoogle && googleMapRef.current && window.google?.maps) {
+      const bounds = new window.google.maps.LatLngBounds();
+      bounds.extend(new window.google.maps.LatLng(routeCoords.origin.lat, routeCoords.origin.lng));
+      bounds.extend(new window.google.maps.LatLng(routeCoords.dest.lat, routeCoords.dest.lng));
+      googleMapRef.current.fitBounds(bounds, 48);
     } else {
-      setZoomLevel(1);
-      setPanOffset({ x: 0, y: 0 });
+      leafletMapRef.current?.fitBounds(L.latLngBounds(path), { padding: [48, 48] });
     }
   };
 
-  // Pre-calculate SVG coordinates for reactive rendering
-  const routeCoords = getCoordinatesForRoute(selectedShipment);
-  const start = getCanvasCoords(routeCoords.origin.lat, routeCoords.origin.lng);
-  const end = getCanvasCoords(routeCoords.dest.lat, routeCoords.dest.lng);
-  const controlX = (start.x + end.x) / 2;
-  const controlY = (start.y + end.y) / 2 - 60; // Curving arch upwards nicely
-  
-  // Custom vehicle position along the curve (at exactly 50% progress for visual symmetry)
-  const t = 0.5;
-  const vehicleX = (1 - t) * (1 - t) * start.x + 2 * (1 - t) * t * controlX + t * t * end.x;
-  const vehicleY = (1 - t) * (1 - t) * start.y + 2 * (1 - t) * t * controlY + t * t * end.y;
-
-  // Determine hazards inside SVG Map
-  const isRerouted = !!selectedShipment?.rerouted;
-  const hasAnomaly = selectedShipment?.status === 'delayed' && !isRerouted;
-  let hazardCoord: { lat: number, lng: number } | null = null;
-  let hazardLabel = "";
-  if (hasAnomaly) {
-    if (selectedShipment?.id.includes('8842')) {
-      hazardCoord = { lat: 27.6648, lng: -81.5158 };
-      hazardLabel = "Severity Level Red: Flash Flood Inundation Corridor";
-    } else if (selectedShipment?.id.includes('9912')) {
-      hazardCoord = { lat: 47.7511, lng: -120.7401 };
-      hazardLabel = "Severity Level Warning: Thunderstorm Winds Front";
-    }
-  }
-  const hazardPos = hazardCoord ? getCanvasCoords(hazardCoord.lat, hazardCoord.lng) : null;
-
-  // Setup viewbox centering values
-  const baseWidth = 1000;
-  const baseHeight = 600;
-  const currentWidth = baseWidth / zoomLevel;
-  const currentHeight = baseHeight / zoomLevel;
-  const routeMidX = (start.x + end.x) / 2;
-  const routeMidY = (start.y + end.y) / 2;
-  const k = (zoomLevel - 1) / zoomLevel;
-  const centerX = 500 + (routeMidX - 500) * k + panOffset.x;
-  const centerY = 300 + (routeMidY - 300) * k + panOffset.y;
-  const minX = centerX - currentWidth / 2;
-  const minY = centerY - currentHeight / 2;
-  const viewBoxString = `${minX} ${minY} ${currentWidth} ${currentHeight}`;
+  const mapLabel = useGoogle ? 'Google Maps' : 'OpenStreetMap';
 
   return (
-    <div id="logistics-gps-engine-container" className="w-full h-full bg-slate-950 rounded-2xl border border-slate-800 relative overflow-hidden shadow-2xl flex flex-col min-h-[460px]">
-      
-      {/* MAP STATUS/HEADER HUD OVERLAY */}
-      <div className="absolute top-4 left-4 z-20 flex flex-col gap-1 select-none pointer-events-none">
-        <div className="text-[9px] text-white font-mono tracking-widest uppercase font-extrabold flex items-center gap-1.5 bg-slate-900/90 backdrop-blur border border-slate-700/80 px-2.5 py-1 rounded shadow-md">
+    <div
+      id="logistics-gps-engine-container"
+      className="w-full h-full bg-slate-100 dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-700 relative overflow-hidden shadow-lg flex flex-col min-h-[460px]"
+    >
+      <div className="absolute top-4 left-4 z-[1000] flex flex-col gap-1 select-none pointer-events-none">
+        <div className="text-[9px] text-slate-800 dark:text-white font-mono tracking-widest uppercase font-extrabold flex items-center gap-1.5 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200 dark:border-slate-700 px-2.5 py-1 rounded-lg shadow-md">
           <Activity className="w-3 h-3 text-emerald-500 animate-pulse" />
-          ACTIVE INTEL GPS CORE: {useFallbackMock ? "OFFLINE VECTOR HYBRID" : "LIVE MAP INTEGRATED"}
+          Live fleet map · {mapLabel}
         </div>
-        <div className="text-[7.5px] text-slate-400 font-mono tracking-normal bg-slate-900/70 px-1.5 py-0.5 rounded w-fit border border-slate-800">
-          {routeCoords.originName.split(',')[0]} ↔ {routeCoords.destName.split(',')[0]}
+        <div className="text-[7.5px] text-slate-600 dark:text-slate-400 font-mono bg-white/90 dark:bg-slate-900/80 px-1.5 py-0.5 rounded w-fit border border-slate-200 dark:border-slate-800">
+          {routeCoords.originName.split(',')[0]} → {routeCoords.destName.split(',')[0]}
         </div>
       </div>
 
-      {/* MAP CONTROLS OVERLAY - FLUX OVER TOP-RIGHT CORNER */}
-      <div className="absolute top-4 right-4 z-30 flex items-center gap-2">
-        
-        {/* PREMIUM MAP TYPE SELECTOR */}
-        <div className="flex bg-slate-900/95 rounded-lg p-0.5 border border-slate-700 shadow-md">
+      <div className="absolute top-4 right-4 z-[1000] flex items-center gap-2">
+        <div className="flex bg-white/95 dark:bg-slate-900/95 rounded-lg p-0.5 border border-slate-200 dark:border-slate-700 shadow-md">
           <button
-            onClick={() => setViewMode('vector')}
+            type="button"
+            onClick={() => setViewMode('roadmap')}
             className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold font-mono transition-all cursor-pointer ${
-              mapViewMode === 'vector' 
-                ? 'bg-indigo-650 text-white shadow font-black' 
-                : 'text-slate-400 hover:text-slate-200'
+              viewMode === 'roadmap'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            🗺️ Vector Map
+            Street map
           </button>
           <button
+            type="button"
             onClick={() => setViewMode('satellite')}
             className={`px-2.5 py-1.5 rounded-md text-[10px] font-bold font-mono transition-all cursor-pointer ${
-              mapViewMode === 'satellite' 
-                ? 'bg-indigo-650 text-white shadow font-black' 
-                : 'text-slate-400 hover:text-slate-200'
+              viewMode === 'satellite'
+                ? 'bg-indigo-600 text-white shadow'
+                : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
             }`}
           >
-            🛰️ Satellite View
+            Satellite
           </button>
         </div>
 
-        <button 
+        <button
+          type="button"
           onClick={handleZoomIn}
-          title="Zoom In"
-          className="p-1.5 bg-slate-900/95 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 hover:text-white transition-all cursor-pointer shadow-md"
+          title="Zoom in"
+          className="p-1.5 bg-white/95 dark:bg-slate-900/95 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-md"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
-        <button 
+        <button
+          type="button"
           onClick={handleZoomOut}
-          title="Zoom Out"
-          className="p-1.5 bg-slate-900/95 hover:bg-slate-800 text-slate-200 rounded-lg border border-slate-700 hover:text-white transition-all cursor-pointer shadow-md"
+          title="Zoom out"
+          className="p-1.5 bg-white/95 dark:bg-slate-900/95 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-lg border border-slate-200 dark:border-slate-700 transition-all cursor-pointer shadow-md"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
-        <button 
+        <button
+          type="button"
           onClick={handleRecenter}
           className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-black font-mono uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-md"
         >
-          <Navigation className="w-3.5 h-3.5 rotate-45 fill-white shrink-0" /> Recenter Map
+          <Navigation className="w-3.5 h-3.5 rotate-45 shrink-0" /> Recenter
         </button>
       </div>
 
-      {/* CORE CANVAS DRAWING AREA */}
-      <div className="flex-1 w-full relative overflow-hidden bg-slate-950">
-        
-        {/* Dynamic Live Google Map Canvas Node vs Interactive Fallback Engine */}
-        {!useFallbackMock ? (
-          isLoaded ? (
-            <div ref={mapContainerRef} className="w-full h-full min-h-[460px] relative rounded-2xl border border-slate-900" />
-          ) : (
-            <div className="w-full h-full min-h-[460px] flex flex-col items-center justify-center text-slate-400 font-mono text-xs gap-3">
-              <span className="w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin"></span>
-              <span>Initializing Secure GIS Framework Satellite Ensembles...</span>
-            </div>
-          )
-        ) : (
-          /* High-Fidelity Interactive Offline SVG Vector Map */
-          <div className="w-full h-full min-h-[460px] relative bg-[#090d16] overflow-hidden select-none" style={{ height: '100%', width: '100%' }}>
-            <svg 
-              className="w-full h-full min-h-[460px] transition-all duration-300 ease-out origin-center"
-              viewBox={viewBoxString}
-              style={{ background: mapViewMode === 'satellite' ? '#030712' : '#080c14' }}
-            >
-              {/* DEFINITIONS & GRADIENTS */}
-              <defs>
-                <pattern id="grid-pattern" width="80" height="80" patternUnits="userSpaceOnUse">
-                  <line x1="0" y1="0" x2="80" y2="0" stroke="rgba(99, 102, 241, 0.08)" strokeWidth="1" />
-                  <line x1="0" y1="0" x2="0" y2="80" stroke="rgba(99, 102, 241, 0.08)" strokeWidth="1" />
-                  <circle cx="0" cy="0" r="1.5" fill="rgba(99, 102, 241, 0.15)" />
-                </pattern>
-                
-                <radialGradient id="ocean-glow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#0b132b" />
-                  <stop offset="100%" stopColor="#040815" />
-                </radialGradient>
+      <div className="flex-1 w-full relative min-h-[460px]">
+        <div ref={mapContainerRef} className="w-full h-full min-h-[460px] z-0" />
 
-                <linearGradient id="route-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#818cf8" />
-                  <stop offset="50%" stopColor="#4f46e5" />
-                  <stop offset="100%" stopColor="#06b6d4" />
-                </linearGradient>
-
-                <linearGradient id="route-delayed-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#f87171" stopOpacity="0.8" />
-                  <stop offset="100%" stopColor="#ef4444" stopOpacity="0.9" />
-                </linearGradient>
-              </defs>
-
-              {/* SPACE GRID */}
-              <rect width="100%" height="100%" fill="url(#ocean-glow)" />
-              <rect width="100%" height="100%" fill="url(#grid-pattern)" />
-
-              {/* SATELLITE MODE RADAR RINGS AND TARGET CRUCIFORMS */}
-              {mapViewMode === 'satellite' ? (
-                <>
-                  <circle cx="500" cy="300" r="280" fill="none" stroke="rgba(6, 182, 212, 0.07)" strokeWidth="1.5" strokeDasharray="4,8" />
-                  <circle cx="500" cy="300" r="480" fill="none" stroke="rgba(6, 182, 212, 0.04)" strokeWidth="1" />
-                  <line x1="500" y1="0" x2="500" y2="600" stroke="rgba(6, 182, 212, 0.06)" strokeWidth="1.5" strokeDasharray="3,3" />
-                  <line x1="0" y1="300" x2="1000" y2="300" stroke="rgba(6, 182, 212, 0.06)" strokeWidth="1.5" strokeDasharray="3,3" />
-                  
-                  {/* Topographic elevation concentric arcs */}
-                  <path d="M 120 180 Q 250 120 400 150" fill="none" stroke="rgba(241, 245, 249, 0.02)" strokeWidth="1.5" />
-                  <path d="M 680 400 Q 800 350 900 480" fill="none" stroke="rgba(241, 245, 249, 0.02)" strokeWidth="1.5" />
-                  <path d="M 150 490 Q 300 450 420 520" fill="none" stroke="rgba(241, 245, 249, 0.02)" strokeWidth="1.5" />
-                </>
-              ) : (
-                <>
-                  {/* Map Grid Labels */}
-                  <text x="30" y="50" fill="rgba(148, 163, 184, 0.35)" fontSize="9" fontFamily="monospace" fontWeight="bold">Grid: Area-A1 [N-45.7° / W-118.2°]</text>
-                  <text x="30" y="90" fill="rgba(148, 163, 184, 0.25)" fontSize="8" fontFamily="monospace">REF_COORD: SYSTEM_GPS_OK</text>
-                  <text x="30" y="560" fill="rgba(148, 163, 184, 0.35)" fontSize="9" fontFamily="monospace" fontWeight="bold">US CONUS TRANSPORT VECTOR SYSTEM</text>
-                </>
-              )}
-
-              {/* THEMATIC GEOGRAPHICAL REFERENCE SHAPES & BOUNDARIES */}
-              <g stroke="rgba(99, 102, 241, 0.05)" strokeWidth="1" fill="none">
-                {/* Pacific Coast trunk line */}
-                <path d="M 100 100 Q 80 250 95 440 T 150 540" />
-                {/* Mid-West connection corridor */}
-                <path d="M 95 300 Q 400 250 670 180" />
-                {/* Southern Route pipeline */}
-                <path d="M 95 440 Q 450 480 810 520" />
-                {/* East Coast trunk line */}
-                <path d="M 670 180 Q 800 120 900 60" />
-                <path d="M 810 520 Q 850 300 900 60" />
-              </g>
-
-              {/* ALL REGISTERED TRANSPORTATION HUBS */}
-              {MOCK_CITIES.map((city, idx) => {
-                const pos = getCanvasCoords(city.lat, city.lng);
-                const isOrigin = city.name.toLowerCase().includes(routeCoords.originName.toLowerCase().split(',')[0].toLowerCase()) || 
-                                 routeCoords.originName.toLowerCase().includes(city.name.toLowerCase());
-                const isDest = city.name.toLowerCase().includes(routeCoords.destName.toLowerCase().split(',')[0].toLowerCase()) ||
-                               routeCoords.destName.toLowerCase().includes(city.name.toLowerCase());
-                
-                return (
-                  <g key={idx} transform={`translate(${pos.x}, ${pos.y})`}>
-                    {/* Ring glow for active endpoint hubs */}
-                    {(isOrigin || isDest) && (
-                      <circle cx="0" cy="0" r="14" fill="none" stroke={isDest ? "#10b981" : "#4f46e5"} strokeWidth="1.5" className="animate-ping opacity-45" />
-                    )}
-                    <circle 
-                      cx="0" 
-                      cy="0" 
-                      r={isOrigin || isDest ? "6" : "3.5"} 
-                      fill={isDest ? "#10b981" : isOrigin ? "#4f46e5" : "#1e293b"} 
-                      stroke="#ffffff" 
-                      strokeWidth={isOrigin || isDest ? "1.5" : "1"} 
-                    />
-                    
-                    {/* City names displayed clearly in high-contrast monospaced overlay */}
-                    <text 
-                      x="10" 
-                      y="3" 
-                      fill={(isOrigin || isDest) ? "#ffffff" : "#64748b"} 
-                      fontSize={(isOrigin || isDest) ? "10" : "8"} 
-                      fontFamily="monospace" 
-                      fontWeight={(isOrigin || isDest) ? "bold" : "normal"}
-                    >
-                      {city.name}
-                    </text>
-                  </g>
-                );
-              })}
-
-              {/* CURVED ROUTE PATHWAY - DASHES MOVING TOWARDS DESTINATION */}
-              <path 
-                d={`M ${start.x} ${start.y} Q ${controlX} ${controlY} ${end.x} ${end.y}`} 
-                fill="none" 
-                stroke={hasAnomaly ? "url(#route-delayed-gradient)" : "url(#route-gradient)"} 
-                strokeWidth={hasAnomaly ? "5" : "4"} 
-                strokeLinecap="round"
-              />
-              <path 
-                d={`M ${start.x} ${start.y} Q ${controlX} ${controlY} ${end.x} ${end.y}`} 
-                fill="none" 
-                stroke="#ffffff" 
-                strokeWidth="2" 
-                strokeDasharray="10, 25" 
-                strokeLinecap="round"
-                opacity="0.75"
-              />
-
-              {/* SEVERE CLIMATE HAZARD OVERLAYS */}
-              {hasAnomaly && hazardPos && (
-                <g>
-                  {/* Hazard Zone Transparent Pulsing Circle */}
-                  <circle 
-                    cx={hazardPos.x} 
-                    cy={hazardPos.y} 
-                    r="60" 
-                    fill="rgba(244, 63, 94, 0.12)" 
-                    stroke="#f43f5e" 
-                    strokeWidth="1.5" 
-                    strokeDasharray="4,4"
-                    className="animate-pulse" 
-                    onClick={() => setActiveHazardOpen(true)}
-                    style={{ cursor: 'pointer' }}
-                  />
-                  <circle 
-                    cx={hazardPos.x} 
-                    cy={hazardPos.y} 
-                    r="100" 
-                    fill="none" 
-                    stroke="rgba(244, 63, 94, 0.15)" 
-                    strokeWidth="1" 
-                    className="animate-pulse"
-                  />
-                  
-                  {/* Warning Sign Pin */}
-                  <g 
-                    transform={`translate(${hazardPos.x}, ${hazardPos.y})`} 
-                    className="cursor-pointer"
-                    onClick={() => {
-                      setActiveHazardOpen(!activeHazardOpen);
-                      setActiveTelemOpen(false);
-                    }}
-                  >
-                    <circle cx="0" cy="0" r="14" fill="#f43f5e" opacity="0.4" className="animate-ping" />
-                    <circle cx="0" cy="0" r="8" fill="#f43f5e" stroke="#ffffff" strokeWidth="1" />
-                    <text x="0" y="3" textAnchor="middle" fill="#ffffff" fontSize="9" fontWeight="bold" fontFamily="monospace">!</text>
-                  </g>
-                </g>
-              )}
-
-              {/* TRUCK CONTAINER INTERACTIVE ICON */}
-              <g 
-                transform={`translate(${vehicleX}, ${vehicleY})`} 
-                className="cursor-pointer"
-                onClick={() => {
-                  setActiveTelemOpen(!activeTelemOpen);
-                  setActiveHazardOpen(false);
-                }}
-              >
-                <circle cx="0" cy="0" r="18" fill="none" stroke="#6366f1" strokeWidth="1" className="animate-ping opacity-35" />
-                <circle cx="0" cy="0" r="10" fill="#4f46e5" className="opacity-30" />
-                
-                <rect x="-8" y="-8" width="16" height="16" rx="4" fill="#4f46e5" stroke="#ffffff" strokeWidth="2" />
-                
-                <circle cx="0" cy="0" r="3" fill="#10b981" />
-              </g>
-
-            </svg>
-
-            {/* DYNAMIC INFORMATION OVERLAYS LINKED TO SVG POSITIONING */}
-            {activeTelemOpen && (
-              <div 
-                className="absolute z-50 bg-slate-900/95 backdrop-blur border border-indigo-500/50 p-4 rounded-xl shadow-2xl w-60 font-mono text-[10.5px] text-slate-300 pointer-events-auto select-none transition-all duration-300 shadow-indigo-950/45"
-                style={{
-                  top: `calc(${((vehicleY - minY) / currentHeight) * 100}% - 145px)`,
-                  left: `calc(${((vehicleX - minX) / currentWidth) * 100}% - 120px)`,
-                }}
-              >
-                <div className="flex items-center justify-between border-b border-indigo-950 pb-2 mb-2">
-                  <span className="text-indigo-400 font-bold tracking-widest text-[9.5px]">🛰️ TELEMETRY ACTIVE</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setActiveTelemOpen(false); }}
-                    className="text-slate-500 hover:text-slate-200 font-bold text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-                
-                <div className="space-y-1.5 text-xs text-left">
-                  <div>
-                    <span className="text-slate-500 text-[9.5px]">CARRIER:</span> 
-                    <span className="text-indigo-200 font-semibold ml-1">{selectedShipment?.vendor || 'Premium Logistics'}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 text-[9.5px]">CONTAINER:</span> 
-                    <span className="text-indigo-200 font-semibold ml-1">MSKU-{selectedShipment?.id || '7842'}</span>
-                  </div>
-                  <div className="flex justify-between items-center bg-slate-950/80 p-2 rounded border border-slate-800">
-                    <div>
-                      <div className="text-[8px] text-slate-500 uppercase">Cargo Temperature</div>
-                      <div className="text-emerald-400 font-black text-sm tracking-wider flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse"></span>
-                        {selectedShipment?.temp || '3.2°C'}
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[8px] text-slate-500 uppercase">Spec</div>
-                      <div className="text-slate-400 font-bold text-[10px]">{selectedShipment?.fleetSpecification || 'Reefer'}</div>
-                    </div>
-                  </div>
-                  <div className="text-[9px] text-slate-500 flex justify-between">
-                    <span>LAT: {routeCoords.origin.lat.toFixed(3)}°</span>
-                    <span>LNG: {routeCoords.origin.lng.toFixed(3)}°</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeHazardOpen && hasAnomaly && hazardPos && (
-              <div 
-                className="absolute z-50 bg-rose-955/95 backdrop-blur border border-rose-500/50 p-4 rounded-xl shadow-2xl w-60 font-mono text-[10.5px] text-rose-100 pointer-events-auto select-none transition-all duration-300 shadow-rose-950/45"
-                style={{
-                  top: `calc(${((hazardPos.y - minY) / currentHeight) * 100}% - 110px)`,
-                  left: `calc(${((hazardPos.x - minX) / currentWidth) * 100}% - 120px)`,
-                }}
-              >
-                <div className="flex items-center justify-between border-b border-rose-900 pb-2 mb-2">
-                  <span className="text-rose-400 font-bold tracking-widest text-[9.5px]">⚠️ ATMOSPHERIC ANOMALY</span>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setActiveHazardOpen(false); }}
-                    className="text-rose-400 hover:text-rose-200 font-bold text-xs"
-                  >
-                    ✕
-                  </button>
-                </div>
-                <div className="text-xs space-y-1">
-                  <p className="font-bold text-rose-300">{hazardLabel}</p>
-                  <p className="text-[10px] text-rose-400 leading-normal mt-1">
-                    Route crossing hazard corridor. Automated re-routing options triggered to bypass storm front.
-                  </p>
-                </div>
-              </div>
-            )}
-            
-            {/* HUD SCALE GRAPHICS */}
-            <div className="absolute bottom-4 right-4 z-10 font-mono text-[8.5px] text-slate-500 bg-slate-950/80 px-2.5 py-1 rounded border border-slate-900 pointer-events-none">
-              GRID SCALE: 1:1,500,000 | OFF-GRID BYPASS LINK: ACTIVE
-            </div>
+        {useGoogle && !googleReady && (
+          <div className="absolute inset-0 z-[999] flex flex-col items-center justify-center text-slate-500 font-mono text-xs gap-3 bg-slate-100/90 dark:bg-slate-900/90">
+            <span className="w-6 h-6 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+            <span>Loading map…</span>
           </div>
         )}
 
-        {/* SCANNING RADAR HUD OVERLAY */}
         {isScanningWeather && (
-          <div className="absolute bottom-6 left-4 z-40 bg-slate-900/95 border border-cyan-500/55 px-3 py-1.5 rounded-lg shadow-xl font-mono text-[9px] text-cyan-400 font-extrabold tracking-wider animate-pulse flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></span>
-            <span>SCANNING ATMOSPHERIC WEATHER RADAR CORRIDORS...</span>
+          <div className="absolute bottom-6 left-4 z-[1000] bg-white/95 dark:bg-slate-900/95 border border-cyan-400/50 px-3 py-1.5 rounded-lg shadow-lg font-mono text-[9px] text-cyan-600 dark:text-cyan-400 font-extrabold tracking-wider animate-pulse flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-ping" />
+            Scanning weather corridors…
           </div>
         )}
       </div>
 
+      <div className="absolute bottom-3 right-3 z-[1000] pointer-events-none text-[8px] font-mono text-slate-500 bg-white/80 dark:bg-slate-900/80 px-2 py-0.5 rounded border border-slate-200 dark:border-slate-800">
+        {viewMode === 'satellite' ? 'Satellite imagery' : 'Street map'} · GIS active
+      </div>
     </div>
   );
 }

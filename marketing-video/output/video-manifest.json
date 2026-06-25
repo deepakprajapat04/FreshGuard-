@@ -1,0 +1,39 @@
+{
+  "clips": [
+    {
+      "id": "01-intro",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/01-intro.webm",
+      "durationSec": 15.1
+    },
+    {
+      "id": "02-buyer-dashboard-procurement",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/02-buyer-dashboard-procurement.webm",
+      "durationSec": 15.75
+    },
+    {
+      "id": "03-vendor",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/03-vendor.webm",
+      "durationSec": 12.49
+    },
+    {
+      "id": "04-logistics-qc",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/04-logistics-qc.webm",
+      "durationSec": 14.39
+    },
+    {
+      "id": "05-store-claims",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/05-store-claims.webm",
+      "durationSec": 15.65
+    },
+    {
+      "id": "06-reports",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/06-reports.webm",
+      "durationSec": 11.52
+    },
+    {
+      "id": "07-ai-agents",
+      "video": "/Users/deepakprajapat/FreshGuard/marketing-video/output/video-clips/07-ai-agents.webm",
+      "durationSec": 43.15
+    }
+  ]
+}

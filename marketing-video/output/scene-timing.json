@@ -1,0 +1,40 @@
+{
+  "scenes": [
+    {
+      "id": "01-intro",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/01-intro.mp3",
+      "durationSec": 15.1
+    },
+    {
+      "id": "02-buyer-dashboard-procurement",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/02-buyer-dashboard-procurement.mp3",
+      "durationSec": 15.75
+    },
+    {
+      "id": "03-vendor",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/03-vendor.mp3",
+      "durationSec": 12.49
+    },
+    {
+      "id": "04-logistics-qc",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/04-logistics-qc.mp3",
+      "durationSec": 14.39
+    },
+    {
+      "id": "05-store-claims",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/05-store-claims.mp3",
+      "durationSec": 15.65
+    },
+    {
+      "id": "06-reports",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/06-reports.mp3",
+      "durationSec": 11.52
+    },
+    {
+      "id": "07-ai-agents",
+      "audio": "/Users/deepakprajapat/FreshGuard/marketing-video/output/audio-clips/07-ai-agents.mp3",
+      "durationSec": 43.15
+    }
+  ],
+  "totalSec": 128.05
+}
