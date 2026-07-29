@@ -5,8 +5,6 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  Search, 
-  Filter, 
   AlertTriangle, 
   FileText, 
   CheckCircle, 
@@ -27,6 +25,18 @@ import {
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
+import { DataTable, type DataTableColumn } from '../components/DataTable';
+
+type ClaimRow = {
+  id: string;
+  po: string;
+  vendor: string;
+  issue: string;
+  status: string;
+  amount: string;
+  date: string;
+};
 
 // Baseline recent inbound shipments list that can be scanned for claim selection
 const RECENT_INBOUND_DELIVERIES = [
@@ -96,8 +106,7 @@ const INITIAL_CLAIMS = [
 
 export default function Claims() {
   const [activeTab, setActiveTab] = useState('all');
-  const [claimsList, setClaimsList] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [claimsList, setClaimsList] = useState<ClaimRow[]>([]);
   
   // Real stats updated on new claims submissions
   const [pendingCount, setPendingCount] = useState(12);
@@ -246,17 +255,93 @@ export default function Claims() {
     }, 1200);
   };
 
-  const filteredClaims = claimsList.filter(c => {
-    const matchesTab = activeTab === 'all' || c.status === activeTab;
-    const matchesSearch = c.po.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.vendor.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          c.issue.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          c.id.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesTab && matchesSearch;
-  });
+  const filteredClaims = claimsList.filter((c) => activeTab === 'all' || c.status === activeTab);
+
+  const claimColumns: DataTableColumn<ClaimRow>[] = [
+    {
+      key: 'id',
+      label: 'Claim ID',
+      className: 'font-bold font-mono text-slate-950 dark:text-slate-100',
+    },
+    {
+      key: 'po',
+      label: 'PO Number',
+      render: (c) => (
+        <span className="font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">
+          {c.po}
+        </span>
+      ),
+    },
+    {
+      key: 'vendor',
+      label: 'Vendor Name',
+      filterType: 'select',
+      className: 'text-slate-600 dark:text-slate-300 font-medium',
+    },
+    {
+      key: 'issue',
+      label: 'Issue Description',
+      render: (c) => (
+        <span className="flex items-center gap-1.5 text-slate-650 dark:text-slate-350">
+          <AlertTriangle
+            className={cn(
+              'w-3.5 h-3.5 shrink-0',
+              c.issue?.toLowerCase().includes('temp') ? 'text-amber-500' : 'text-rose-500'
+            )}
+          />
+          <span className="truncate max-w-xs">{c.issue}</span>
+        </span>
+      ),
+    },
+    {
+      key: 'amount',
+      label: 'Amount',
+      className: 'font-bold font-mono text-slate-950 dark:text-slate-100',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      filterType: 'select',
+      filterOptions: ['pending', 'approved', 'rejected'],
+      render: (c) => (
+        <span
+          className={cn(
+            'px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase border',
+            c.status === 'pending'
+              ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 text-amber-700 dark:text-amber-400'
+              : c.status === 'approved'
+                ? 'bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-700 dark:text-emerald-400'
+                : 'bg-rose-50 dark:bg-rose-950/30 border-rose-200 text-rose-700'
+          )}
+        >
+          {c.status}
+        </span>
+      ),
+    },
+    {
+      key: 'date',
+      label: 'Date Filed',
+      className: 'text-slate-500 font-mono',
+    },
+    {
+      key: 'actions',
+      label: 'Verification Actions',
+      sortable: false,
+      filterable: false,
+      getValue: () => '',
+      render: () => (
+        <button
+          type="button"
+          className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 text-[10px] uppercase font-bold font-mono cursor-pointer border border-slate-200 dark:border-slate-850 px-2 py-1 rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 transition-colors"
+        >
+          <FileText className="w-3.5 h-3.5" /> View Proof
+        </button>
+      ),
+    },
+  ];
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 w-full mx-auto space-y-6 h-full flex flex-col bg-slate-55 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen relative overflow-y-auto">
+    <div className={pageShellClass}>
       
       {/* Soft Gold Success Toast Notification */}
       <AnimatePresence>
@@ -278,158 +363,81 @@ export default function Claims() {
         )}
       </AnimatePresence>
 
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <span className="text-[10px] font-extrabold text-rose-600 dark:text-rose-400 font-mono tracking-widest uppercase block">Dispute Settlement Network</span>
-          <h1 className="text-2xl font-black text-slate-950 dark:text-slate-100 tracking-tight mt-0.5">
-            {isVendor ? 'Claims Against Us' : 'Claims & Wastage Management'}
-          </h1>
-          <p className="text-slate-500 text-xs mt-1">
-            {isVendor ? 'Review and manage claims filed against your deliveries.' : 'Manage vendor claims, track spoilage, and resolve financial disputes.'}
-          </p>
-        </div>
+      <PageHeader
+        eyebrow="Dispute Settlement Network"
+        title={isVendor ? 'Claims Against Us' : 'Claims & Wastage Management'}
+        subtitle={
+          isVendor
+            ? 'Review and manage claims filed against your deliveries.'
+            : 'Manage vendor claims, track spoilage, and resolve financial disputes.'
+        }
+      >
         {!isVendor && (
-          <button 
+          <button
             id="file-new-claim-btn"
             onClick={() => setIsModalOpen(true)}
-            className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md shadow-rose-500/15 cursor-pointer"
+            className="px-5 py-2.5 bg-rose-500 hover:bg-rose-400 text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md cursor-pointer"
           >
             <Plus className="w-4 h-4" /> File New Claim
           </button>
         )}
-      </div>
+      </PageHeader>
 
       {/* Top Summary KPI Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-805 shadow-xs relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-amber-500"></div>
-          <div className="flex justify-between items-start mb-2 pl-2">
-            <h3 className="text-slate-500 text-xs font-bold font-mono uppercase tracking-wider">Pending Claims</h3>
-            <Clock className="w-4 h-4 text-amber-500 shrink-0" />
-          </div>
-          <div className="text-3xl font-black text-slate-950 dark:text-slate-100 pl-2 font-mono">{pendingCount}</div>
-          <div className="text-xs text-amber-600 dark:text-amber-400 mt-1 pl-2 font-medium flex items-center gap-1">
-            Requires secure review &amp; verification
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-805 shadow-xs relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500"></div>
-          <div className="flex justify-between items-start mb-2 pl-2">
-            <h3 className="text-slate-500 text-xs font-bold font-mono uppercase tracking-wider">{isVendor ? 'Total Deductions (YTD)' : 'Total Recovered (YTD)'}</h3>
-            <CheckCircle className="w-4 h-4 text-emerald-500 shrink-0" />
-          </div>
-          <div className="text-3xl font-black text-slate-950 dark:text-slate-100 pl-2 font-mono">
-            ${totalRecovered.toLocaleString()}
-          </div>
-          <div className="text-xs text-emerald-600 dark:text-emerald-400 mt-1 pl-2 font-medium flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5" /> Potential indicator active
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-805 shadow-xs relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
-          <div className="flex justify-between items-start mb-2 pl-2">
-            <h3 className="text-slate-500 text-xs font-bold font-mono uppercase tracking-wider">Top Spoilage Issue</h3>
-            <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
-          </div>
-          <div className="text-2xl font-black text-slate-950 dark:text-slate-100 pl-2 font-mono">Temp Control</div>
-          <div className="text-xs text-rose-600 dark:text-rose-405 mt-1.5 pl-2 font-medium">
-            45% of historical disputes
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard
+          label="Pending Claims"
+          value={pendingCount}
+          sub="Requires secure review & verification"
+          tone="amber"
+        />
+        <StatCard
+          label={isVendor ? 'Total Deductions (YTD)' : 'Total Recovered (YTD)'}
+          value={`$${totalRecovered.toLocaleString()}`}
+          sub={
+            <span className="inline-flex items-center gap-1 text-emerald-300">
+              <TrendingUp className="w-3.5 h-3.5" /> Potential indicator active
+            </span>
+          }
+          tone="emerald"
+        />
+        <StatCard
+          label="Top Spoilage Issue"
+          value="Temp Control"
+          sub="45% of historical disputes"
+          tone="rose"
+        />
       </div>
 
       {/* Main Table Ledger */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl shadow-sm flex-1 flex flex-col overflow-hidden">
-        <div className="p-4 border-b border-slate-150 dark:border-slate-805 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50 dark:bg-slate-950/20">
-          <div className="flex space-x-1 bg-slate-100 dark:bg-slate-950 p-1 rounded-lg border border-slate-200/50 dark:border-slate-800">
-            {['all', 'pending', 'approved', 'rejected'].map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "px-4 py-1.5 rounded-md text-xs font-bold font-mono uppercase tracking-tight transition-all cursor-pointer",
-                  activeTab === tab 
-                    ? "bg-white dark:bg-slate-900 text-slate-950 dark:text-slate-100 shadow-sm border border-slate-200/50 dark:border-slate-800" 
-                    : "text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
-                )}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input 
-              type="text" 
-              placeholder="Search claims..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl text-xs focus:ring-2 focus:ring-rose-500 focus:outline-none dark:text-slate-100"
-            />
-          </div>
-        </div>
-        
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-xs text-left">
-            <thead className="bg-slate-50 dark:bg-slate-950 text-slate-500 dark:text-slate-400 font-bold font-mono uppercase border-b border-slate-150 dark:border-slate-805 sticky top-0">
-              <tr>
-                <th className="px-6 py-4">Claim ID</th>
-                <th className="px-6 py-4">PO Number</th>
-                <th className="px-6 py-4">Vendor Name</th>
-                <th className="px-6 py-4">Issue Description</th>
-                <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Date Filed</th>
-                <th className="px-6 py-4">Verification Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-150 dark:divide-slate-805">
-              {filteredClaims.map((claim, idx) => (
-                <tr key={idx} className="hover:bg-slate-50/50 dark:hover:bg-slate-950/20 transition-colors">
-                  <td className="px-6 py-4 font-bold font-mono text-slate-950 dark:text-slate-100">{claim.id}</td>
-                  <td className="px-6 py-4 font-mono font-medium text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer">{claim.po}</td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-300 font-medium">{claim.vendor}</td>
-                  <td className="px-6 py-4 text-slate-650 dark:text-slate-350">
-                    <span className="flex items-center gap-1.5">
-                      {claim.issue && claim.issue.toLowerCase().includes('temp') ? (
-                        <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                      ) : (
-                        <AlertTriangle className="w-3.5 h-3.5 text-rose-450 shrink-0" />
-                      )}
-                      <span className="truncate max-w-xs">{claim.issue}</span>
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 font-bold font-mono text-slate-950 dark:text-slate-100">{claim.amount}</td>
-                  <td className="px-6 py-4">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase border",
-                      claim.status === 'pending' ? "bg-amber-50 dark:bg-amber-950/30 border-amber-200 text-amber-700 dark:text-amber-400" :
-                      claim.status === 'approved' ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-200 text-emerald-700 dark:text-emerald-400" :
-                      "bg-rose-55/20 dark:bg-rose-950/30 border-rose-200 text-rose-700"
-                    )}>
-                      {claim.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-slate-500 font-mono">{claim.date}</td>
-                  <td className="px-6 py-4">
-                    <button className="text-slate-505 hover:text-slate-805 dark:hover:text-slate-200 flex items-center gap-1 text-[10px] uppercase font-bold font-mono cursor-pointer border border-slate-200 dark:border-slate-850 px-2 py-1 rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 transition-colors">
-                      <FileText className="w-3.5 h-3.5" /> View Proof
-                    </button>
-                  </td>
-                </tr>
+      <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 shadow-md bg-white dark:bg-slate-900 flex-1 flex flex-col">
+        <DataTable
+          data={filteredClaims}
+          columns={claimColumns}
+          rowKey={(c) => c.id}
+          title="Claims ledger"
+          subtitle="Dispute settlement network"
+          excelFileName="claims-ledger.xls"
+          emptyMessage="No active dispute claims found matching filter criteria."
+          toolbarExtra={
+            <div className="flex space-x-1 bg-white/5 p-1 rounded-lg border border-white/10">
+              {['all', 'pending', 'approved', 'rejected'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    'px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-tight transition-all cursor-pointer',
+                    activeTab === tab
+                      ? 'bg-sky-600 text-white shadow-sm'
+                      : 'text-slate-300 hover:text-white'
+                  )}
+                >
+                  {tab}
+                </button>
               ))}
-              {filteredClaims.length === 0 && (
-                 <tr>
-                    <td colSpan={8} className="px-6 py-16 text-center text-slate-500 font-mono text-xs">
-                      No active dispute claims found matching filter criteria.
-                    </td>
-                 </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+            </div>
+          }
+        />
       </div>
 
       {/* THE "FILE NEW CLAIM" INTERACTIVE OVERLAY MODAL */}
@@ -469,8 +477,12 @@ export default function Claims() {
                     <Database className="w-5 h-5 shrink-0" />
                   </div>
                   <div>
-                    <h2 className="text-base font-black tracking-tight text-slate-950 dark:text-slate-100 uppercase">Initiate Automated Vendor Dispute</h2>
-                    <p className="text-[10px] font-mono text-slate-500 uppercase tracking-wider block">FreshGuard Automated Ledger Resolution Protocol v4</p>
+                    <h2 className="text-lg font-bold tracking-tight text-slate-950 dark:text-slate-100">
+                      Initiate Automated Vendor Dispute
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-0.5 tracking-normal normal-case">
+                      FreshGuard automated ledger resolution protocol v4
+                    </p>
                   </div>
                 </div>
                 <button 

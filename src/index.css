@@ -1,10 +1,54 @@
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  /* Most of the app used font-mono for UI chrome; map it to the same readable face.
+     Use font-code for true monospace IDs / codes. */
+  --font-mono: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  --font-code: "IBM Plex Mono", "Consolas", ui-monospace, monospace;
+}
+
 @variant dark (&:where(.dark, .dark *));
 
 /* Base dark class configuration */
 .dark {
   color-scheme: dark;
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01" on, "cv11" on;
+  letter-spacing: -0.01em;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-sans);
+  letter-spacing: -0.025em;
+}
+
+/* True monospace for PO numbers, container IDs, sync ages, etc. */
+.font-code {
+  font-family: var(--font-code);
+  letter-spacing: 0;
+  font-variant-ligatures: none;
+}
+
+/* Soften the old “terminal UI” look without editing every screen */
+.uppercase.tracking-widest,
+.uppercase.tracking-wider {
+  letter-spacing: 0.06em;
 }
 
 /* Smooth fade-in for theme transition */

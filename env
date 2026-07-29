@@ -1,0 +1,12 @@
+# Google Maps JavaScript API key (optional — improves routing & labels).
+# Get one at: https://console.cloud.google.com/google/maps-apis/credentials
+# Without a key, Logistics uses OpenStreetMap + Esri satellite (real maps, no key needed).
+VITE_GOOGLE_MAPS_PLATFORM_KEY=""
+
+# Backend API base URL used by the dev/prod server proxy
+BACKEND_URL="http://localhost:4000"
+
+# Google Gemini API key for AI Quality Control image analysis.
+# Get one free at: https://aistudio.google.com/apikey
+# Without this key, QC uses a local fallback (varies per image but less accurate).
+GEMINI_API_KEY="AIzaSyCgdGdgjaMtqADBHqZ7LjksBu90ZJXEAkY"

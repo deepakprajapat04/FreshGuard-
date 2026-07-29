@@ -22,6 +22,7 @@ import {
   ArrowUpRight
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { PageHeader, pageShellClass } from '../components/PageChrome';
 
 // Premium high-fidelity presets for testing both flawless eggs and avocado lots
 const PRESETS = [
@@ -462,7 +463,7 @@ export default function QualityControl() {
   };
 
   return (
-    <div className="p-4 sm:p-6 lg:p-8 w-full mx-auto space-y-6 bg-slate-50 dark:bg-slate-950 min-h-screen relative overflow-y-auto text-slate-900 dark:text-slate-100">
+    <div className={pageShellClass}>
       
       {/* Floating Success / Warning Toast Alert Banner */}
       <AnimatePresence>
@@ -490,27 +491,27 @@ export default function QualityControl() {
         )}
       </AnimatePresence>
 
-      {/* Header Info Block */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <span className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 font-mono tracking-widest uppercase block">Receiving Gate Control</span>
-          <h1 className="text-2xl font-black text-slate-950 dark:text-slate-100 tracking-tight mt-0.5">AI Quality Control &amp; Receiving</h1>
-          <p className="text-slate-500 text-xs mt-1">Scan incoming logistics lot samples to certify freshness, identify thermal defects, and trigger direct retail store routing.</p>
+      <PageHeader
+        eyebrow="Receiving Gate Control"
+        title="AI Quality Control & Receiving"
+        subtitle="Scan incoming logistics lot samples to certify freshness, identify thermal defects, and trigger direct retail store routing."
+      >
+        <div className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold text-white">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          Vision Core: <span className="font-semibold text-sky-200">FreshDetect v4.2</span>
         </div>
-        
-        <div className="flex gap-2">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold shadow-sm">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            Vision Core: <span className="font-semibold text-slate-705 dark:text-slate-200">FreshDetect v4.2</span>
-          </div>
-        </div>
-      </div>
+      </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         
         {/* Left Column: Optical Laser Spectrograph Scanning Window */}
-        <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl p-2 shadow-sm relative">
+        <div className="lg:col-span-2 space-y-5">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl shadow-md overflow-hidden relative">
+            <div className="px-4 py-3 bg-[#0c1e36] text-white flex items-center justify-between">
+              <span className="text-xs font-black font-mono uppercase tracking-wider">Inspection terminal</span>
+              <span className="text-[10px] font-mono text-sky-300">Spectrograph live</span>
+            </div>
+            <div className="p-2">
             <div className="relative bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden aspect-video flex items-center justify-center border border-slate-200/50 dark:border-slate-800/60">
               
               {/* Workspace Cleanup Fading Animator Cover Layer */}
@@ -659,11 +660,12 @@ export default function QualityControl() {
                 )}
               </AnimatePresence>
             </div>
+            </div>
           </div>
         </div>
 
         {/* Right Column: AI Analysis Results Insights panel */}
-        <div className="space-y-6">
+        <div className="space-y-5">
           <AnimatePresence mode="popLayout">
             {scanState === 'results' ? (
               <motion.div 
@@ -675,6 +677,7 @@ export default function QualityControl() {
                     : "border-emerald-250 dark:border-emerald-900/60"
                 )}
               >
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#0c1e36]"></div>
                 <div className={cn(
                   "absolute top-0 left-0 w-full h-1", 
                   scanResults?.defects_detected ? "bg-rose-500" : "bg-emerald-500"
