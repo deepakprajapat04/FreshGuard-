@@ -178,6 +178,124 @@ Return the output strictly in JSON format.`,
     }
   });
 
+  // Extract logistics fields from ASN / packing-slip images
+  app.post("/api/analyze-asn", async (req, res) => {
+    try {
+      const { image, fileName } = req.body as { image?: string; fileName?: string };
+      if (!image) {
+        return res.status(400).json({ error: "No image provided" });
+      }
+
+      const match = image.match(/^data:(image\/[A-Za-z-+\/]+);base64,(.+)$/);
+      if (!match) {
+        return res.status(400).json({ error: "Invalid image format" });
+      }
+      const mimeType = match[1];
+      const base64Data = match[2];
+
+      if (!process.env.GEMINI_API_KEY) {
+        return res.status(503).json({ error: "GEMINI_API_KEY not configured", fallback: true });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey: process.env.GEMINI_API_KEY || "",
+      });
+
+      const prompt = `You are extracting fields from an Advance Shipping Notice (ASN) / packing slip image.
+Return ONLY JSON with these keys (use empty string if not found):
+asnNumber, asnDate (YYYY-MM-DD), shipmentNumber, shipDate (YYYY-MM-DD), etaDate (YYYY-MM-DD),
+containerNumber, containerType, sealNumber, vesselName, voyageNumber, bookingNumber, billOfLading,
+shippingMethod, incoterms, portOfLoading, portOfDischarge, finalDestination,
+carrier, freightForwarder, customsBroker, shipFrom, shipTo,
+grossWeightKg, netWeightKg, volumeCbm, totalCartons, totalPallets, totalQuantity, currency,
+linkedPoNumbers (string array of PO numbers), notes (short summary), documentsAttached (string array).
+File name hint: ${fileName || "unknown"}`;
+
+      const schema = {
+        type: Type.OBJECT,
+        properties: {
+          asnNumber: { type: Type.STRING },
+          asnDate: { type: Type.STRING },
+          shipmentNumber: { type: Type.STRING },
+          shipDate: { type: Type.STRING },
+          etaDate: { type: Type.STRING },
+          containerNumber: { type: Type.STRING },
+          containerType: { type: Type.STRING },
+          sealNumber: { type: Type.STRING },
+          vesselName: { type: Type.STRING },
+          voyageNumber: { type: Type.STRING },
+          bookingNumber: { type: Type.STRING },
+          billOfLading: { type: Type.STRING },
+          shippingMethod: { type: Type.STRING },
+          incoterms: { type: Type.STRING },
+          portOfLoading: { type: Type.STRING },
+          portOfDischarge: { type: Type.STRING },
+          finalDestination: { type: Type.STRING },
+          carrier: { type: Type.STRING },
+          freightForwarder: { type: Type.STRING },
+          customsBroker: { type: Type.STRING },
+          shipFrom: { type: Type.STRING },
+          shipTo: { type: Type.STRING },
+          grossWeightKg: { type: Type.STRING },
+          netWeightKg: { type: Type.STRING },
+          volumeCbm: { type: Type.STRING },
+          totalCartons: { type: Type.STRING },
+          totalPallets: { type: Type.STRING },
+          totalQuantity: { type: Type.STRING },
+          currency: { type: Type.STRING },
+          linkedPoNumbers: { type: Type.ARRAY, items: { type: Type.STRING } },
+          notes: { type: Type.STRING },
+          documentsAttached: { type: Type.ARRAY, items: { type: Type.STRING } },
+        },
+        required: ["asnNumber", "linkedPoNumbers"],
+      };
+
+      let response;
+      try {
+        response = await ai.models.generateContent({
+          model: "gemini-2.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inlineData: { mimeType, data: base64Data } },
+                { text: prompt },
+              ],
+            },
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+          },
+        });
+      } catch {
+        response = await ai.models.generateContent({
+          model: "gemini-1.5-flash",
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { inlineData: { mimeType, data: base64Data } },
+                { text: prompt },
+              ],
+            },
+          ],
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: schema,
+          },
+        });
+      }
+
+      if (!response.text) throw new Error("No response from Gemini");
+      const parsed = JSON.parse(response.text);
+      res.json({ ...parsed, source: "vision" });
+    } catch (e: any) {
+      console.error(e);
+      res.status(500).json({ error: e.message || "ASN analysis failed", fallback: true });
+    }
+  });
+
   // Route: AI Route Risk Corridor and Weather & Traffic Grounding
   app.post("/api/evaluate-transit", async (req, res) => {
     try {

@@ -38,7 +38,7 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { DataTable, type DataTableColumn } from '../components/DataTable';
+import { DataTable, downloadExcelCsv, type DataTableColumn } from '../components/DataTable';
 import { usePersona } from '../context/PersonaContext';
 import { PageHeader, pageShellClass } from '../components/PageChrome';
 
@@ -131,6 +131,55 @@ export default function Dashboard() {
 
       setTimeout(() => setToastMessage(null), 5000);
     }, 1500);
+  };
+
+  /** Export Category Analytics Dashboard (CAD) as Excel-compatible CSV */
+  const handleExportCad = () => {
+    const stamp = new Date().toISOString().slice(0, 10);
+    const headers = ['Section', 'Metric', 'Value', 'Detail'];
+    const rows: string[][] = [];
+
+    if (isVendor) {
+      rows.push(
+        ['KPI', 'Fulfillment Rate', '96.4%', '+1.2% this week'],
+        ['KPI', 'Batch Freshness Score', '8.8/10', 'Premium Grade'],
+        ['KPI', 'Active Disputes', '3', 'Review required'],
+        ['KPI', 'Cold-Chain Integrity', '99.1%', 'Telemetry compliant']
+      );
+      vendorSlas.forEach((s) => {
+        rows.push(['SLA / Bid', s.type, s.title, `${s.detail} · ${s.accent}`]);
+      });
+      vendorDispatchTrends.forEach((d) => {
+        rows.push(['Dispatch Trend', d.month, String(d.dispatchUnits), `Target ${d.target}`]);
+      });
+    } else {
+      rows.push(
+        ['KPI', 'Shrinkage Rate', '2.8%', 'Fresh produce Jun'],
+        ['KPI', 'QC Reject Rate', '1.4%', 'Multi-node'],
+        ['KPI', 'OTIF', '97.2%', 'Rolling'],
+        ['KPI', 'Active Markdown SKUs', String(markdowns.filter((m) => !m.applied && m.risk !== 'low').length), 'Pending apply']
+      );
+      shrinkageData.forEach((d) => {
+        rows.push(
+          ['Shrinkage', d.month, 'Fresh Produce', `${d.freshProduce}%`],
+          ['Shrinkage', d.month, 'Meat', `${d.meat}%`],
+          ['Shrinkage', d.month, 'Dairy', `${d.dairy}%`]
+        );
+      });
+      vendorPerformanceData.forEach((v) => {
+        rows.push(['Vendor Score', v.vendor, `Delivery ${v.deliveryScore}`, `Quality ${v.qualityScore}`]);
+      });
+      markdowns.forEach((m) => {
+        rows.push(['Markdown', m.name, m.rec, `Shelf ${m.est} · Risk ${m.risk}${m.applied ? ' · Applied' : ''}`]);
+      });
+      aiAlerts.forEach((a) => {
+        rows.push(['AI Alert', a.title, a.type, a.description]);
+      });
+    }
+
+    downloadExcelCsv(`FreshGuard-CAD-${isVendor ? 'Vendor' : 'Buyer'}-${stamp}.xls`, headers, rows);
+    setToastMessage('CAD export downloaded — Category Analytics Dashboard spreadsheet ready.');
+    setTimeout(() => setToastMessage(null), 4000);
   };
 
   // 2. Process Recommended Markdown Apply operation
@@ -283,7 +332,12 @@ export default function Dashboard() {
                 )}
               </button>
             )}
-            <button className="px-4 py-2.5 bg-white/10 border border-white/20 hover:bg-white/15 rounded-xl text-xs font-semibold font-mono text-white shadow-xs transition-colors cursor-pointer">
+            <button
+              type="button"
+              onClick={handleExportCad}
+              className="px-4 py-2.5 bg-white/10 border border-white/20 hover:bg-white/15 rounded-xl text-xs font-semibold font-mono text-white shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5" />
               Export CAD
             </button>
           </div>

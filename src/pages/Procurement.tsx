@@ -23,12 +23,25 @@ import {
   Calendar,
   Thermometer,
   Check,
-  Calculator
+  Calculator,
+  Maximize2,
+  Minimize2,
+  RefreshCw,
+  Upload,
+  Package,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
 import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
+import type { ContainerCargoLine } from '../lib/shipmentTypes';
+import {
+  looksLikeSampleAsn,
+  mergeAsnCapture,
+  parseAsnText,
+  SAMPLE_ASN_CAPTURE,
+  type CapturedAsnFields,
+} from '../lib/asnCapture';
 
 // Define TS Types for procurement records
 interface Vendor {
@@ -54,6 +67,18 @@ interface Quotation {
   availableQuantity?: number;
 }
 
+type OrderType = 'one-time' | 'repeat';
+type RepeatFrequency = 'weekly' | 'biweekly' | 'monthly';
+type BidPanelId = 'pipeline' | 'workspace' | 'collab' | 'audit';
+
+interface RepeatCycle {
+  frequency: RepeatFrequency;
+  occurrences: number;
+  startDate: string;
+  /** Inclusive end of delivery window for repeat bids */
+  endDate?: string;
+}
+
 interface BidRequest {
   id: string;
   item: string;
@@ -67,6 +92,8 @@ interface BidRequest {
   quantity: number;
   unit: string;
   location: string;
+  orderType: OrderType;
+  repeatCycle?: RepeatCycle;
   specifications: {
     tempRange: string;
     humidity: string;
@@ -99,7 +126,290 @@ interface PurchaseOrder {
   item: string;
   amt: string;
   date: string;
-  status: 'Pending Approval' | 'Processing' | 'In Transit' | 'Fulfilled';
+  status: 'Draft' | 'Confirmed' | 'Acknowledged' | 'ASN Submitted' | 'Processing' | 'In Transit' | 'Fulfilled';
+  orderedQty?: number;
+  confirmedQty?: number;
+  unit?: string;
+  containerNumber?: string;
+  eta?: string;
+  shipmentNotes?: string;
+  asnNumber?: string;
+  shipDate?: string;
+  destination?: string;
+  deliveryDate?: string;
+  orderType?: OrderType;
+  cycleIndex?: number;
+  cycleTotal?: number;
+  unitPrice?: number;
+}
+
+/** Normalize any ship-date string to `YYYY-MM-DD` for `<input type="date">`. */
+function toDateInputValue(raw?: string): string {
+  const todayLocal = () => {
+    const n = new Date();
+    const y = n.getFullYear();
+    const m = String(n.getMonth() + 1).padStart(2, '0');
+    const d = String(n.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+  if (!raw || !raw.trim()) return todayLocal();
+  const trimmed = raw.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) return trimmed;
+  const parsed = new Date(trimmed);
+  if (!Number.isNaN(parsed.getTime())) {
+    const y = parsed.getFullYear();
+    const m = String(parsed.getMonth() + 1).padStart(2, '0');
+    const d = String(parsed.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  return todayLocal();
+}
+
+function addCalendarDays(isoDate: string, days: number): string {
+  const d = new Date(`${isoDate}T12:00:00`);
+  d.setDate(d.getDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function generateRepeatDeliveryDates(
+  startDate: string,
+  frequency: RepeatFrequency,
+  occurrences: number,
+  endDate?: string
+): string[] {
+  const dates: string[] = [];
+  let cur = startDate;
+  if (endDate && endDate >= startDate) {
+    let guard = 0;
+    while (cur <= endDate && guard < 48) {
+      dates.push(cur);
+      if (frequency === 'weekly') cur = addCalendarDays(cur, 7);
+      else if (frequency === 'biweekly') cur = addCalendarDays(cur, 14);
+      else {
+        const d = new Date(`${cur}T12:00:00`);
+        d.setMonth(d.getMonth() + 1);
+        cur = d.toISOString().slice(0, 10);
+      }
+      guard += 1;
+    }
+    return dates.length ? dates : [startDate];
+  }
+  for (let i = 0; i < Math.max(1, occurrences); i++) {
+    dates.push(cur);
+    if (frequency === 'weekly') cur = addCalendarDays(cur, 7);
+    else if (frequency === 'biweekly') cur = addCalendarDays(cur, 14);
+    else {
+      const d = new Date(`${cur}T12:00:00`);
+      d.setMonth(d.getMonth() + 1);
+      cur = d.toISOString().slice(0, 10);
+    }
+  }
+  return dates;
+}
+
+function formatDisplayDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+const PO_SEED_CATALOG: Array<{
+  vendor: string;
+  item: string;
+  unitPrice: number;
+  req: string;
+  dest: string;
+}> = [
+  { vendor: 'Global Farms Suppliers', item: 'Hass Avocados (Class A)', unitPrice: 24.5, req: 'REQ-2026-001', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'Global Farms Suppliers', item: 'Organic Cucumbers', unitPrice: 13.0, req: 'REQ-2026-002', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'Global Farms Suppliers', item: 'Baby Spinach', unitPrice: 12.0, req: 'REQ-2026-001', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'Global Farms Suppliers', item: 'Romaine Hearts', unitPrice: 11.5, req: 'REQ-2026-001', dest: 'Dallas DC South' },
+  { vendor: 'Global Farms Suppliers', item: 'Valencia Oranges (Seedless)', unitPrice: 18.2, req: 'REQ-2026-008', dest: 'Atlanta DC' },
+  { vendor: 'AgriGro Wholesale', item: 'Hard-Boiled Eggs', unitPrice: 22.8, req: 'REQ-2026-010', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'AgriGro Wholesale', item: 'Cherry Tomatoes', unitPrice: 16.4, req: 'REQ-2026-011', dest: 'Minneapolis DC' },
+  { vendor: 'AgriGro Wholesale', item: 'Iceberg Lettuce', unitPrice: 9.8, req: 'REQ-2026-011', dest: 'Chicago DC West' },
+  { vendor: 'FreshPack Co.', item: 'Mixed Berry Clamshells', unitPrice: 28.0, req: 'REQ-2026-012', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'FreshPack Co.', item: 'Organic Blueberries', unitPrice: 32.5, req: 'REQ-2026-012', dest: 'Boston DC' },
+  { vendor: 'Valley Green Produce', item: 'Yellow Onions (Jumbo)', unitPrice: 8.4, req: 'REQ-2026-013', dest: 'Kansas City DC' },
+  { vendor: 'Valley Green Produce', item: 'Russet Potatoes', unitPrice: 7.2, req: 'REQ-2026-013', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'Sunrise Dairy Co.', item: 'Premium Whole Milk (Gallon)', unitPrice: 3.1, req: 'REQ-2026-003', dest: 'Chicago DC' },
+  { vendor: 'Sunrise Dairy Co.', item: 'Greek Yogurt Cups (12ct)', unitPrice: 14.6, req: 'REQ-2026-003', dest: 'Detroit DC' },
+  { vendor: 'PureLand Creamery', item: 'Unsalted Butter Blocks', unitPrice: 21.0, req: 'REQ-2026-014', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'PureLand Creamery', item: 'Heavy Cream (Quart)', unitPrice: 6.8, req: 'REQ-2026-014', dest: 'Indianapolis DC' },
+  { vendor: 'Midwest Dairy Group', item: 'Shredded Cheddar (5lb)', unitPrice: 19.5, req: 'REQ-2026-015', dest: 'Chicago DC West' },
+  { vendor: 'Valley Meats Inc.', item: 'Ground Beef 80/20 Chuck', unitPrice: 30.75, req: 'REQ-2026-016', dest: 'Chicago DC' },
+  { vendor: 'Valley Meats Inc.', item: 'Chicken Breast Boneless', unitPrice: 26.4, req: 'REQ-2026-016', dest: 'St. Louis DC' },
+  { vendor: 'Plains Beef & Co.', item: 'Angus Ribeye Steaks', unitPrice: 48.0, req: 'REQ-2026-017', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'Ocean Catch Logistics', item: 'Fresh Salmon Portions', unitPrice: 28.4, req: 'REQ-2026-018', dest: 'Chicago DC East (Hub-1)' },
+  { vendor: 'Ocean Catch Logistics', item: 'Atlantic Cod Fillets', unitPrice: 22.0, req: 'REQ-2026-018', dest: 'Boston DC' },
+  { vendor: 'FreshPack Co.', item: 'Cut Fruit Cups', unitPrice: 15.2, req: 'REQ-2026-019', dest: 'Dallas DC South' },
+  { vendor: 'Global Farms Suppliers', item: 'Organic Bananas', unitPrice: 10.5, req: 'REQ-2026-020', dest: 'Atlanta DC' },
+  { vendor: 'AgriGro Wholesale', item: 'Bell Peppers Mixed', unitPrice: 14.1, req: 'REQ-2026-021', dest: 'Chicago DC East (Hub-1)' },
+];
+
+const PO_STATUSES: PurchaseOrder['status'][] = [
+  'Draft',
+  'Confirmed',
+  'Acknowledged',
+  'Acknowledged',
+  'ASN Submitted',
+  'Processing',
+  'In Transit',
+  'In Transit',
+  'Fulfilled',
+  'Fulfilled',
+];
+
+/** Build 50+ demo purchase orders spanning statuses for vendor/buyer testing. */
+function seedPurchaseOrders(): PurchaseOrder[] {
+  const showcase: PurchaseOrder[] = [
+    {
+      po: 'PO-2026-PEND1',
+      requirementId: 'REQ-2026-001',
+      vendor: 'Global Farms Suppliers',
+      item: 'Hass Avocados (Class A)',
+      amt: '$19,600',
+      date: 'Jul 24, 2026',
+      status: 'Acknowledged',
+      orderedQty: 800,
+      unit: 'Cases',
+      destination: 'Chicago DC East (Hub-1)',
+      unitPrice: 24.5,
+    },
+    {
+      po: 'PO-2026-PEND2',
+      requirementId: 'REQ-2026-002',
+      vendor: 'Global Farms Suppliers',
+      item: 'Organic Cucumbers',
+      amt: '$14,300',
+      date: 'Jul 25, 2026',
+      status: 'Acknowledged',
+      orderedQty: 1100,
+      unit: 'Cases',
+      destination: 'Chicago DC East (Hub-1)',
+      unitPrice: 13.0,
+    },
+    {
+      po: 'PO-2026-PEND3',
+      requirementId: 'REQ-2026-001',
+      vendor: 'Global Farms Suppliers',
+      item: 'Baby Spinach',
+      amt: '$8,640',
+      date: 'Jul 26, 2026',
+      status: 'ASN Submitted',
+      orderedQty: 720,
+      confirmedQty: 720,
+      unit: 'Cases',
+      containerNumber: 'FGRU8800455',
+      asnNumber: 'ASN-2026-0455',
+      eta: '3 Days',
+      shipDate: 'Jul 28, 2026',
+      destination: 'Chicago DC East (Hub-1)',
+      shipmentNotes: 'Palletized leafy greens · TempTale active',
+      unitPrice: 12.0,
+    },
+    {
+      po: 'PO-2026-D156',
+      requirementId: 'REQ-2026-001',
+      vendor: 'Global Farms Suppliers',
+      item: 'Mixed Electronics / Retail kit (ASN demo)',
+      amt: '$42,500',
+      date: 'Jul 15, 2026',
+      status: 'Acknowledged',
+      orderedQty: 4250,
+      unit: 'Cases',
+      destination: 'Chicago DC East (Hub-1)',
+      unitPrice: 10.0,
+      deliveryDate: '2026-07-15',
+    },
+    {
+      po: 'PO-2026-784A',
+      requirementId: 'REQ-2026-003',
+      vendor: 'Sunrise Dairy Co.',
+      item: 'Premium Whole Milk (Gallon)',
+      amt: '$37,200',
+      date: 'May 20, 2026',
+      status: 'In Transit',
+      orderedQty: 12000,
+      unit: 'Cases',
+      destination: 'Chicago DC',
+      unitPrice: 3.1,
+    },
+    {
+      po: 'PO-2026-512B',
+      requirementId: 'PREVIOUS',
+      vendor: 'Valley Meats Inc.',
+      item: 'Ground Beef 80/20 Chuck',
+      amt: '$12,300',
+      date: 'May 17, 2026',
+      status: 'Fulfilled',
+      orderedQty: 400,
+      unit: 'Cases',
+      destination: 'Chicago DC',
+      unitPrice: 30.75,
+    },
+  ];
+
+  const globalCatalog = PO_SEED_CATALOG.filter((c) => c.vendor === 'Global Farms Suppliers');
+  const generated: PurchaseOrder[] = [];
+  const target = 55;
+
+  for (let i = 0; generated.length + showcase.length < target; i++) {
+    // Bias ~60% to Global Farms so Vendor View still has a large PO ledger
+    const useGlobal = i % 5 !== 0 && i % 5 !== 1;
+    const pool = useGlobal && globalCatalog.length ? globalCatalog : PO_SEED_CATALOG;
+    const cat = pool[i % pool.length];
+    const status = PO_STATUSES[i % PO_STATUSES.length];
+    const qty = 200 + ((i * 37) % 1800);
+    const amt = `$${Math.round(cat.unitPrice * qty).toLocaleString()}`;
+    const day = 1 + (i % 28);
+    const monthIdx = i % 6;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'];
+    const date = `${months[monthIdx]} ${day}, 2026`;
+    const poNum = `PO-2026-${String(1000 + i).padStart(4, '0')}`;
+    const row: PurchaseOrder = {
+      po: poNum,
+      requirementId: cat.req,
+      vendor: cat.vendor,
+      item: cat.item,
+      amt,
+      date,
+      status,
+      orderedQty: qty,
+      unit: 'Cases',
+      destination: cat.dest,
+      unitPrice: cat.unitPrice,
+      deliveryDate: `2026-${String((monthIdx % 12) + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    };
+    if (status === 'ASN Submitted' || status === 'Processing' || status === 'In Transit') {
+      row.confirmedQty = qty;
+      row.containerNumber = `FGRU${8800000 + i}`;
+      row.asnNumber = `ASN-2026-${String(2000 + i)}`;
+      row.eta = `${1 + (i % 5)} Days`;
+      row.shipDate = date;
+    }
+    if (status === 'Fulfilled') {
+      row.confirmedQty = qty;
+      row.asnNumber = `ASN-2026-${String(3000 + i)}`;
+      row.containerNumber = `FGRU${8700000 + i}`;
+    }
+    if (status === 'Draft') {
+      row.orderType = i % 3 === 0 ? 'repeat' : 'one-time';
+      if (row.orderType === 'repeat') {
+        row.cycleIndex = 1;
+        row.cycleTotal = 4;
+      }
+    }
+    generated.push(row);
+  }
+
+  return [...showcase, ...generated];
+}
+
+function frequencyLabel(f: RepeatFrequency): string {
+  if (f === 'weekly') return 'Weekly';
+  if (f === 'biweekly') return 'Every 2 weeks';
+  return 'Monthly';
 }
 
 const APPROVED_VENDORS_DB: Vendor[] = [
@@ -121,6 +431,7 @@ const APPROVED_VENDORS_DB: Vendor[] = [
 export default function Procurement() {
   const [activeTab, setActiveTab] = useState<'bidding' | 'contracts' | 'orders'>('bidding');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [fullscreenPanel, setFullscreenPanel] = useState<BidPanelId | null>(null);
   const { persona, setPersona } = usePersona();
   const isVendor = persona === 'vendor';
 
@@ -139,6 +450,12 @@ export default function Procurement() {
       quantity: 5000,
       unit: 'Cases',
       location: 'Chicago DC East (Hub-1)',
+      orderType: 'repeat',
+      repeatCycle: {
+        frequency: 'weekly',
+        occurrences: 4,
+        startDate: '2026-06-03',
+      },
       specifications: {
         tempRange: '42°F - 48°F',
         humidity: '85% max',
@@ -198,6 +515,7 @@ export default function Procurement() {
       quantity: 3500,
       unit: 'Cases',
       location: 'Newark Reefer Facility (Hub-2)',
+      orderType: 'one-time',
       specifications: {
         tempRange: '34°F - 38°F',
         humidity: '90% min',
@@ -241,6 +559,7 @@ export default function Procurement() {
       quantity: 12000,
       unit: 'Units',
       location: 'Chicago DC East (Hub-1)',
+      orderType: 'one-time',
       specifications: {
         tempRange: '33°F - 37°F',
         humidity: 'Ambient',
@@ -280,10 +599,24 @@ export default function Procurement() {
     { id: 'CTR-2026-088', requirementId: 'PREVIOUS', vendor: 'Global Farms Suppliers', item: 'Valencia Oranges (Seedless)', cat: 'Fresh Produce', duration: 'April 2026 - April 2027', contractValue: '$140,000', status: 'Active' }
   ]);
 
-  const [orders, setOrders] = useState<PurchaseOrder[]>([
-    { po: 'PO-2026-784A', requirementId: 'REQ-2026-003', vendor: 'Sunrise Dairy Co.', item: 'Premium Whole Milk (Gallon)', amt: '$37,200', date: 'May 20, 2026', status: 'In Transit' },
-    { po: 'PO-2026-512B', requirementId: 'PREVIOUS', vendor: 'Valley Meats Inc.', amt: '$12,300', item: 'Ground Beef 80/20 Chuck', date: 'May 17, 2026', status: 'Fulfilled' }
-  ]);
+  const [orders, setOrders] = useState<PurchaseOrder[]>(() => seedPurchaseOrders());
+
+  const [poModal, setPoModal] = useState<{ po: PurchaseOrder; mode: 'detail' | 'draft' } | null>(null);
+  const [asnModalOpen, setAsnModalOpen] = useState(false);
+  const [asnLinkedPoIds, setAsnLinkedPoIds] = useState<string[]>([]);
+  const [asnLineQty, setAsnLineQty] = useState<Record<string, string>>({});
+  const [fulfillQty, setFulfillQty] = useState('');
+  const [fulfillContainer, setFulfillContainer] = useState('');
+  const [fulfillEta, setFulfillEta] = useState('');
+  const [fulfillNotes, setFulfillNotes] = useState('');
+  const [fulfillAsn, setFulfillAsn] = useState('');
+  const [fulfillShipDate, setFulfillShipDate] = useState('');
+  const [fulfillSlipName, setFulfillSlipName] = useState('');
+  const [fulfillSlipDataUrl, setFulfillSlipDataUrl] = useState('');
+  const [slipScanMsg, setSlipScanMsg] = useState<string | null>(null);
+  const [asnExtra, setAsnExtra] = useState<Partial<CapturedAsnFields>>({});
+  const [draftDeliveryDate, setDraftDeliveryDate] = useState('');
+  const [fulfillSaving, setFulfillSaving] = useState(false);
 
   // Selected bid detail view reference
   const [selectedBidId, setSelectedBidId] = useState<string>('REQ-2026-001');
@@ -293,6 +626,339 @@ export default function Procurement() {
   const [slaComplianceChecked, setSlaComplianceChecked] = useState(true);
   const [newGrade, setNewGrade] = useState('Class A');
   const selectedBid = bidsList.find(b => b.id === selectedBidId) || bidsList[0];
+
+  const asnEligibleOrders = orders.filter(
+    (o) =>
+      o.status === 'Acknowledged' ||
+      (asnModalOpen && asnLinkedPoIds.includes(o.po) && o.status === 'ASN Submitted')
+  );
+
+  const openAsnModal = (seedPos: PurchaseOrder[] = []) => {
+    const ids = seedPos.map((p) => p.po);
+    const qtyMap: Record<string, string> = {};
+    seedPos.forEach((p) => {
+      qtyMap[p.po] = String(p.confirmedQty || p.orderedQty || '');
+    });
+    const primary = seedPos[0];
+    setAsnLinkedPoIds(ids);
+    setAsnLineQty(qtyMap);
+    setFulfillQty(primary ? String(primary.orderedQty || '') : '');
+    setFulfillContainer(primary?.containerNumber || '');
+    setFulfillEta(primary?.eta && primary.eta !== 'Pending' ? primary.eta : '3 Days');
+    setFulfillNotes(primary?.shipmentNotes || '');
+    setFulfillAsn(
+      primary?.asnNumber ||
+        (primary ? `ASN-${primary.po.replace('PO-', '')}` : `ASN-${Date.now().toString().slice(-8)}`)
+    );
+    setFulfillShipDate(toDateInputValue(primary?.shipDate));
+    setFulfillSlipName('');
+    setFulfillSlipDataUrl('');
+    setSlipScanMsg(null);
+    setAsnExtra({});
+    setAsnModalOpen(true);
+  };
+
+  const toggleAsnPo = (po: string) => {
+    setAsnLinkedPoIds((prev) => {
+      if (prev.includes(po)) return prev.filter((id) => id !== po);
+      const row = orders.find((o) => o.po === po);
+      if (row) {
+        setAsnLineQty((q) => ({
+          ...q,
+          [po]: q[po] || String(row.confirmedQty || row.orderedQty || ''),
+        }));
+      }
+      return [...prev, po];
+    });
+  };
+
+  const applyCapturedAsn = (captured: CapturedAsnFields) => {
+    if (captured.asnNumber) setFulfillAsn(captured.asnNumber);
+    if (captured.containerNumber) setFulfillContainer(captured.containerNumber);
+    if (captured.shipDate) setFulfillShipDate(toDateInputValue(captured.shipDate));
+    else if (captured.asnDate) setFulfillShipDate(toDateInputValue(captured.asnDate));
+    if (captured.etaDate) {
+      const etaIso = toDateInputValue(captured.etaDate);
+      const shipIso = toDateInputValue(captured.shipDate || captured.asnDate);
+      const days = Math.max(
+        1,
+        Math.round(
+          (new Date(`${etaIso}T12:00:00`).getTime() - new Date(`${shipIso}T12:00:00`).getTime()) /
+            86400000
+        )
+      );
+      setFulfillEta(`${days} Days · ETA ${formatDisplayDate(etaIso)}`);
+    } else if (captured.shippingMethod) {
+      setFulfillEta(captured.shippingMethod);
+    }
+
+    const noteBits = [
+      captured.notes,
+      captured.sealNumber && `Seal ${captured.sealNumber}`,
+      captured.billOfLading && `BOL ${captured.billOfLading}`,
+      captured.vesselName && `Vessel ${captured.vesselName}`,
+      captured.voyageNumber && `Voy ${captured.voyageNumber}`,
+      captured.bookingNumber && `Booking ${captured.bookingNumber}`,
+      captured.shipmentNumber && `Shipment ${captured.shipmentNumber}`,
+      captured.portOfLoading && `POL ${captured.portOfLoading}`,
+      captured.portOfDischarge && `POD ${captured.portOfDischarge}`,
+      captured.carrier && `Carrier ${captured.carrier}`,
+      captured.documentsAttached?.length
+        ? `Docs: ${captured.documentsAttached.join(', ')}`
+        : '',
+    ].filter(Boolean);
+    if (noteBits.length) setFulfillNotes(noteBits.join(' · '));
+
+    setAsnExtra(captured);
+
+    const linkable = orders.filter(
+      (o) =>
+        (o.status === 'Acknowledged' ||
+          o.status === 'Confirmed' ||
+          o.status === 'ASN Submitted') &&
+        captured.linkedPoNumbers.some(
+          (po) => po.toUpperCase() === o.po.toUpperCase()
+        )
+    );
+    // Also match PEND1 / D156 style when OCR dashes differ
+    const fuzzy = orders.filter((o) => {
+      if (!(o.status === 'Acknowledged' || o.status === 'Confirmed')) return false;
+      const key = o.po.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return captured.linkedPoNumbers.some(
+        (po) => po.toUpperCase().replace(/[^A-Z0-9]/g, '') === key
+      );
+    });
+    const merged = Array.from(
+      new Map([...linkable, ...fuzzy].map((o) => [o.po, o])).values()
+    );
+    if (merged.length) {
+      setAsnLinkedPoIds(merged.map((m) => m.po));
+      setAsnLineQty((prev) => {
+        const next = { ...prev };
+        merged.forEach((m) => {
+          next[m.po] =
+            String(captured.poQuantities[m.po] || m.confirmedQty || m.orderedQty || '');
+        });
+        return next;
+      });
+    }
+
+    const srcLabel =
+      captured.source === 'vision'
+        ? 'AI vision'
+        : captured.source === 'sample'
+          ? 'sample ASN template'
+          : 'document text';
+    setSlipScanMsg(
+      `Captured via ${srcLabel}: ${captured.asnNumber || 'ASN'} · container ${
+        captured.containerNumber || '—'
+      } · ${merged.length || captured.linkedPoNumbers.length} PO link(s). Review before submit.`
+    );
+  };
+
+  const handlePackingSlipUpload = async (file: File) => {
+    setFulfillSlipName(file.name);
+    setSlipScanMsg('Scanning ASN / packing slip…');
+
+    const readAsDataUrl = () =>
+      new Promise<string>((resolve, reject) => {
+        const dr = new FileReader();
+        dr.onload = () => resolve(String(dr.result || ''));
+        dr.onerror = () => reject(new Error('read failed'));
+        dr.readAsDataURL(file);
+      });
+
+    const readAsText = () =>
+      new Promise<string>((resolve) => {
+        const tr = new FileReader();
+        tr.onload = () => resolve(String(tr.result || ''));
+        tr.onerror = () => resolve('');
+        tr.readAsText(file);
+      });
+
+    try {
+      const dataUrl = await readAsDataUrl();
+      setFulfillSlipDataUrl(dataUrl);
+
+      let captured: CapturedAsnFields | null = null;
+
+      if (file.type.startsWith('text/') || /\.(csv|txt)$/i.test(file.name)) {
+        const text = await readAsText();
+        captured = parseAsnText(text, file.name);
+      }
+
+      // Image / PDF: try vision API, then sample/heuristic fallback
+      if (!captured && (file.type.startsWith('image/') || /\.(png|jpe?g|webp|pdf)$/i.test(file.name))) {
+        try {
+          const res = await fetch('/api/analyze-asn', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ image: dataUrl, fileName: file.name }),
+          });
+          if (res.ok) {
+            const data = await res.json();
+            captured = mergeAsnCapture(parseAsnText(JSON.stringify(data), file.name), {
+              ...data,
+              linkedPoNumbers: data.linkedPoNumbers || [],
+              poQuantities: data.poQuantities || {},
+              source: 'vision',
+            });
+          }
+        } catch {
+          /* fall through */
+        }
+      }
+
+      if (!captured && looksLikeSampleAsn(file.name)) {
+        captured = { ...SAMPLE_ASN_CAPTURE };
+      }
+
+      // Any ASN-like image with no OCR → apply sample demo fields so upload still works
+      if (
+        !captured &&
+        (looksLikeSampleAsn(file.name) ||
+          /asn|shipping|packing|bol|advance\s*ship/i.test(file.name))
+      ) {
+        captured = {
+          ...SAMPLE_ASN_CAPTURE,
+          notes: `${SAMPLE_ASN_CAPTURE.notes} · Uploaded file: ${file.name}`,
+        };
+      }
+
+      if (captured) applyCapturedAsn(captured);
+      else {
+        setSlipScanMsg(
+          `Uploaded ${file.name}, but no ASN fields were detected. Enter details manually or try the sample ASN image.`
+        );
+      }
+    } catch {
+      if (looksLikeSampleAsn(file.name)) applyCapturedAsn({ ...SAMPLE_ASN_CAPTURE });
+      else setSlipScanMsg('Could not read file. Enter ASN details manually.');
+    }
+  };
+
+  const submitAsn = () => {
+    const linked = orders.filter((o) => asnLinkedPoIds.includes(o.po));
+    if (!linked.length || !fulfillAsn.trim()) return;
+    setFulfillSaving(true);
+    setTimeout(() => {
+      const cargoLines: ContainerCargoLine[] = linked.map((o) => {
+        const qty = Number(asnLineQty[o.po] || o.orderedQty || 0);
+        return {
+          poNumber: o.po,
+          product: o.item,
+          item: `${qty.toLocaleString()} ${o.unit || 'Cases'} of ${o.item}`,
+          quantity: qty,
+          unit: o.unit || 'Cases',
+          sku: `SKU-${o.po.slice(-4)}`,
+          lineStatus: 'shipped',
+        };
+      });
+      const primary = linked[0];
+      const totalQty = cargoLines.reduce((s, c) => s + c.quantity, 0);
+      const shipId = linked.length > 1 ? fulfillAsn.trim() : primary.po;
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          asnLinkedPoIds.includes(o.po)
+            ? {
+                ...o,
+                confirmedQty: Number(asnLineQty[o.po] || o.orderedQty || 0),
+                containerNumber: fulfillContainer || o.containerNumber,
+                eta: fulfillEta || o.eta,
+                shipmentNotes: fulfillNotes,
+                asnNumber: fulfillAsn.trim(),
+                shipDate: fulfillShipDate || o.shipDate,
+                status: 'ASN Submitted' as const,
+              }
+            : o
+        )
+      );
+
+      try {
+        const key = 'freshguard-active-shipments-v5';
+        const stored = localStorage.getItem(key);
+        const list = stored ? JSON.parse(stored) : [];
+        const idx = list.findIndex(
+          (s: { id: string; asnNumber?: string }) =>
+            s.id === shipId || s.id === primary.po || s.asnNumber === fulfillAsn.trim()
+        );
+        const patch = {
+          id: shipId,
+          quantity: totalQty,
+          containerNumber: fulfillContainer || undefined,
+          eta: fulfillEta || '3 Days',
+          stage: 'packing',
+          packingProgress: 70,
+          psaSyncStatus: 'pending',
+          vendor: primary.vendor,
+          item:
+            linked.length > 1
+              ? `${linked.length} POs · ${totalQty.toLocaleString()} cases consolidated`
+              : `${totalQty.toLocaleString()} ${primary.unit || 'Cases'} of ${primary.item}`,
+          product:
+            linked.length > 1
+              ? `Multi-PO ASN (${cargoLines.map((c) => c.poNumber).join(', ')})`
+              : primary.item,
+          unit: primary.unit || 'Cases',
+          asnNumber: fulfillAsn.trim(),
+          shipDate: fulfillShipDate || undefined,
+          shipmentNotes: fulfillNotes || undefined,
+          packingSlipName: fulfillSlipName || undefined,
+          packingSlipDataUrl: fulfillSlipDataUrl || undefined,
+          packingSlipCapturedAt: fulfillSlipName ? new Date().toISOString() : undefined,
+          cargoLines,
+          destination: asnExtra.finalDestination || primary.destination || 'Chicago DC',
+          origin: asnExtra.portOfLoading || asnExtra.shipFrom || 'Supplier packhouse',
+          vesselName: asnExtra.vesselName,
+          voyageNumber: asnExtra.voyageNumber,
+          bookingNumber: asnExtra.bookingNumber,
+          sealNumber: asnExtra.sealNumber,
+          billOfLading: asnExtra.billOfLading,
+          shipmentNumber: asnExtra.shipmentNumber,
+          shippingMethod: asnExtra.shippingMethod,
+          incoterms: asnExtra.incoterms,
+          portOfLoading: asnExtra.portOfLoading,
+          portOfDischarge: asnExtra.portOfDischarge,
+          carrier: asnExtra.carrier,
+          freightForwarder: asnExtra.freightForwarder,
+          etaDate: asnExtra.etaDate,
+          logisticsRouteAndProvider:
+            asnExtra.carrier && asnExtra.portOfDischarge
+              ? `${asnExtra.carrier} · ${asnExtra.portOfLoading || ''} → ${asnExtra.portOfDischarge}`
+              : 'PSA Connected Haulage',
+          transportMode: /ocean|sea/i.test(asnExtra.shippingMethod || '')
+            ? 'ocean'
+            : 'road',
+        };
+        if (idx >= 0) list[idx] = { ...list[idx], ...patch };
+        else
+          list.unshift({
+            ...patch,
+            fleetSpecification: 'Active Refrigerated',
+            logisticsRouteAndProvider: 'PSA Connected Haulage',
+            status: 'on-time',
+            origin: 'Supplier packhouse',
+            temp: '4°C',
+            route: 'Supplier → Chicago DC',
+            date: new Date().toISOString(),
+            transportMode: 'road',
+          });
+        localStorage.setItem(key, JSON.stringify(list));
+      } catch {
+        /* ignore */
+      }
+
+      setFulfillSaving(false);
+      setAsnModalOpen(false);
+      setAwardSuccessAlert(
+        `${fulfillAsn.trim()}: ASN submitted for ${linked.length} PO(s)${
+          fulfillContainer ? ` · container ${fulfillContainer}` : ''
+        }. Open Logistics → Warehouse & Packing to finish dispatch.`
+      );
+      setTimeout(() => setAwardSuccessAlert(null), 7000);
+    }, 700);
+  };
 
   // Vendor Bidding Form state
   const [vendorName, setVendorName] = useState('Global Farms Suppliers');
@@ -308,6 +974,15 @@ export default function Procurement() {
   const [vendorFleetSpec, setVendorFleetSpec] = useState<'Active Refrigerated' | 'Passive Cooling' | 'Ambient'>('Active Refrigerated');
   const [vendorPricePerCase, setVendorPricePerCase] = useState('24.50');
   const [vendorAvailableQty, setVendorAvailableQty] = useState('5000');
+
+  React.useEffect(() => {
+    if (!fullscreenPanel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreenPanel(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [fullscreenPanel]);
 
   React.useEffect(() => {
     if (selectedBid) {
@@ -339,7 +1014,12 @@ export default function Procurement() {
   const [newUnit, setNewUnit] = useState('Cases');
   const [newLocation, setNewLocation] = useState('Chicago DC East (Hub-1)');
   const [newDeliveryDate, setNewDeliveryDate] = useState('2026-06-10');
+  const [newDeliveryEndDate, setNewDeliveryEndDate] = useState('2026-07-08');
   const [newBidDeadline, setNewBidDeadline] = useState('24 hours');
+  const [newOrderType, setNewOrderType] = useState<OrderType>('one-time');
+  const [newRepeatFrequency, setNewRepeatFrequency] = useState<RepeatFrequency>('weekly');
+  const [newRepeatOccurrences, setNewRepeatOccurrences] = useState(4);
+  const [selectedVendorNames, setSelectedVendorNames] = useState<string[]>([]);
   const [newMinTemp, setNewMinTemp] = useState('36');
   const [newMaxTemp, setNewMaxTemp] = useState('42');
   const [newHum, setNewHum] = useState('85');
@@ -417,6 +1097,24 @@ export default function Procurement() {
   // Interactive matched vendors based on chosen category
   const matchedVendorsLive = APPROVED_VENDORS_DB.filter(v => v.category === newCategory);
 
+  React.useEffect(() => {
+    setSelectedVendorNames(matchedVendorsLive.map((v) => v.name));
+  }, [newCategory]);
+
+  const selectedVendorsLive = matchedVendorsLive.filter((v) =>
+    selectedVendorNames.includes(v.name)
+  );
+
+  const repeatPreviewDates =
+    newOrderType === 'repeat'
+      ? generateRepeatDeliveryDates(
+          newDeliveryDate,
+          newRepeatFrequency,
+          newRepeatOccurrences,
+          newDeliveryEndDate
+        )
+      : [newDeliveryDate];
+
   // Simulation steps states
   const [publishStep, setPublishStep] = useState<number>(0); // 0=idle, 1=analyzing, 2=dispatching, 3=complete
   const [simulationLogs, setSimulationLogs] = useState<string[]>([]);
@@ -460,6 +1158,27 @@ export default function Procurement() {
   const handlePublishBid = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newItemName.trim()) return;
+    if (selectedVendorsLive.length === 0) {
+      setAwardSuccessAlert('Select at least one supplier before publishing the bid.');
+      setTimeout(() => setAwardSuccessAlert(null), 4000);
+      return;
+    }
+    if (newOrderType === 'repeat' && newDeliveryEndDate < newDeliveryDate) {
+      setAwardSuccessAlert('Repeat delivery end date must be on or after the start date.');
+      setTimeout(() => setAwardSuccessAlert(null), 4000);
+      return;
+    }
+
+    const invitees = selectedVendorsLive;
+    const cycleDates =
+      newOrderType === 'repeat'
+        ? generateRepeatDeliveryDates(
+            newDeliveryDate,
+            newRepeatFrequency,
+            newRepeatOccurrences,
+            newDeliveryEndDate
+          )
+        : [newDeliveryDate];
 
     setPublishStep(1);
     setSimulationLogs(['Extracting fresh biological & cold-chain specifications...', 'Category verified: ' + newCategory]);
@@ -469,7 +1188,7 @@ export default function Procurement() {
       setSimulationLogs(prev => [
         ...prev,
         `Matching pre-vetted vendors in Category: ${newCategory}...`,
-        `Matched ${matchedVendorsLive.length} approved partners automatically.`
+        `Inviting ${invitees.length} selected supplier${invitees.length === 1 ? '' : 's'} (not full network).`
       ]);
     }, 1200);
 
@@ -477,9 +1196,9 @@ export default function Procurement() {
       setPublishStep(3);
       setSimulationLogs(prev => [
         ...prev,
-        `Dispatching secure RFQ payloads to matched vendor dashboards...`,
+        `Dispatching secure RFQ payloads to selected vendor dashboards...`,
         'Encrypted cold-chain SLA targets attached successfully.',
-        'Automated notifications dispatched to ' + matchedVendorsLive.map(v => v.name).join(', ') + '.',
+        'Automated notifications dispatched to ' + invitees.map(v => v.name).join(', ') + '.',
         'Active listening for incoming bids...'
       ]);
     }, 2800);
@@ -500,6 +1219,16 @@ export default function Procurement() {
         quantity: newQuantity,
         unit: newUnit,
         location: newLocation,
+        orderType: newOrderType,
+        repeatCycle:
+          newOrderType === 'repeat'
+            ? {
+                frequency: newRepeatFrequency,
+                occurrences: cycleDates.length,
+                startDate: newDeliveryDate,
+                endDate: newDeliveryEndDate,
+              }
+            : undefined,
         specifications: {
           tempRange: `${newMinTemp}°F - ${newMaxTemp}°F`,
           humidity: `${newHum}% max`,
@@ -508,7 +1237,7 @@ export default function Procurement() {
           maxTransitTime: newMaxTransitTime,
           minShelfLife: newMinShelfLife
         },
-        approvedVendors: [...matchedVendorsLive],
+        approvedVendors: [...invitees],
         quotations: []
       };
 
@@ -618,43 +1347,47 @@ export default function Procurement() {
       };
       setContracts(prev => [newContract, ...prev]);
 
-      // 3. Generate and Add Purchase Order
-      const newPO: PurchaseOrder = {
-        po: `PO-2026-0${100 + orders.length + 1}X`,
-        requirementId: selectedBid.id,
-        vendor: quote.vendor,
-        item: selectedBid.item,
-        amt: `$${quote.totalPrice.toLocaleString()}`,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        status: 'Pending Approval'
-      };
-      setOrders(prev => [newPO, ...prev]);
+      // 3. Auto-generate Draft POs (one-time = 1 draft; repeat = one draft per cycle date)
+      const unitPrice = quote.pricePerCase || quote.pricePerUnit;
+      const deliveryDates =
+        selectedBid.orderType === 'repeat' && selectedBid.repeatCycle
+          ? generateRepeatDeliveryDates(
+              selectedBid.repeatCycle.startDate || selectedBid.deliveryDate,
+              selectedBid.repeatCycle.frequency,
+              selectedBid.repeatCycle.occurrences,
+              selectedBid.repeatCycle.endDate
+            )
+          : [selectedBid.deliveryDate];
 
-      // Push to our new active shipments list in localStorage for Logistics.tsx integration
-      try {
-        const stored = localStorage.getItem('freshguard-active-shipments');
-        const list = stored ? JSON.parse(stored) : [];
-        const newShipment = {
-          id: newPO.po,
+      const draftPos: PurchaseOrder[] = deliveryDates.map((deliveryIso, i) => {
+        const qty = selectedBid.quantity;
+        return {
+          po: `PO-2026-D${100 + orders.length + i + 1}`,
+          requirementId: selectedBid.id,
           vendor: quote.vendor,
-          item: `${selectedBid.quantity} ${selectedBid.unit || 'Cases'} of ${selectedBid.item}`,
-          product: selectedBid.item,
-          quantity: selectedBid.quantity,
-          unit: selectedBid.unit,
-          fleetSpecification: quote.fleetSpecification || 'Active Refrigerated',
-          logisticsRouteAndProvider: quote.logisticsRouteAndProvider || 'Route I-80 West',
-          status: 'on-time',
-          eta: quote.eta || '28 hrs',
-          origin: `${quote.vendor.split(' ')[0]} Warehouse`,
-          destination: 'Chicago DC',
-          temp: quote.fleetSpecification === 'Active Refrigerated' ? '3°C' : '8°C',
-          date: new Date().toISOString()
+          item: selectedBid.item,
+          amt: `$${Math.round(unitPrice * qty).toLocaleString()}`,
+          date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          status: 'Draft',
+          orderedQty: qty,
+          unit: selectedBid.unit || 'Cases',
+          destination: selectedBid.location,
+          deliveryDate: deliveryIso,
+          orderType: selectedBid.orderType,
+          cycleIndex: i + 1,
+          cycleTotal: deliveryDates.length,
+          unitPrice,
         };
-        list.unshift(newShipment);
-        localStorage.setItem('freshguard-active-shipments', JSON.stringify(list));
-      } catch (err) {
-        console.error("Failed to push to freshguard-active-shipments data bridge", err);
-      }
+      });
+      setOrders((prev) => [...draftPos, ...prev]);
+      const cycleNote =
+        selectedBid.orderType === 'repeat'
+          ? `${draftPos.length} draft POs created on ${frequencyLabel(selectedBid.repeatCycle!.frequency)} cycle.`
+          : '1 draft PO created.';
+      setAwardSuccessAlert(
+        `Award locked. ${cycleNote} Review drafts → confirm delivery date & qty to send to supplier.`
+      );
+      setTimeout(() => setAwardSuccessAlert(null), 8000);
 
       setIsAwardingInProgress(false);
       setAwardingQuoteId(null);
@@ -730,6 +1463,14 @@ export default function Procurement() {
 
   return (
     <div className={cn(pageShellClass, 'h-full flex flex-col')}>
+      {fullscreenPanel && (
+        <button
+          type="button"
+          aria-label="Exit fullscreen panel"
+          className="fixed inset-0 z-[115] bg-slate-950/50 backdrop-blur-[1px]"
+          onClick={() => setFullscreenPanel(null)}
+        />
+      )}
       
       <PageHeader
         eyebrow="Requirement Initiation Engine"
@@ -742,7 +1483,12 @@ export default function Procurement() {
       >
         {isVendor ? (
           <button
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setActiveTab('bidding');
+              setSearchQuery('');
+              const firstOpen = bidsList.find((b) => b.status === 'open');
+              if (firstOpen) setSelectedBidId(firstOpen.id);
+            }}
             className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Search className="w-4 h-4 text-white" />
@@ -825,7 +1571,12 @@ export default function Procurement() {
         <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[650px] items-stretch">
           
           {/* COLUMN A: Requirements Pipeline (25% Width - lg:col-span-3) */}
-          <div className="lg:col-span-3 flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden">
+          <div
+            className={cn(
+              'lg:col-span-3 flex flex-col gap-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden',
+              fullscreenPanel === 'pipeline' && 'fixed inset-3 z-[120] lg:col-auto'
+            )}
+          >
             <div className="px-4 py-3 bg-[#0c1e36] text-white flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-xs font-black font-mono uppercase tracking-wider text-sky-200">
@@ -835,15 +1586,25 @@ export default function Procurement() {
                   {isVendor ? 'Available Orders' : 'Requirements Pipeline'}
                 </p>
               </div>
-              {!isVendor && (
-                <button 
-                  onClick={() => setIsModalOpen(true)}
-                  className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1 cursor-pointer font-sans shrink-0"
+              <div className="flex items-center gap-1.5 shrink-0">
+                {!isVendor && (
+                  <button 
+                    onClick={() => setIsModalOpen(true)}
+                    className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1 cursor-pointer font-sans"
+                  >
+                    <Plus className="w-3.5 h-3.5 text-white" />
+                    <span>Create</span>
+                  </button>
+                )}
+                <button
+                  type="button"
+                  title={fullscreenPanel === 'pipeline' ? 'Exit fullscreen' : 'Fullscreen'}
+                  onClick={() => setFullscreenPanel((p) => (p === 'pipeline' ? null : 'pipeline'))}
+                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sky-200"
                 >
-                  <Plus className="w-3.5 h-3.5 text-white" />
-                  <span>Create</span>
+                  {fullscreenPanel === 'pipeline' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                 </button>
-              )}
+              </div>
             </div>
 
             <div className="px-4 pb-4 flex flex-col gap-4 flex-1 min-h-0">
@@ -866,7 +1627,10 @@ export default function Procurement() {
               )}
             </div>
             
-            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 max-h-[550px] lg:max-h-[640px] scrollbar-thin dark:scrollbar-thumb-slate-800">
+            <div className={cn(
+              'flex-1 overflow-y-auto space-y-2.5 pr-1 scrollbar-thin dark:scrollbar-thumb-slate-800',
+              fullscreenPanel === 'pipeline' ? 'max-h-none' : 'max-h-[550px] lg:max-h-[640px]'
+            )}>
               {bidsList
                 .filter(b => b.item.toLowerCase().includes(searchQuery.toLowerCase()) || b.id.toLowerCase().includes(searchQuery.toLowerCase()))
                 .map((bid) => {
@@ -902,12 +1666,22 @@ export default function Procurement() {
                     >
                       <div className="flex justify-between items-center w-full">
                         <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">{bid.id}</span>
-                        <span className={cn(
-                          "text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide",
-                          badgeStyle
-                        )}>
-                          {badgeText}
-                        </span>
+                        <div className="flex items-center gap-1">
+                          <span className={cn(
+                            'text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide',
+                            bid.orderType === 'repeat'
+                              ? 'bg-violet-50 text-violet-700 border border-violet-200 dark:bg-violet-950/40 dark:text-violet-300 dark:border-violet-800'
+                              : 'bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                          )}>
+                            {bid.orderType === 'repeat' ? 'Repeat' : 'One-time'}
+                          </span>
+                          <span className={cn(
+                            "text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide",
+                            badgeStyle
+                          )}>
+                            {badgeText}
+                          </span>
+                        </div>
                       </div>
 
                       <h4 className="font-extrabold text-slate-800 dark:text-slate-205 text-xs leading-snug">
@@ -924,6 +1698,17 @@ export default function Procurement() {
                         </div>
                         <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
                         <div>{bid.quotations.length} {bid.quotations.length === 1 ? 'bid' : 'bids'}</div>
+                        {bid.orderType === 'repeat' && bid.repeatCycle && (
+                          <>
+                            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-700"></span>
+                            <div className="flex items-center gap-1 text-violet-600 dark:text-violet-400">
+                              <RefreshCw className="w-3 h-3" />
+                              <span>
+                                {frequencyLabel(bid.repeatCycle.frequency)} × {bid.repeatCycle.occurrences}
+                              </span>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </button>
                   );
@@ -932,7 +1717,22 @@ export default function Procurement() {
             </div>
           </div>
               {/* COLUMN B: BID RESOLUTION WORKSPACE/MATRIX (45% Width - lg:col-span-5) */}
-          <div className="lg:col-span-5 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden h-[720px]">
+          <div
+            className={cn(
+              'lg:col-span-5 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden relative',
+              fullscreenPanel === 'workspace' ? 'fixed inset-3 z-[120] h-auto lg:col-auto' : 'h-[720px]'
+            )}
+          >
+            <div className="absolute top-3 right-3 z-10">
+              <button
+                type="button"
+                title={fullscreenPanel === 'workspace' ? 'Exit fullscreen' : 'Fullscreen'}
+                onClick={() => setFullscreenPanel((p) => (p === 'workspace' ? null : 'workspace'))}
+                className="p-1.5 rounded-lg bg-[#0c1e36]/90 text-sky-200 hover:bg-[#0c1e36] border border-sky-800/50 shadow-sm"
+              >
+                {fullscreenPanel === 'workspace' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+              </button>
+            </div>
             {isVendor ? (
               // Vendor Workspace View
               <>
@@ -1110,6 +1910,12 @@ export default function Procurement() {
                       </h2>
                       <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">
                         Viewing Bids for: <span className="font-bold text-slate-755 dark:text-slate-300">{selectedBid.item}</span>
+                        {' · '}
+                        <span className={selectedBid.orderType === 'repeat' ? 'text-violet-600 dark:text-violet-400 font-semibold' : ''}>
+                          {selectedBid.orderType === 'repeat' && selectedBid.repeatCycle
+                            ? `Repeat · ${frequencyLabel(selectedBid.repeatCycle.frequency)} · ${formatDisplayDate(selectedBid.repeatCycle.startDate)}${selectedBid.repeatCycle.endDate ? ` → ${formatDisplayDate(selectedBid.repeatCycle.endDate)}` : ''} · ${selectedBid.repeatCycle.occurrences} deliveries`
+                            : 'One-time order'}
+                        </span>
                       </p>
                     </div>
                     
@@ -1403,12 +2209,27 @@ export default function Procurement() {
           <div className="lg:col-span-4 flex flex-col gap-6 self-stretch">
             
             {/* Comments / Collaboration Chat Workspace */}
-            <div className="bg-slate-55 dark:bg-slate-950/30 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col h-[320px] shadow-inner">
-              <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-t-xl flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-slate-500 dark:text-slate-400" />
-                <h3 className="text-xs font-bold text-slate-800 dark:text-slate-202 uppercase tracking-wider">
-                  {isVendor ? 'Buyer-Supplier Collaboration' : 'Collaboration & Chat'}
-                </h3>
+            <div
+              className={cn(
+                'bg-slate-55 dark:bg-slate-950/30 rounded-xl border border-slate-200 dark:border-slate-800 flex flex-col shadow-inner',
+                fullscreenPanel === 'collab' ? 'fixed inset-3 z-[120] h-auto' : 'h-[320px]'
+              )}
+            >
+              <div className="p-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 rounded-t-xl flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <MessageSquare className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <h3 className="text-xs font-bold text-slate-800 dark:text-slate-202 uppercase tracking-wider truncate">
+                    {isVendor ? 'Buyer-Supplier Collaboration' : 'Collaboration & Chat'}
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  title={fullscreenPanel === 'collab' ? 'Exit fullscreen' : 'Fullscreen'}
+                  onClick={() => setFullscreenPanel((p) => (p === 'collab' ? null : 'collab'))}
+                  className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 shrink-0"
+                >
+                  {fullscreenPanel === 'collab' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                </button>
               </div>
               
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -1455,11 +2276,26 @@ export default function Procurement() {
             </div>
 
             {/* Automation audit log trail */}
-            <div className="bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-850/80 space-y-3">
-              <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
-                {isVendor ? 'Supplier Dispatch Integration SLA' : 'Automated RFQ System Status'}
-              </h4>
+            <div
+              className={cn(
+                'bg-slate-50 dark:bg-slate-900/40 p-4 rounded-xl border border-slate-200 dark:border-slate-850/80 space-y-3',
+                fullscreenPanel === 'audit' && 'fixed inset-3 z-[120] overflow-y-auto'
+              )}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <h4 className="text-xs font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  {isVendor ? 'Supplier Dispatch Integration SLA' : 'Automated RFQ System Status'}
+                </h4>
+                <button
+                  type="button"
+                  title={fullscreenPanel === 'audit' ? 'Exit fullscreen' : 'Fullscreen'}
+                  onClick={() => setFullscreenPanel((p) => (p === 'audit' ? null : 'audit'))}
+                  className="p-1.5 rounded-lg hover:bg-slate-200/70 dark:hover:bg-slate-800 text-slate-500 shrink-0"
+                >
+                  {fullscreenPanel === 'audit' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
+                </button>
+              </div>
               <ul className="space-y-2 text-[11px] text-slate-500 dark:text-slate-404">
                 {isVendor ? (
                   <>
@@ -1580,7 +2416,11 @@ export default function Procurement() {
       {activeTab === 'orders' && (
         <div className="flex-1 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col">
           <DataTable
-            data={isVendor ? orders.filter((o) => o.vendor === 'Global Farms Suppliers') : orders}
+            data={
+              isVendor
+                ? orders.filter((o) => o.vendor === 'Global Farms Suppliers' && o.status !== 'Draft')
+                : orders
+            }
             columns={[
               {
                 key: 'po',
@@ -1611,8 +2451,31 @@ export default function Procurement() {
               },
               {
                 key: 'date',
-                label: 'Issue Date',
+                label: 'Delivery date',
+                getValue: (row) => row.deliveryDate || row.date,
                 className: 'text-slate-650 dark:text-slate-400',
+                render: (row) => (
+                  <div>
+                    <div>{row.deliveryDate ? formatDisplayDate(row.deliveryDate) : row.date}</div>
+                    {row.orderType === 'repeat' && row.cycleIndex != null && (
+                      <div className="text-[9px] text-violet-600 dark:text-violet-400 font-semibold mt-0.5">
+                        Cycle {row.cycleIndex}/{row.cycleTotal}
+                      </div>
+                    )}
+                  </div>
+                ),
+              },
+              {
+                key: 'orderedQty',
+                label: 'Ordered qty',
+                getValue: (row) => String(row.orderedQty ?? ''),
+                render: (row) => (
+                  <span className="font-semibold tabular-nums">
+                    {row.orderedQty != null
+                      ? `${row.orderedQty.toLocaleString()} ${row.unit || 'Cases'}`
+                      : '—'}
+                  </span>
+                ),
               },
               {
                 key: 'status',
@@ -1626,9 +2489,17 @@ export default function Procurement() {
                         ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400'
                         : row.status === 'In Transit'
                           ? 'bg-blue-100 dark:bg-blue-950/40 text-blue-800 dark:text-blue-400'
-                          : row.status === 'Processing'
-                            ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400 animate-pulse'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          : row.status === 'Draft'
+                            ? 'bg-orange-100 dark:bg-orange-950/40 text-orange-800 dark:text-orange-300'
+                          : row.status === 'Confirmed'
+                            ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+                            : row.status === 'Acknowledged'
+                              ? 'bg-sky-100 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300'
+                              : row.status === 'ASN Submitted'
+                                ? 'bg-violet-100 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300'
+                                : row.status === 'Processing'
+                                  ? 'bg-indigo-100 dark:bg-indigo-950/40 text-indigo-800 dark:text-indigo-400 animate-pulse'
+                                  : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
                     )}
                   >
                     {row.status}
@@ -1642,28 +2513,614 @@ export default function Procurement() {
                 sortable: false,
                 filterable: false,
                 getValue: () => '',
-                render: () => (
-                  <button
-                    type="button"
-                    className="px-2.5 py-1 rounded border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[11px] font-bold"
-                  >
-                    View PDF Invoice
-                  </button>
-                ),
+                render: (row) => {
+                  if (!isVendor && row.status === 'Draft') {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFulfillQty(String(row.orderedQty || ''));
+                          setDraftDeliveryDate(row.deliveryDate || '');
+                          setPoModal({ po: row, mode: 'draft' });
+                        }}
+                        className="px-2.5 py-1 rounded border border-orange-500/40 text-orange-700 dark:text-orange-300 hover:bg-orange-600 hover:text-white transition-all text-[11px] font-bold"
+                      >
+                        Review &amp; Confirm
+                      </button>
+                    );
+                  }
+                  if (isVendor && row.status === 'Confirmed') {
+                    return (
+                      <button
+                        type="button"
+                        onClick={() => setPoModal({ po: row, mode: 'detail' })}
+                        className="px-2.5 py-1 rounded border border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-600 hover:text-white transition-all text-[11px] font-bold"
+                      >
+                        View &amp; Acknowledge
+                      </button>
+                    );
+                  }
+                  if (isVendor && row.status === 'Acknowledged') {
+                    return (
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setPoModal({ po: row, mode: 'detail' })}
+                          className="px-2.5 py-1 rounded border border-slate-300 dark:border-slate-600 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-[11px] font-bold"
+                        >
+                          View PO
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openAsnModal([row])}
+                          className="px-2.5 py-1 rounded border border-sky-500/40 text-sky-700 dark:text-sky-300 hover:bg-sky-600 hover:text-white transition-all text-[11px] font-bold"
+                        >
+                          Update ASN
+                        </button>
+                      </div>
+                    );
+                  }
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => setPoModal({ po: row, mode: 'detail' })}
+                      className="px-2.5 py-1 rounded border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500 hover:text-white transition-all text-[11px] font-bold"
+                    >
+                      View PO
+                    </button>
+                  );
+                },
               },
             ] satisfies DataTableColumn<PurchaseOrder>[]}
             rowKey={(row) => row.po}
-            title="Purchase Orders Issued & Auto-Trackers"
-            subtitle="Filter, sort, and export PO ledger"
+            title={isVendor ? 'Your purchase orders' : 'Purchase Orders Issued & Auto-Trackers'}
+            subtitle={
+              isVendor
+                ? 'Acknowledge POs, create ASN (multi-PO / one container), or update ASN before dispatch'
+                : 'Draft POs from awarded bids — confirm delivery date & qty to send to supplier'
+            }
             excelFileName="procurement-orders.xls"
             emptyMessage="No purchase orders match the current filters."
+            toolbarExtra={
+              isVendor ? (
+                <button
+                  type="button"
+                  onClick={() => openAsnModal([])}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[11px] font-bold uppercase tracking-wide"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  Create ASN
+                </button>
+              ) : undefined
+            }
           />
         </div>
       )}
 
+      {/* PO detail / Acknowledge + ASN modals */}
+      <AnimatePresence>
+        {poModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.button
+              type="button"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+              aria-label="Close"
+              onClick={() => !fulfillSaving && setPoModal(null)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              <div className="px-5 py-4 bg-[#0c1e36] text-white flex items-start justify-between gap-3 shrink-0">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">
+                    {poModal.mode === 'draft' ? 'Review draft PO' : 'Purchase order details'}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5 font-mono">
+                    {poModal.po.po} · {poModal.po.status}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={fulfillSaving}
+                  onClick={() => setPoModal(null)}
+                  className="p-1.5 rounded-lg hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {poModal.mode === 'draft' ? (
+                <div className="p-5 space-y-3 overflow-y-auto">
+                  <p className="text-xs text-slate-500">
+                    {poModal.po.item}
+                    {poModal.po.orderType === 'repeat' && poModal.po.cycleIndex != null && (
+                      <span className="ml-1 text-violet-600 font-semibold">
+                        · Cycle {poModal.po.cycleIndex}/{poModal.po.cycleTotal}
+                      </span>
+                    )}
+                  </p>
+                  <p className="text-[11px] text-slate-500 rounded-lg bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-900/40 px-3 py-2">
+                    Draft POs are buyer-only. Adjust delivery date and qty, then confirm to send to the supplier.
+                  </p>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Delivery date</span>
+                    <input
+                      type="date"
+                      value={draftDeliveryDate}
+                      onChange={(e) => setDraftDeliveryDate(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Quantity</span>
+                    <input
+                      type="number"
+                      min={1}
+                      value={fulfillQty}
+                      onChange={(e) => setFulfillQty(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm font-semibold"
+                    />
+                  </label>
+                  <div className="text-xs text-slate-500">
+                    Vendor: <strong>{poModal.po.vendor}</strong>
+                    {poModal.po.unitPrice != null && fulfillQty && (
+                      <> · Est. amount: <strong>${Math.round(poModal.po.unitPrice * Number(fulfillQty || 0)).toLocaleString()}</strong></>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={fulfillSaving || !fulfillQty || !draftDeliveryDate}
+                    onClick={() => {
+                      const qty = Number(fulfillQty);
+                      if (!qty || qty <= 0 || !draftDeliveryDate) return;
+                      setFulfillSaving(true);
+                      setTimeout(() => {
+                        const amt =
+                          poModal.po.unitPrice != null
+                            ? `$${Math.round(poModal.po.unitPrice * qty).toLocaleString()}`
+                            : poModal.po.amt;
+                        setOrders((prev) =>
+                          prev.map((o) =>
+                            o.po === poModal.po.po
+                              ? {
+                                  ...o,
+                                  orderedQty: qty,
+                                  deliveryDate: draftDeliveryDate,
+                                  amt,
+                                  status: 'Confirmed',
+                                }
+                              : o
+                          )
+                        );
+                        setFulfillSaving(false);
+                        setPoModal(null);
+                        setAwardSuccessAlert(
+                          `${poModal.po.po} confirmed and sent to ${poModal.po.vendor}. Supplier can now acknowledge.`
+                        );
+                        setTimeout(() => setAwardSuccessAlert(null), 6000);
+                      }, 500);
+                    }}
+                    className="w-full py-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider"
+                  >
+                    {fulfillSaving ? 'Sending…' : 'Confirm & send to supplier'}
+                  </button>
+                </div>
+              ) : poModal.mode === 'detail' ? (
+                <div className="p-5 space-y-4 overflow-y-auto">
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="col-span-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 p-3">
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item</dt>
+                      <dd className="font-semibold text-slate-900 dark:text-slate-100 mt-0.5">{poModal.po.item}</dd>
+                      <dd className="text-[11px] text-slate-400 font-mono mt-1">Ref: {poModal.po.requirementId}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vendor</dt>
+                      <dd className="font-medium text-slate-800 dark:text-slate-200 mt-0.5">{poModal.po.vendor}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Amount</dt>
+                      <dd className="font-extrabold text-slate-900 dark:text-slate-100 mt-0.5">{poModal.po.amt}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ordered qty</dt>
+                      <dd className="font-semibold tabular-nums mt-0.5">
+                        {(poModal.po.orderedQty ?? 0).toLocaleString()} {poModal.po.unit || 'Cases'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Delivery date</dt>
+                      <dd className="mt-0.5 text-slate-700 dark:text-slate-300">
+                        {poModal.po.deliveryDate ? formatDisplayDate(poModal.po.deliveryDate) : poModal.po.date}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Issue date</dt>
+                      <dd className="mt-0.5 text-slate-700 dark:text-slate-300">{poModal.po.date}</dd>
+                    </div>
+                    <div className="col-span-2">
+                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Destination</dt>
+                      <dd className="mt-0.5 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        {poModal.po.destination || 'Chicago DC'}
+                      </dd>
+                    </div>
+                    {poModal.po.asnNumber && (
+                      <>
+                        <div>
+                          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ASN #</dt>
+                          <dd className="font-mono text-xs mt-0.5">{poModal.po.asnNumber}</dd>
+                        </div>
+                        <div>
+                          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Container</dt>
+                          <dd className="font-mono text-xs mt-0.5">{poModal.po.containerNumber || '—'}</dd>
+                        </div>
+                        {poModal.po.shipDate && (
+                          <div>
+                            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ship date</dt>
+                            <dd className="mt-0.5 text-slate-700 dark:text-slate-300">
+                              {/^\d{4}-\d{2}-\d{2}$/.test(poModal.po.shipDate)
+                                ? formatDisplayDate(poModal.po.shipDate)
+                                : poModal.po.shipDate}
+                            </dd>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </dl>
+
+                  {isVendor && poModal.po.status === 'Confirmed' && (
+                    <button
+                      type="button"
+                      disabled={fulfillSaving}
+                      onClick={() => {
+                        setFulfillSaving(true);
+                        setTimeout(() => {
+                          setOrders((prev) =>
+                            prev.map((o) =>
+                              o.po === poModal.po.po ? { ...o, status: 'Acknowledged' } : o
+                            )
+                          );
+                          setFulfillSaving(false);
+                          setPoModal(null);
+                          setAwardSuccessAlert(
+                            `${poModal.po.po} acknowledged. You can now submit ASN details.`
+                          );
+                          setTimeout(() => setAwardSuccessAlert(null), 6000);
+                        }, 500);
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2"
+                    >
+                      <CheckCircle2 className="w-4 h-4" />
+                      {fulfillSaving ? 'Updating…' : 'Acknowledge PO'}
+                    </button>
+                  )}
+
+                  {isVendor && poModal.po.status === 'Acknowledged' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const row = poModal.po;
+                        setPoModal(null);
+                        openAsnModal([row]);
+                      }}
+                      className="w-full py-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-black uppercase tracking-wider"
+                    >
+                      Continue to ASN details
+                    </button>
+                  )}
+                </div>
+              ) : null}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Create / Update ASN — multi-PO + packing slip */}
+      <AnimatePresence>
+        {asnModalOpen && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+            <motion.button
+              type="button"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/50 backdrop-blur-sm"
+              aria-label="Close"
+              onClick={() => !fulfillSaving && setAsnModalOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 12, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+            >
+              <div className="px-5 py-4 bg-[#0c1e36] text-white flex items-start justify-between gap-3 shrink-0">
+                <div>
+                  <h3 className="text-sm font-bold uppercase tracking-wider">Advance ship notice (ASN)</h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Create ASN directly · link one or many POs to one container · upload packing slip
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={fulfillSaving}
+                  onClick={() => setAsnModalOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-white/10"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-4 overflow-y-auto">
+                <label className="block space-y-1.5 rounded-xl border border-dashed border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 p-3 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors">
+                  <span className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+                    <Upload className="w-3.5 h-3.5" />
+                    Upload packing slip / ASN image
+                  </span>
+                  <input
+                    type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,image/*,application/pdf"
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:text-[10px] file:font-bold file:uppercase"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) void handlePackingSlipUpload(f);
+                    }}
+                  />
+                  {fulfillSlipName && (
+                    <p className="text-[11px] text-slate-600 dark:text-slate-300 font-medium">
+                      Attached: {fulfillSlipName}
+                    </p>
+                  )}
+                  {slipScanMsg && (
+                    <p className="text-[11px] text-emerald-700 dark:text-emerald-300">{slipScanMsg}</p>
+                  )}
+                  <p className="text-[10px] text-slate-400">
+                    Captures ASN #, container, seal, vessel/voyage, BOL, booking, ports, ETA, linked POs, and package totals.
+                    Try the{' '}
+                    <a
+                      href="/samples/asn-sample-multi-po.png"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sky-700 dark:text-sky-300 font-semibold underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      sample multi-PO ASN
+                    </a>{' '}
+                    if testing image upload.
+                  </p>
+                </label>
+
+                {(asnExtra.sealNumber ||
+                  asnExtra.vesselName ||
+                  asnExtra.billOfLading ||
+                  asnExtra.portOfDischarge) && (
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/50 p-3 grid grid-cols-2 gap-2 text-[10px]">
+                    <div className="col-span-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                      Captured logistics visibility
+                    </div>
+                    {asnExtra.shipmentNumber && (
+                      <div>
+                        <span className="text-slate-400">Shipment #</span>
+                        <div className="font-mono font-semibold">{asnExtra.shipmentNumber}</div>
+                      </div>
+                    )}
+                    {asnExtra.sealNumber && (
+                      <div>
+                        <span className="text-slate-400">Seal</span>
+                        <div className="font-semibold">{asnExtra.sealNumber}</div>
+                      </div>
+                    )}
+                    {asnExtra.vesselName && (
+                      <div>
+                        <span className="text-slate-400">Vessel</span>
+                        <div className="font-semibold">{asnExtra.vesselName}</div>
+                      </div>
+                    )}
+                    {asnExtra.voyageNumber && (
+                      <div>
+                        <span className="text-slate-400">Voyage</span>
+                        <div className="font-semibold">{asnExtra.voyageNumber}</div>
+                      </div>
+                    )}
+                    {asnExtra.billOfLading && (
+                      <div>
+                        <span className="text-slate-400">BOL</span>
+                        <div className="font-mono font-semibold">{asnExtra.billOfLading}</div>
+                      </div>
+                    )}
+                    {asnExtra.bookingNumber && (
+                      <div>
+                        <span className="text-slate-400">Booking</span>
+                        <div className="font-mono font-semibold">{asnExtra.bookingNumber}</div>
+                      </div>
+                    )}
+                    {asnExtra.shippingMethod && (
+                      <div>
+                        <span className="text-slate-400">Method</span>
+                        <div className="font-semibold">{asnExtra.shippingMethod}</div>
+                      </div>
+                    )}
+                    {asnExtra.incoterms && (
+                      <div>
+                        <span className="text-slate-400">Incoterms</span>
+                        <div className="font-semibold">{asnExtra.incoterms}</div>
+                      </div>
+                    )}
+                    {asnExtra.portOfLoading && (
+                      <div>
+                        <span className="text-slate-400">POL</span>
+                        <div className="font-semibold">{asnExtra.portOfLoading}</div>
+                      </div>
+                    )}
+                    {asnExtra.portOfDischarge && (
+                      <div>
+                        <span className="text-slate-400">POD</span>
+                        <div className="font-semibold">{asnExtra.portOfDischarge}</div>
+                      </div>
+                    )}
+                    {asnExtra.etaDate && (
+                      <div>
+                        <span className="text-slate-400">ETA date</span>
+                        <div className="font-semibold">{formatDisplayDate(asnExtra.etaDate)}</div>
+                      </div>
+                    )}
+                    {asnExtra.carrier && (
+                      <div>
+                        <span className="text-slate-400">Carrier</span>
+                        <div className="font-semibold">{asnExtra.carrier}</div>
+                      </div>
+                    )}
+                    {asnExtra.totalQuantity && (
+                      <div>
+                        <span className="text-slate-400">Total qty</span>
+                        <div className="font-semibold">{asnExtra.totalQuantity}</div>
+                      </div>
+                    )}
+                    {asnExtra.totalCartons && (
+                      <div>
+                        <span className="text-slate-400">Cartons / pallets</span>
+                        <div className="font-semibold">
+                          {asnExtra.totalCartons}
+                          {asnExtra.totalPallets ? ` / ${asnExtra.totalPallets}` : ''}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                    Link purchase orders (multi-PO → one container)
+                  </span>
+                  {asnEligibleOrders.length === 0 ? (
+                    <p className="text-xs text-amber-700 dark:text-amber-300 rounded-lg border border-amber-200 dark:border-amber-900/40 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                      No acknowledged POs available. Acknowledge a confirmed PO first, then link it here.
+                    </p>
+                  ) : (
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
+                      {asnEligibleOrders.map((o) => {
+                        const checked = asnLinkedPoIds.includes(o.po);
+                        return (
+                          <label
+                            key={o.po}
+                            className={cn(
+                              'flex items-start gap-3 px-3 py-2.5 cursor-pointer text-xs',
+                              checked ? 'bg-sky-50/80 dark:bg-sky-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleAsnPo(o.po)}
+                              className="mt-0.5 rounded border-slate-300"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="font-mono font-bold text-slate-800 dark:text-slate-100">{o.po}</div>
+                              <div className="text-slate-500 truncate">{o.item}</div>
+                            </div>
+                            {checked && (
+                              <input
+                                type="number"
+                                min={1}
+                                value={asnLineQty[o.po] ?? String(o.orderedQty || '')}
+                                onChange={(e) =>
+                                  setAsnLineQty((prev) => ({ ...prev, [o.po]: e.target.value }))
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-20 shrink-0 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 px-2 py-1 text-xs font-semibold"
+                                title="Ship qty"
+                              />
+                            )}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {asnLinkedPoIds.length > 1 && (
+                    <p className="text-[10px] text-sky-700 dark:text-sky-300 font-medium">
+                      {asnLinkedPoIds.length} POs will share one ASN and container in logistics.
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-3">
+                  <label className="block space-y-1 sm:col-span-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">ASN number</span>
+                    <input
+                      value={fulfillAsn}
+                      onChange={(e) => setFulfillAsn(e.target.value)}
+                      placeholder="e.g. ASN-2026-PEND2"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm font-mono"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Container number</span>
+                    <input
+                      value={fulfillContainer}
+                      onChange={(e) => setFulfillContainer(e.target.value)}
+                      placeholder="e.g. FGRU8800121"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Ship date</span>
+                    <input
+                      type="date"
+                      value={fulfillShipDate}
+                      onChange={(e) => setFulfillShipDate(e.target.value)}
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block space-y-1">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">ETA</span>
+                    <input
+                      value={fulfillEta}
+                      onChange={(e) => setFulfillEta(e.target.value)}
+                      placeholder="e.g. 3 Days"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block space-y-1 sm:col-span-2">
+                    <span className="text-[10px] font-bold uppercase text-slate-400">Shipment notes</span>
+                    <textarea
+                      rows={2}
+                      value={fulfillNotes}
+                      onChange={(e) => setFulfillNotes(e.target.value)}
+                      placeholder="Seal #, trailer, special handling…"
+                      className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm"
+                    />
+                  </label>
+                </div>
+
+                <button
+                  type="button"
+                  disabled={
+                    fulfillSaving || !fulfillAsn.trim() || asnLinkedPoIds.length === 0
+                  }
+                  onClick={submitAsn}
+                  className="w-full py-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider"
+                >
+                  {fulfillSaving
+                    ? 'Saving…'
+                    : `Submit ASN & push to logistics${
+                        asnLinkedPoIds.length > 1 ? ` (${asnLinkedPoIds.length} POs)` : ''
+                      }`}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       {/* Premium Automated Sourcing Placement Modal */}
       <AnimatePresence>
-        {isModalOpen && (
+        {isModalOpen && !isVendor && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
             
             {/* Overlay */}
@@ -1829,29 +3286,124 @@ export default function Procurement() {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Target Delivery Date</label>
-                        <input 
-                          type="date" 
-                          required
-                          value={newDeliveryDate}
-                          onChange={(e) => setNewDeliveryDate(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 dark:text-slate-100 transition-colors" 
-                        />
-                      </div>
+                      {newOrderType === 'repeat' ? (
+                        <>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                              Delivery window — From
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              value={newDeliveryDate}
+                              onChange={(e) => setNewDeliveryDate(e.target.value)}
+                              className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 dark:text-slate-100 transition-colors"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                              Delivery window — To
+                            </label>
+                            <input
+                              type="date"
+                              required
+                              min={newDeliveryDate}
+                              value={newDeliveryEndDate}
+                              onChange={(e) => setNewDeliveryEndDate(e.target.value)}
+                              className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 dark:text-slate-100 transition-colors"
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">
+                            Target Delivery Date
+                          </label>
+                          <input
+                            type="date"
+                            required
+                            value={newDeliveryDate}
+                            onChange={(e) => setNewDeliveryDate(e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 dark:text-slate-100 transition-colors"
+                          />
+                        </div>
+                      )}
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Bid SLA Window Deadline</label>
-                        <select 
-                          value={newBidDeadline}
-                          onChange={(e) => setNewBidDeadline(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 dark:text-slate-100 transition-colors"
-                        >
-                          <option value="4 hours remaining">4 Hours (Urgent Hot Replenishment)</option>
-                          <option value="24 hours remaining">24 Hours (Standard Stock Replenishment)</option>
-                          <option value="3 days remaining">3 Days (Forward Stock Order)</option>
-                        </select>
+                      <div className={newOrderType === 'repeat' ? 'sm:col-span-2' : ''}>
+                        <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Order Type</label>
+                        <div className="flex rounded-lg border border-slate-200 dark:border-slate-800 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => setNewOrderType('one-time')}
+                            className={cn(
+                              'flex-1 px-3 py-2 text-xs font-bold transition-colors',
+                              newOrderType === 'one-time'
+                                ? 'bg-sky-600 text-white'
+                                : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                            )}
+                          >
+                            One-time
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setNewOrderType('repeat')}
+                            className={cn(
+                              'flex-1 px-3 py-2 text-xs font-bold transition-colors',
+                              newOrderType === 'repeat'
+                                ? 'bg-violet-600 text-white'
+                                : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
+                            )}
+                          >
+                            Repeat
+                          </button>
+                        </div>
                       </div>
+                    </div>
+
+                    {newOrderType === 'repeat' && (
+                      <div className="rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/60 dark:bg-violet-950/20 p-3 space-y-3">
+                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+                          <RefreshCw className="w-3.5 h-3.5" />
+                          Repeat delivery cycle schedule
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Frequency</label>
+                            <select
+                              value={newRepeatFrequency}
+                              onChange={(e) => setNewRepeatFrequency(e.target.value as RepeatFrequency)}
+                              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm"
+                            >
+                              <option value="weekly">Weekly</option>
+                              <option value="biweekly">Every 2 weeks</option>
+                              <option value="monthly">Monthly</option>
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Deliveries in window</label>
+                            <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm font-semibold">
+                              {repeatPreviewDates.length} draft PO{repeatPreviewDates.length === 1 ? '' : 's'}
+                            </div>
+                          </div>
+                        </div>
+                        <p className="text-[10px] text-violet-700/80 dark:text-violet-300/80">
+                          Window {formatDisplayDate(newDeliveryDate)} → {formatDisplayDate(newDeliveryEndDate)} ·{' '}
+                          {frequencyLabel(newRepeatFrequency)}. After award, draft POs auto-create for each date in range.
+                        </p>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-1">Bid SLA Window Deadline</label>
+                      <select 
+                        value={newBidDeadline}
+                        onChange={(e) => setNewBidDeadline(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-955 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500 dark:text-slate-100 transition-colors"
+                      >
+                        <option value="4 hours remaining">4 Hours (Urgent Hot Replenishment)</option>
+                        <option value="24 hours remaining">24 Hours (Standard Stock Replenishment)</option>
+                        <option value="3 days remaining">3 Days (Forward Stock Order)</option>
+                      </select>
                     </div>
 
                     {/* Biological constraints limits fields */}
@@ -1938,34 +3490,74 @@ export default function Procurement() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1.5 text-emerald-800 dark:text-emerald-400 font-bold text-sm">
                         <Sparkles className="w-4 h-4 text-emerald-600 dark:text-emerald-400 animate-pulse" />
-                        <span>FreshGuard Match Engine</span>
+                        <span>Select suppliers to invite</span>
                       </div>
                       <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed">
-                        Suppliers below will be immediately pinged, matched on cold-chain score:
+                        Choose who receives this RFQ. Unchecked suppliers stay off the invite list.
                       </p>
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVendorNames(matchedVendorsLive.map((v) => v.name))}
+                          className="text-[10px] font-bold uppercase text-sky-700 hover:underline"
+                        >
+                          Select all
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedVendorNames([])}
+                          className="text-[10px] font-bold uppercase text-slate-500 hover:underline"
+                        >
+                          Clear
+                        </button>
+                      </div>
                     </div>
 
                     <div className="flex-1 overflow-y-auto space-y-2 max-h-[220px] md:max-h-none">
-                      {matchedVendorsLive.map((v, i) => (
-                        <div key={i} className="bg-white dark:bg-slate-900 p-3 rounded-xl border border-slate-20 border-slate-150 dark:border-slate-800 flex items-center justify-between shadow-sm">
-                          <div className="min-w-0">
-                            <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 block truncate">{v.name}</span>
-                            <span className="text-[9px] text-slate-400 dark:text-slate-500 block truncate">{v.status}</span>
-                          </div>
-                          <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-bold shrink-0">
-                            IDx: {v.score}%
-                          </span>
-                        </div>
-                      ))}
+                      {matchedVendorsLive.map((v, i) => {
+                        const checked = selectedVendorNames.includes(v.name);
+                        return (
+                          <label
+                            key={i}
+                            className={cn(
+                              'bg-white dark:bg-slate-900 p-3 rounded-xl border flex items-center gap-2.5 shadow-sm cursor-pointer',
+                              checked
+                                ? 'border-emerald-300 dark:border-emerald-800'
+                                : 'border-slate-150 dark:border-slate-800 opacity-70'
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() =>
+                                setSelectedVendorNames((prev) =>
+                                  prev.includes(v.name)
+                                    ? prev.filter((n) => n !== v.name)
+                                    : [...prev, v.name]
+                                )
+                              }
+                              className="rounded border-slate-300"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 block truncate">{v.name}</span>
+                              <span className="text-[9px] text-slate-400 dark:text-slate-500 block truncate">{v.status}</span>
+                            </div>
+                            <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-bold shrink-0">
+                              IDx: {v.score}%
+                            </span>
+                          </label>
+                        );
+                      })}
                     </div>
 
                     <div className="pt-4 border-t border-slate-200 dark:border-slate-800 flex flex-col gap-2">
                       <button 
                         type="submit"
-                        className="w-full py-2.5 bg-emerald-600 dark:bg-emerald-500 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 dark:hover:bg-emerald-600 shadow-sm hover:shadow transition-all text-center flex items-center justify-center gap-2"
+                        disabled={selectedVendorsLive.length === 0}
+                        className="w-full py-2.5 bg-emerald-600 dark:bg-emerald-500 disabled:opacity-50 text-white rounded-lg text-sm font-semibold hover:bg-emerald-700 dark:hover:bg-emerald-600 shadow-sm hover:shadow transition-all text-center flex items-center justify-center gap-2"
                       >
                         <Plus className="w-4 h-4 text-white" />
-                        Publish Bid to Network
+                        Publish to {selectedVendorsLive.length || 0} supplier{selectedVendorsLive.length === 1 ? '' : 's'}
                       </button>
                       <button 
                         type="button"

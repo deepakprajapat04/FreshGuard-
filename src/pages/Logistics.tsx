@@ -3,37 +3,42 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useNavigate } from 'react-router';
 import { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   MapPin, Truck, AlertTriangle, ShieldAlert, CheckCircle2, Clock, Ship,
-  Calendar as CalendarIcon, Map as MapIcon, ChevronLeft, ChevronRight,
+  Calendar as CalendarIcon, Map as MapIcon, Filter, X,
   Thermometer, ArrowRight, RefreshCw, TrendingDown, Box, Loader2,
-  LayoutDashboard, Bell, Link2, Container, Navigation, Activity,
+  LayoutDashboard, Link2, Container, Navigation, Activity, ShoppingCart,
 } from 'lucide-react';
-import { format, startOfWeek, addDays, isSameDay, subDays } from 'date-fns';
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
+import { useNotifications } from '../context/NotificationsContext';
 import {
   createPsaEvent, buildPeriodicBuyerAlerts, formatSyncAge,
   type BuyerShipmentAlert, type ContainerUpdatePayload,
 } from '../lib/psa';
 import { seedDefaultShipments, enrichWithPsaDefaults } from '../lib/shipmentSeeds';
 import type { Shipment, AIAlert, LogisticsTab } from '../lib/shipmentTypes';
+import { getShipmentCargoLines } from '../lib/shipmentTypes';
+import { evaluateDelayAlertLevel, estimateShelfShortage, loadBusinessRules } from '../lib/businessRules';
 import { ShipmentDashboard } from '../components/logistics/ShipmentDashboard';
 import { ContainerPsaPanel } from '../components/logistics/ContainerPsaPanel';
 import { BuyerAlertsDrawer } from '../components/logistics/BuyerAlertsDrawer';
+import { ShipmentCalendar } from '../components/logistics/ShipmentCalendar';
+import { PsaTimelinePanel } from '../components/logistics/PsaEventTimeline';
 
 const TrackingMap = lazy(() =>
   import('../components/logistics/TrackingMap').then((m) => ({ default: m.TrackingMap }))
 );
 
-const STORAGE_KEY = 'freshguard-active-shipments';
+const STORAGE_KEY = 'freshguard-active-shipments-v5';
 
 export default function Logistics() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<LogisticsTab>('dashboard');
   const [viewMode, setViewMode] = useState<'map' | 'calendar' | 'timeline'>('map');
-  const [currentDate, setCurrentDate] = useState(new Date());
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [selectedShipmentId, setSelectedShipmentId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -42,10 +47,18 @@ export default function Logistics() {
   const [feedbackMsg, setFeedbackMsg] = useState<string | null>(null);
   const [dispatchingId, setDispatchingId] = useState<string | null>(null);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+  const [confirmQtyById, setConfirmQtyById] = useState<Record<string, string>>({});
+  const [shipNotesById, setShipNotesById] = useState<Record<string, string>>({});
+  const [shipContainerById, setShipContainerById] = useState<Record<string, string>>({});
+  const [shipEtaById, setShipEtaById] = useState<Record<string, string>>({});
   const [psaSyncPulse, setPsaSyncPulse] = useState(false);
   const [buyerAlerts, setBuyerAlerts] = useState<BuyerShipmentAlert[]>([]);
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   const [savingContainer, setSavingContainer] = useState(false);
+  const [transitStatusFilter, setTransitStatusFilter] = useState<'all' | 'on-time' | 'delayed' | 'delivered'>('delayed');
+  const [transitModeFilter, setTransitModeFilter] = useState<'all' | 'ocean' | 'road'>('all');
+  const [transitSupplierFilter, setTransitSupplierFilter] = useState('all');
+  const [transitFiltersOpen, setTransitFiltersOpen] = useState(true);
   const [containerForm, setContainerForm] = useState<ContainerUpdatePayload>({
     containerNumber: '', vesselName: '', voyageNumber: '', bookingNumber: '',
     psaTerminal: '', eta: '', temp: '', origin: '', notes: '',
@@ -53,6 +66,7 @@ export default function Logistics() {
 
   const { persona } = usePersona();
   const isVendor = persona === 'vendor';
+  const { upsertMany } = useNotifications();
 
   const saveShipments = (list: Shipment[]) => {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); } catch { /* ignore */ }
@@ -87,6 +101,12 @@ export default function Logistics() {
             destLat: p.destLat ?? seed.destLat,
             destLng: p.destLng ?? seed.destLng,
             transportMode: p.transportMode || seed.transportMode,
+            etaDate: p.etaDate || seed.etaDate,
+            cargoLines: p.cargoLines?.length ? p.cargoLines : seed.cargoLines,
+            storeOnHandCases: p.storeOnHandCases ?? seed.storeOnHandCases,
+            dailyDemandCases: p.dailyDemandCases ?? seed.dailyDemandCases,
+            shelfLifeDays: p.shelfLifeDays ?? seed.shelfLifeDays,
+            shelfLifeDaysAtRisk: p.shelfLifeDaysAtRisk ?? seed.shelfLifeDaysAtRisk,
             origin: needsPsaBackfill ? seed.origin : p.origin,
             route: needsPsaBackfill ? seed.route : p.route,
             logisticsRouteAndProvider: needsPsaBackfill
@@ -111,15 +131,19 @@ export default function Logistics() {
       });
       setShipments(mapped);
       saveShipments(mapped);
-      const active = mapped.filter((s) => s.stage === 'delivering');
       setSelectedShipmentId((prev) => {
         if (prev && mapped.some((s) => s.id === prev)) return prev;
-        return active[0]?.id || mapped[0]?.id || '';
+        const delayed = mapped.find((s) => s.id === 'PO-2026-DELAY1');
+        const expected = mapped.find((s) => s.id === 'PO-2026-EXPECT1');
+        const active = mapped.filter((s) => s.stage === 'delivering');
+        return delayed?.id || expected?.id || active[0]?.id || mapped[0]?.id || '';
       });
     } catch {
       const defs = seedDefaultShipments();
       setShipments(defs);
-      setSelectedShipmentId(defs[0].id);
+      setSelectedShipmentId(
+        defs.find((s) => s.id === 'PO-2026-DELAY1')?.id || defs[0].id
+      );
     }
   };
 
@@ -190,11 +214,24 @@ export default function Logistics() {
           return true;
         }).slice(0, 24);
       });
+      upsertMany(
+        generated.map((a) => ({
+          id: a.id,
+          title: a.title,
+          message: a.message,
+          severity: a.severity,
+          category: a.category,
+          timestamp: a.timestamp,
+          read: a.read,
+          module: 'Logistics' as const,
+          href: '/logistics',
+        }))
+      );
     };
     push();
     const id = window.setInterval(push, 45000);
     return () => window.clearInterval(id);
-  }, [isVendor, shipments]);
+  }, [isVendor, shipments, upsertMany]);
 
   const evaluateShipmentRoute = async (shipment: Shipment) => {
     if (!shipment || shipment.status === 'delivered') return;
@@ -215,16 +252,58 @@ export default function Logistics() {
         setAiAlerts((prev) => ({ ...prev, [shipment.id]: data }));
       } else throw new Error('fail');
     } catch {
+      const rules = loadBusinessRules();
+      const delayedDays = shipment.status === 'delayed' ? Math.max(rules.urgentDelayDays + 1, 2) : 0;
+      const expectedDays = shipment.expectedDelay
+        ? Math.max(rules.warningExpectedDelayDays + 1, 1)
+        : delayedDays;
+      const level = evaluateDelayAlertLevel(rules, {
+        delayedDays,
+        expectedDelayDays: expectedDays,
+      });
+      const delayForStock = Math.max(delayedDays, expectedDays, 1);
+      const stock = estimateShelfShortage({
+        storeOnHandCases: shipment.storeOnHandCases ?? 120,
+        dailyDemandCases: shipment.dailyDemandCases ?? 80,
+        delayDays: delayForStock,
+        inboundCases: shipment.quantity,
+        minDaysOfCoverThreshold: rules.minDaysOfCoverThreshold,
+      });
       setAiAlerts((prev) => ({
         ...prev,
         [shipment.id]: {
-          hasAnomaly: shipment.status === 'delayed',
-          routeId: 'Route #402',
-          threatVector: 'Severe Flash Flooding near Sector 4 Gateway • Threat Level: High',
-          delayText: 'Expected transit delay: +14 hours. Predicted post-delivery shelf life reduced from 14 days to 11 days.',
-          mitigationText: 'Reroute via Northern I-81 corridor immediately. Adds 45 miles but bypasses the flood zone, restoring climate control and saving 92% of perishable volume.',
-          mitigationSummary: 'Bypasses high water risk areas.',
-          alternativeRouteName: 'Northern I-81',
+          hasAnomaly: shipment.status === 'delayed' || !!shipment.expectedDelay || !!shipment.hasAnomaly,
+          routeId: shipment.logisticsRouteAndProvider || 'Route #402',
+          threatVector:
+            level === 'urgent' || shipment.status === 'delayed'
+              ? `Urgent (rule: delayed > ${rules.urgentDelayDays}d) · Flash flood / corridor disruption`
+              : `Warning (rule: expected delay > ${rules.warningExpectedDelayDays}d) · Berth / corridor forecast`,
+          delayText:
+            shipment.status === 'delayed'
+              ? `Actual delay ~${delayedDays} days. Predicted post-delivery shelf life reduced from 14 days to 9 days.`
+              : `Expected delay ahead ~${expectedDays} day(s). Shelf availability may compress on inland leg.`,
+          mitigationText:
+            'Monitor PSA Portnet updates. Buyer may source alternative supplier volume if shelf window tightens further.',
+          mitigationSummary: 'Alert-only — no supplier reroute approval required.',
+          alternativeRouteName: 'Northern I-81 (advisory)',
+          shelfImpact:
+            shipment.status === 'delayed'
+              ? 'Store shelf availability at risk: usable window drops from 14 → 9 days after DC receipt. Recommend alternate supplier RFQ for fill-in volume.'
+              : 'Potential shelf compression: usable window may drop from 12 → 8 days if berth wait materializes.',
+          shelfLifeBefore: shipment.shelfLifeDays || 14,
+          shelfLifeAfter: shipment.shelfLifeDaysAtRisk || (shipment.status === 'delayed' ? 9 : 8),
+          willShortage: stock.willShortage,
+          storeOnHandCases: stock.storeOnHandCases,
+          dailyDemandCases: stock.dailyDemandCases,
+          daysOfCover: stock.daysOfCover,
+          stockoutInDays: stock.stockoutInDays,
+          shortageCases: stock.shortageCases,
+          shortageImpact: stock.willShortage
+            ? `Shelf shortage likely: ${stock.storeOnHandCases} cases on hand (~${stock.daysOfCover}d cover at ${stock.dailyDemandCases}/day). With ${delayForStock}d delay, stockout in ~${stock.stockoutInDays}d and projected gap of ${stock.shortageCases} cases while inbound ${shipment.quantity.toLocaleString()} cases stay unavailable.`
+            : `On-hand cover (~${stock.daysOfCover}d) covers the ${delayForStock}d delay window — no immediate shelf shortage projected.`,
+          suggestedAction: stock.willShortage
+            ? 'Stock-not-available risk triggers BRM auto-proposal. Review Inbox to approve 2nd-best supplier fill-in, or open Procurement.'
+            : 'Open Inbox → approve auto-proposal if configured, or ask alternative suppliers in Procurement.',
         },
       }));
     } finally {
@@ -233,47 +312,119 @@ export default function Logistics() {
   };
 
   useEffect(() => {
-    if (selectedShipment && !aiAlerts[selectedShipment.id] && selectedShipment.stage === 'delivering') {
+    if (
+      selectedShipment &&
+      !aiAlerts[selectedShipment.id] &&
+      selectedShipment.stage === 'delivering' &&
+      (selectedShipment.status === 'delayed' ||
+        selectedShipment.hasAnomaly ||
+        selectedShipment.expectedDelay)
+    ) {
       evaluateShipmentRoute(selectedShipment);
     }
   }, [selectedShipmentId, selectedShipment]);
 
-  const handleApproveReroute = (shipmentId: string) => {
-    setFeedbackMsg('Processing reroute request...');
+  const activeDisruption =
+    selectedShipment &&
+    selectedShipment.status !== 'delivered' &&
+    (aiAlerts[selectedShipment.id]?.hasAnomaly ||
+      selectedShipment.status === 'delayed' ||
+      selectedShipment.hasAnomaly ||
+      selectedShipment.expectedDelay)
+      ? (() => {
+          const existing = aiAlerts[selectedShipment.id];
+          if (existing) return existing;
+          const rules = loadBusinessRules();
+          const delayDays =
+            selectedShipment.status === 'delayed'
+              ? Math.max(rules.urgentDelayDays + 1, 2)
+              : Math.max(rules.warningExpectedDelayDays + 1, 1);
+          const stock = estimateShelfShortage({
+            storeOnHandCases: selectedShipment.storeOnHandCases ?? 120,
+            dailyDemandCases: selectedShipment.dailyDemandCases ?? 80,
+            delayDays,
+            inboundCases: selectedShipment.quantity,
+            minDaysOfCoverThreshold: rules.minDaysOfCoverThreshold,
+          });
+          return {
+            hasAnomaly: true,
+            routeId: selectedShipment.logisticsRouteAndProvider || 'Transit corridor',
+            threatVector:
+              selectedShipment.status === 'delayed' ? 'Active delay on corridor' : 'Expected delay ahead',
+            delayText: selectedShipment.eta,
+            mitigationText: 'Alert only — monitor PSA Portnet. No supplier reroute approval required.',
+            mitigationSummary: 'Informational',
+            alternativeRouteName: '—',
+            shelfImpact: `Shelf life at risk: ${selectedShipment.shelfLifeDays || 14} → ${selectedShipment.shelfLifeDaysAtRisk || 9} days usable after receipt.`,
+            shelfLifeBefore: selectedShipment.shelfLifeDays || 14,
+            shelfLifeAfter: selectedShipment.shelfLifeDaysAtRisk || 9,
+            willShortage: stock.willShortage,
+            storeOnHandCases: stock.storeOnHandCases,
+            dailyDemandCases: stock.dailyDemandCases,
+            daysOfCover: stock.daysOfCover,
+            stockoutInDays: stock.stockoutInDays,
+            shortageCases: stock.shortageCases,
+            shortageImpact: stock.willShortage
+              ? `Shelf shortage likely: ${stock.shortageCases} cases gap; stockout in ~${stock.stockoutInDays}d.`
+              : `No immediate shelf shortage projected (${stock.daysOfCover}d cover).`,
+            suggestedAction: stock.willShortage
+              ? 'Request alternative supplier volume in Inbox / Procurement.'
+              : 'Monitor PSA; open Inbox if auto-proposal is raised.',
+          };
+        })()
+      : null;
+
+  const handleConfirmAndDispatch = (s: Shipment) => {
+    const qtyRaw = confirmQtyById[s.id];
+    const confirmedQty = qtyRaw ? Number(qtyRaw) : s.quantity;
+    if (!confirmedQty || confirmedQty <= 0) {
+      setSuccessToast('Enter a confirmed quantity before dispatch.');
+      setTimeout(() => setSuccessToast(null), 3000);
+      return;
+    }
+    const container = (shipContainerById[s.id] || s.containerNumber || '').trim();
+    const notes = (shipNotesById[s.id] || '').trim();
+    const eta = (shipEtaById[s.id] || s.eta || '').trim();
+    setDispatchingId(s.id);
     setTimeout(() => {
-      const updated = shipments.map((s) => {
-        if (s.id !== shipmentId) return s;
+      const updated = shipments.map((item) => {
+        if (item.id !== s.id) return item;
         return {
-          ...s,
+          ...item,
+          quantity: confirmedQty,
+          item: `${confirmedQty.toLocaleString()} ${item.unit} of ${item.product || item.item}`,
+          containerNumber: container || item.containerNumber,
+          eta: eta || item.eta,
+          stage: 'delivering' as const,
+          packingProgress: 100,
           status: 'on-time' as const,
-          temp: '3.1°C [Stable]',
-          eta: '6.5 hrs',
-          logisticsRouteAndProvider: 'Northern I-81 Bypass Corridor',
-          rerouted: true,
-          hasAnomaly: false,
-          currentLat: 38.2,
-          currentLng: -81.5,
           psaSyncStatus: 'synced' as const,
           psaLastSyncAt: new Date().toISOString(),
           psaEvents: [
-            ...(s.psaEvents || []),
-            createPsaEvent('ETA_REVISED', 'Northern I-81 Bypass', {
-              source: 'FreshGuard',
-              details: 'Reroute approved — PSA Portnet notified',
-              lat: 38.2,
-              lng: -81.5,
+            ...(item.psaEvents || []),
+            createPsaEvent('SUPPLIER_UPDATE', item.psaTerminal || item.origin, {
+              source: 'Supplier',
+              details: `Qty confirmed ${confirmedQty} ${item.unit}${notes ? ` · ${notes}` : ''} · container ${container || item.containerNumber}`,
+              lat: item.originLat,
+              lng: item.originLng,
+            }),
+            createPsaEvent('GATE_OUT', item.psaTerminal || item.origin, {
+              source: 'Supplier',
+              details: 'Supplier finalized packing & pushed manifest to PSA Portnet',
+              lat: item.originLat,
+              lng: item.originLng,
             }),
           ],
         };
       });
       setShipments(updated);
       saveShipments(updated);
-      if (aiAlerts[shipmentId]) {
-        setAiAlerts((prev) => ({ ...prev, [shipmentId]: { ...prev[shipmentId], hasAnomaly: false } }));
-      }
-      setFeedbackMsg('Reroute confirmed. PSA Portnet synced — driver on I-81 N.');
-      setTimeout(() => setFeedbackMsg(null), 5000);
-    }, 1200);
+      setDispatchingId(null);
+      setSelectedShipmentId(s.id);
+      setSuccessToast(`PO ${s.id}: qty ${confirmedQty} confirmed · shipment details synced to PSA.`);
+      setTimeout(() => setSuccessToast(null), 5000);
+      setActiveTab('transit');
+    }, 900);
   };
 
   const handleDispatch = (id: string, itemDesc: string) => {
@@ -348,8 +499,6 @@ export default function Logistics() {
     }, 800);
   };
 
-  const unreadAlerts = buyerAlerts.filter((a) => !a.read).length;
-
   const preDispatchShipments = useMemo(() => {
     const q = searchQuery.toLowerCase();
     return shipments.filter((s) => {
@@ -368,24 +517,41 @@ export default function Logistics() {
     });
   }, [shipments, searchQuery]);
 
-  const groupedTransit = useMemo(() => ({
-    critical: transitShipments.filter((s) => (s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered'),
-    onTrack: transitShipments.filter((s) => !((s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered')),
-  }), [transitShipments]);
-
-  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 });
-  const weekDays = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i));
-  const calendarDeliveries = useMemo(() => {
-    const base = subDays(new Date(), 3);
-    return transitShipments.map((s, idx) => ({
-      id: s.id,
-      date: s.date ? new Date(s.date) : addDays(base, idx % 5),
-      items: s.item,
-      type: s.transportMode === 'ocean' ? 'ship' : 'truck',
-      issue: s.status,
-      container: s.containerNumber,
-    }));
+  const transitSuppliers = useMemo(() => {
+    const set = new Set(transitShipments.map((s) => s.vendor).filter(Boolean));
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [transitShipments]);
+
+  const filteredTransitShipments = useMemo(() => {
+    return transitShipments.filter((s) => {
+      if (transitStatusFilter === 'delayed') {
+        if (!(s.status === 'delayed' || s.hasAnomaly)) return false;
+      } else if (transitStatusFilter !== 'all' && s.status !== transitStatusFilter) {
+        return false;
+      }
+      if (transitModeFilter !== 'all' && (s.transportMode || 'road') !== transitModeFilter) return false;
+      if (transitSupplierFilter !== 'all' && s.vendor !== transitSupplierFilter) return false;
+      return true;
+    });
+  }, [transitShipments, transitStatusFilter, transitModeFilter, transitSupplierFilter]);
+
+  const transitFilterCount =
+    (transitStatusFilter !== 'all' ? 1 : 0) +
+    (transitModeFilter !== 'all' ? 1 : 0) +
+    (transitSupplierFilter !== 'all' ? 1 : 0);
+
+  const groupedTransit = useMemo(() => ({
+    critical: filteredTransitShipments.filter((s) => (s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered'),
+    onTrack: filteredTransitShipments.filter((s) => !((s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered')),
+  }), [filteredTransitShipments]);
+
+  // Keep selection inside the filtered list
+  useEffect(() => {
+    if (!filteredTransitShipments.length) return;
+    if (!filteredTransitShipments.some((s) => s.id === selectedShipmentId)) {
+      setSelectedShipmentId(filteredTransitShipments[0].id);
+    }
+  }, [filteredTransitShipments, selectedShipmentId]);
 
   const tabs: Array<{ id: LogisticsTab; label: string; icon: typeof Truck; vendorOnly?: boolean }> = [
     { id: 'dashboard', label: 'Tracking Dashboard', icon: LayoutDashboard },
@@ -409,46 +575,42 @@ export default function Logistics() {
         )}
       </AnimatePresence>
 
-      <header className="bg-[#0c1e36] text-white border-b border-sky-900/50 px-5 lg:px-6 py-4 space-y-4 shrink-0 shadow-lg z-30">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 w-full">
-          <div>
-            <span className="text-[10px] font-extrabold tracking-wider text-sky-300 uppercase font-mono">
-              FreshGuard × PSA Portnet®
-            </span>
-            <h1 className="text-2xl font-black text-white tracking-tight mt-0.5">
-              Logistics &amp; Shipment Tracking
-            </h1>
-            <p className="text-slate-400 text-xs mt-0.5 max-w-2xl">
-              Container events sync bi-directionally with PSA Portnet. Suppliers update shipment details; retail buyers track every milestone in real time.
-            </p>
+      <header className="bg-[#0c1e36] text-white border-b border-sky-900/50 px-4 lg:px-5 py-2.5 shrink-0 shadow-lg z-30">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 w-full">
+          <div className="min-w-0 flex items-center gap-3">
+            <div className="min-w-0">
+              <div className="flex items-baseline gap-2 flex-wrap">
+                <h1 className="text-lg font-bold text-white tracking-tight">
+                  Logistics &amp; Shipment Tracking
+                </h1>
+                <span className="text-[10px] font-semibold tracking-wide text-sky-300 uppercase">
+                  FreshGuard × PSA Portnet®
+                </span>
+              </div>
+              <p className="text-slate-400 text-[11px] mt-0.5 truncate max-w-xl hidden sm:block">
+                Bi-directional container sync · sea &amp; land lots
+              </p>
+            </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5">
             <div className={cn(
-              'flex items-center gap-2 px-3 py-1.5 rounded-lg border text-[10.5px] font-mono font-bold',
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold',
               psaSyncPulse
                 ? 'bg-emerald-500 text-white border-emerald-400'
                 : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
             )}>
               <Link2 className="w-3.5 h-3.5" />
-              PSA Portnet® Fully Synced
+              PSA Synced
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
             </div>
-            <span className="bg-white/10 text-slate-200 px-3 py-1.5 rounded-lg text-xs font-mono font-bold border border-white/15">
-              Containers: {shipments.length}
+            <span className="bg-white/10 text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-white/15">
+              {shipments.length} lots
             </span>
-            {!isVendor && (
-              <button onClick={() => setShowAlertsPanel((v) => !v)} className="relative flex items-center gap-2 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[10.5px] font-mono font-bold border border-sky-400/30">
-                <Bell className="w-3.5 h-3.5" /> Buyer Alerts
-                {unreadAlerts > 0 && (
-                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-500 text-[9px] font-black flex items-center justify-center">{unreadAlerts}</span>
-                )}
-              </button>
-            )}
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3 bg-[#132a45] p-2 rounded-xl border border-sky-900/60 w-full">
-          <div className="flex bg-[#0a1829]/80 p-1 rounded-lg font-mono min-w-0 flex-1 overflow-x-auto">
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-2 bg-[#132a45] p-1.5 rounded-xl border border-sky-900/60 w-full mt-2">
+          <div className="flex bg-[#0a1829]/80 p-0.5 rounded-lg min-w-0 flex-1 overflow-x-auto">
             {tabs.filter((t) => !t.vendorOnly || isVendor).map((t) => {
               const Icon = t.icon;
               return (
@@ -456,7 +618,7 @@ export default function Logistics() {
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
                   className={cn(
-                    'flex-1 min-w-[120px] py-2 px-3 rounded-md text-[10px] sm:text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-2 transition-all',
+                    'flex-1 min-w-[100px] py-1.5 px-2.5 rounded-md text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all',
                     activeTab === t.id
                       ? 'bg-sky-600 text-white shadow-md'
                       : 'text-slate-400 hover:text-white hover:bg-white/5'
@@ -472,26 +634,23 @@ export default function Logistics() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search PO, container, vendor..."
-            className="w-full md:w-72 bg-[#0a1829] border border-sky-900/80 text-slate-200 rounded-lg px-3.5 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-500"
+            className="w-full md:w-64 bg-[#0a1829] border border-sky-900/80 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-500"
           />
         </div>
       </header>
 
-      <AnimatePresence>
-        {!isVendor && showAlertsPanel && (
-          <BuyerAlertsDrawer
-            alerts={buyerAlerts}
-            onClose={() => setShowAlertsPanel(false)}
-            onDismiss={(id) => setBuyerAlerts((p) => p.filter((a) => a.id !== id))}
-            onMarkRead={(id) => setBuyerAlerts((p) => p.map((a) => (a.id === id ? { ...a, read: true } : a)))}
-            onOpenTracking={(id) => {
-              setSelectedShipmentId(id);
-              setActiveTab('transit');
-              setShowAlertsPanel(false);
-            }}
-          />
-        )}
-      </AnimatePresence>
+      <BuyerAlertsDrawer
+        open={!isVendor && showAlertsPanel}
+        alerts={buyerAlerts}
+        onClose={() => setShowAlertsPanel(false)}
+        onDismiss={(id) => setBuyerAlerts((p) => p.filter((a) => a.id !== id))}
+        onMarkRead={(id) => setBuyerAlerts((p) => p.map((a) => (a.id === id ? { ...a, read: true } : a)))}
+        onOpenTracking={(id) => {
+          setSelectedShipmentId(id);
+          setActiveTab('transit');
+          setShowAlertsPanel(false);
+        }}
+      />
 
       <div className="flex-1 w-full relative overflow-hidden">
         <AnimatePresence mode="wait">
@@ -529,42 +688,87 @@ export default function Logistics() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
                     {preDispatchShipments.map((s) => (
-                      <div key={s.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-md flex flex-col justify-between relative overflow-hidden">
+                      <div key={s.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-md flex flex-col justify-between relative overflow-hidden">
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#0c1e36] via-sky-500 to-emerald-500" />
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           <div>
                             <span className="font-mono text-xs font-black text-sky-700 dark:text-sky-400 uppercase tracking-widest">{s.id}</span>
-                            <h4 className="text-sm font-black mt-1">{s.item}</h4>
-                            <div className="text-[10px] font-mono text-slate-500 mt-1">{s.containerNumber}</div>
+                            <h4 className="text-sm font-black mt-1">{s.product || s.item}</h4>
+                            <div className="text-[10px] font-mono text-slate-500 mt-1">Ordered: {s.quantity.toLocaleString()} {s.unit}</div>
+                            {s.asnNumber && (
+                              <div className="text-[10px] font-mono text-violet-600 dark:text-violet-400 mt-0.5">ASN {s.asnNumber}</div>
+                            )}
+                            {s.cargoLines && s.cargoLines.length > 1 && (
+                              <div className="text-[10px] text-slate-500 mt-0.5">
+                                {s.cargoLines.length} POs in container · {s.cargoLines.map((c) => c.poNumber).join(', ')}
+                              </div>
+                            )}
+                            {s.packingSlipName && (
+                              <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                                Slip: {s.packingSlipName}
+                              </div>
+                            )}
                           </div>
                           <div className="text-xs text-slate-600 space-y-2">
                             <div className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400" />{s.origin}</div>
                             <div className="flex items-center gap-1.5"><Link2 className="w-3.5 h-3.5 text-emerald-500" />PSA: {s.psaTerminal}</div>
                           </div>
-                          <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-4">
-                            <div className="flex justify-between text-[11px] font-mono">
-                              <span className="text-slate-400 uppercase font-bold">Packing</span>
-                              <span className="text-emerald-700 font-extrabold">{s.packingProgress || 65}%</span>
-                            </div>
-                            <div className="w-full bg-slate-100 dark:bg-slate-950 h-1.5 rounded-full overflow-hidden">
-                              <div className="h-full bg-gradient-to-r from-emerald-400 to-sky-500" style={{ width: `${s.packingProgress || 65}%` }} />
-                            </div>
-                          </div>
-                          <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-100 dark:border-slate-800 rounded-xl flex items-center gap-3">
-                            <Thermometer className="w-4 h-4 text-emerald-500" />
-                            <div className="text-[11px] font-mono"><strong>{s.preCoolingTarget}</strong></div>
+
+                          <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
+                            <label className="block space-y-1">
+                              <span className="text-[10px] font-bold uppercase text-slate-400">Confirm qty ({s.unit})</span>
+                              <input
+                                type="number"
+                                min={1}
+                                value={confirmQtyById[s.id] ?? String(s.quantity)}
+                                onChange={(e) => setConfirmQtyById((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
+                              />
+                            </label>
+                            <label className="block space-y-1">
+                              <span className="text-[10px] font-bold uppercase text-slate-400">Container #</span>
+                              <input
+                                value={shipContainerById[s.id] ?? (s.containerNumber || '')}
+                                onChange={(e) => setShipContainerById((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                placeholder="e.g. FGRU8800121"
+                              />
+                            </label>
+                            <label className="block space-y-1">
+                              <span className="text-[10px] font-bold uppercase text-slate-400">ETA</span>
+                              <input
+                                value={shipEtaById[s.id] ?? (s.eta === 'Pending dispatch' ? '3 Days' : s.eta)}
+                                onChange={(e) => setShipEtaById((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                placeholder="e.g. 3 Days"
+                              />
+                            </label>
+                            <label className="block space-y-1">
+                              <span className="text-[10px] font-bold uppercase text-slate-400">Shipment notes</span>
+                              <textarea
+                                rows={2}
+                                value={shipNotesById[s.id] ?? ''}
+                                onChange={(e) => setShipNotesById((prev) => ({ ...prev, [s.id]: e.target.value }))}
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                placeholder="Seal #, trailer, special handling…"
+                              />
+                            </label>
                           </div>
                         </div>
-                        <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
+                        <div className="mt-4 pt-3 border-t border-slate-100 dark:border-slate-800">
                           {s.status === 'delivered' ? (
                             <div className="w-full text-center py-2 bg-slate-100 text-[10.5px] font-mono font-black text-slate-500 uppercase rounded-lg">Pipeline closed</div>
                           ) : (
                             <button
-                              onClick={() => handleDispatch(s.id, s.item)}
+                              onClick={() => handleConfirmAndDispatch(s)}
                               disabled={dispatchingId !== null}
                               className="w-full py-3 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-mono text-xs font-black uppercase tracking-widest rounded-lg flex items-center justify-center gap-2"
                             >
-                              {dispatchingId === s.id ? (<><Loader2 className="w-4 h-4 animate-spin" /> Syncing to PSA…</>) : (<>Dispatch &amp; sync PSA <ArrowRight className="w-3.5 h-3.5" /></>)}
+                              {dispatchingId === s.id ? (
+                                <><Loader2 className="w-4 h-4 animate-spin" /> Syncing to PSA…</>
+                              ) : (
+                                <>Confirm qty &amp; ship <ArrowRight className="w-3.5 h-3.5" /></>
+                              )}
                             </button>
                           )}
                         </div>
@@ -595,13 +799,117 @@ export default function Logistics() {
 
           {activeTab === 'transit' && (
             <motion.div key="transit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex flex-col lg:flex-row overflow-hidden">
-              <div className="w-full lg:w-[32%] xl:w-[28%] bg-white dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col h-[38vh] lg:h-full shrink-0">
-                <div className="p-4 bg-[#0c1e36] text-white flex justify-between text-[10.5px] font-mono">
-                  <span className="font-bold text-sky-200">PSA-LINKED FLEET</span>
-                  <span className="text-slate-400">Active: {transitShipments.length}</span>
+              <div className="w-full lg:w-[32%] xl:w-[28%] bg-white dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col h-[42vh] lg:h-full shrink-0">
+                <div className="p-3 bg-[#0c1e36] text-white space-y-2 shrink-0">
+                  <div className="flex justify-between items-center text-[11px]">
+                    <span className="font-bold text-sky-200">PSA-linked fleet</span>
+                    <span className="text-slate-400">
+                      {filteredTransitShipments.length}
+                      {transitFilterCount > 0 ? ` / ${transitShipments.length}` : ''} active
+                    </span>
+                  </div>
+                  <div className="space-y-1">
+                    <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        [
+                          ['all', 'All'],
+                          ['on-time', 'On-time'],
+                          ['delayed', 'Delayed'],
+                          ['delivered', 'Delivered'],
+                        ] as const
+                      ).map(([value, label]) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setTransitStatusFilter(value)}
+                          className={cn(
+                            'px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors',
+                            transitStatusFilter === value
+                              ? value === 'delayed'
+                                ? 'bg-rose-600 border-rose-500 text-white'
+                                : value === 'delivered'
+                                  ? 'bg-sky-600 border-sky-500 text-white'
+                                  : value === 'on-time'
+                                    ? 'bg-emerald-600 border-emerald-500 text-white'
+                                    : 'bg-white/20 border-white/30 text-white'
+                              : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+                          )}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setTransitFiltersOpen((v) => !v)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
+                        transitFiltersOpen || transitFilterCount > 0
+                          ? 'bg-sky-600 border-sky-500 text-white'
+                          : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                      )}
+                    >
+                      <Filter className="w-3.5 h-3.5" />
+                      More filters
+                      {transitFilterCount > 0 && (
+                        <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] flex items-center justify-center">
+                          {transitFilterCount}
+                        </span>
+                      )}
+                    </button>
+                    {transitFilterCount > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTransitStatusFilter('all');
+                          setTransitModeFilter('all');
+                          setTransitSupplierFilter('all');
+                        }}
+                        className="inline-flex items-center gap-1 text-[10px] text-slate-300 hover:text-white"
+                      >
+                        <X className="w-3 h-3" /> Clear
+                      </button>
+                    )}
+                  </div>
+                  {transitFiltersOpen && (
+                    <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/10">
+                      <label className="space-y-0.5">
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Transport</span>
+                        <select
+                          value={transitModeFilter}
+                          onChange={(e) => setTransitModeFilter(e.target.value as typeof transitModeFilter)}
+                          className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                        >
+                          <option value="all">Sea &amp; land</option>
+                          <option value="ocean">Sea only</option>
+                          <option value="road">Land only</option>
+                        </select>
+                      </label>
+                      <label className="space-y-0.5">
+                        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Supplier</span>
+                        <select
+                          value={transitSupplierFilter}
+                          onChange={(e) => setTransitSupplierFilter(e.target.value)}
+                          className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                        >
+                          <option value="all">All suppliers</option>
+                          {transitSuppliers.map((v) => (
+                            <option key={v} value={v}>{v}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  )}
                 </div>
-                <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                  {isVendor ? (
+                <div className="flex-1 overflow-y-auto p-3 space-y-3">
+                  {filteredTransitShipments.length === 0 ? (
+                    <div className="text-center py-8 text-xs text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">
+                      No lots match these filters.
+                    </div>
+                  ) : isVendor ? (
                     <>
                       <Section
                         title="Disruption warnings"
@@ -621,8 +929,8 @@ export default function Logistics() {
                       />
                     </>
                   ) : (
-                    <div className="space-y-3">
-                      {transitShipments.map((s) => (
+                    <div className="space-y-2.5">
+                      {filteredTransitShipments.map((s) => (
                         <div key={s.id}>
                           <BuyerShipmentListItem
                             shipment={s}
@@ -634,8 +942,8 @@ export default function Logistics() {
                     </div>
                   )}
                 </div>
-                <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-between text-[10.5px] font-mono text-slate-500">
-                  <span>ROLE: {isVendor ? 'Supplier' : 'Retail buyer'}</span>
+                <div className="p-3 border-t border-slate-200 dark:border-slate-800 flex justify-between text-[10px] text-slate-500 shrink-0">
+                  <span>Role: {isVendor ? 'Supplier' : 'Retail buyer'}</span>
                   <span className="flex items-center gap-1 text-emerald-600"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> PSA live</span>
                 </div>
               </div>
@@ -667,34 +975,158 @@ export default function Logistics() {
 
                 {viewMode === 'map' && (
                   <div className="absolute inset-0 flex flex-col pt-16 overflow-hidden">
-                    {isVendor && selectedShipment && selectedShipment.status !== 'delivered' && aiAlerts[selectedShipment.id]?.hasAnomaly && (
+                    {selectedShipment && activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 z-10 w-full">
-                        <div className="bg-red-50/95 dark:bg-rose-950/20 border-l-4 border-rose-500 rounded-xl p-5 border border-rose-200/50 space-y-3">
+                        <div
+                          className={cn(
+                            'rounded-xl p-4 border space-y-3',
+                            selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
+                              ? 'bg-red-50/95 dark:bg-rose-950/20 border-l-4 border-rose-500 border-rose-200/50'
+                              : 'bg-amber-50/95 dark:bg-amber-950/20 border-l-4 border-amber-500 border-amber-200/50'
+                          )}
+                        >
                           <div className="flex items-start gap-3">
-                            <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0" />
-                            <div>
-                              <h4 className="text-sm font-black text-rose-900 uppercase font-mono">AI Disruption · {aiAlerts[selectedShipment.id].routeId}</h4>
-                              <p className="text-xs text-rose-700 mt-1 font-mono">{aiAlerts[selectedShipment.id].threatVector}</p>
-                              <p className="text-xs mt-2 flex items-center gap-2 bg-white/70 p-3 rounded-lg"><TrendingDown className="w-4 h-4" />{aiAlerts[selectedShipment.id].delayText}</p>
+                            <ShieldAlert
+                              className={cn(
+                                'w-5 h-5 shrink-0',
+                                selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
+                                  ? 'text-rose-600'
+                                  : 'text-amber-600'
+                              )}
+                            />
+                            <div className="min-w-0 flex-1">
+                              <h4
+                                className={cn(
+                                  'text-sm font-black uppercase font-mono',
+                                  selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
+                                    ? 'text-rose-900 dark:text-rose-200'
+                                    : 'text-amber-900 dark:text-amber-200'
+                                )}
+                              >
+                                {isVendor ? 'Supplier alert' : 'Buyer alert'} · {activeDisruption.routeId}
+                              </h4>
+                              <p className="text-xs mt-1 font-mono text-slate-700 dark:text-slate-300">
+                                {activeDisruption.threatVector}
+                              </p>
+                              <p className="text-xs mt-2 flex items-start gap-2 bg-white/70 dark:bg-slate-900/40 p-3 rounded-lg">
+                                <TrendingDown className="w-4 h-4 shrink-0 mt-0.5" />
+                                {activeDisruption.delayText}
+                              </p>
+                              {!isVendor && (
+                                <div className="mt-2 space-y-2">
+                                  <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/50 border border-amber-200/60 dark:border-amber-800/40 space-y-1.5">
+                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                                      Shelf life impact
+                                    </div>
+                                    <p className="text-xs text-slate-700 dark:text-slate-300">
+                                      {activeDisruption.shelfImpact}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
+                                      <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
+                                        Planned shelf: {activeDisruption.shelfLifeBefore ?? 14}d
+                                      </span>
+                                      <span className="px-2 py-1 rounded bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300">
+                                        At-risk shelf: {activeDisruption.shelfLifeAfter ?? 9}d
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div
+                                    className={cn(
+                                      'p-3 rounded-lg border space-y-1.5',
+                                      activeDisruption.willShortage
+                                        ? 'bg-rose-50/90 dark:bg-rose-950/30 border-rose-200 dark:border-rose-800/50'
+                                        : 'bg-white/80 dark:bg-slate-900/50 border-slate-200 dark:border-slate-700'
+                                    )}
+                                  >
+                                    <div
+                                      className={cn(
+                                        'text-[10px] font-bold uppercase tracking-wide',
+                                        activeDisruption.willShortage
+                                          ? 'text-rose-800 dark:text-rose-300'
+                                          : 'text-slate-500'
+                                      )}
+                                    >
+                                      {activeDisruption.willShortage
+                                        ? 'Shelf shortage if shipment stays delayed'
+                                        : 'Shelf stock check'}
+                                    </div>
+                                    <p className="text-xs text-slate-700 dark:text-slate-300">
+                                      {activeDisruption.shortageImpact}
+                                    </p>
+                                    <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
+                                      <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                        On hand: {(activeDisruption.storeOnHandCases ?? 0).toLocaleString()} cases
+                                      </span>
+                                      <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
+                                        Demand: {activeDisruption.dailyDemandCases ?? 0}/day
+                                      </span>
+                                      <span className="px-2 py-1 rounded bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                                        Cover: {activeDisruption.daysOfCover ?? 0}d
+                                      </span>
+                                      {activeDisruption.willShortage && (
+                                        <span className="px-2 py-1 rounded bg-rose-200 text-rose-900 dark:bg-rose-900/50 dark:text-rose-200">
+                                          Gap: {(activeDisruption.shortageCases ?? 0).toLocaleString()} cases · stockout ~
+                                          {activeDisruption.stockoutInDays ?? 0}d
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                              {isVendor && (
+                                <p className="text-[11px] mt-2 text-slate-600 dark:text-slate-400">
+                                  Informational only — no reroute approval required. Keep PSA Portnet updated with container status.
+                                </p>
+                              )}
                             </div>
-                            {isEvaluating && <div className="flex items-center gap-2 text-xs font-mono"><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Recalculating…</div>}
+                            {isEvaluating && (
+                              <div className="flex items-center gap-2 text-xs font-mono shrink-0">
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Recalculating…
+                              </div>
+                            )}
                           </div>
-                          <div className="border-t border-rose-200 pt-3 flex justify-between gap-3">
-                            <p className="text-xs text-rose-800 flex-1"><strong>{aiAlerts[selectedShipment.id].mitigationText}</strong></p>
-                            <button onClick={() => handleApproveReroute(selectedShipment.id)} className="px-4 py-2.5 bg-rose-600 text-white rounded-lg text-xs font-black uppercase font-mono shrink-0">
-                              Approve reroute &amp; sync PSA
-                            </button>
-                          </div>
+                          {!isVendor && (
+                            <div className="border-t border-amber-200/70 dark:border-amber-800/40 pt-3 flex flex-wrap justify-between gap-3 items-center">
+                              <p className="text-xs text-slate-700 dark:text-slate-300 flex-1">
+                                {activeDisruption.suggestedAction}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() => navigate('/inbox')}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-black uppercase font-mono shrink-0"
+                              >
+                                Review Inbox approvals
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => navigate('/procurement')}
+                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-xs font-black uppercase font-mono shrink-0"
+                              >
+                                <ShoppingCart className="w-3.5 h-3.5" />
+                                Ask alternative suppliers
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
-                    {!isVendor && selectedShipment && (
+                    {!isVendor && selectedShipment && !activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 w-full">
                         <div className="bg-[#0f2744] border border-sky-900/50 rounded-xl px-4 py-3 flex flex-wrap justify-between gap-2 text-xs text-white">
                           <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
                           <span className="text-[10px] font-mono text-emerald-300">Sync {formatSyncAge(selectedShipment.psaLastSyncAt)} · {selectedShipment.psaEvents?.length || 0} events</span>
+                        </div>
+                      </div>
+                    )}
+                    {!isVendor && selectedShipment && activeDisruption && (
+                      <div className="px-4 lg:px-5 pb-2 shrink-0 w-full">
+                        <div className="bg-[#0f2744] border border-sky-900/50 rounded-xl px-4 py-2 flex flex-wrap justify-between gap-2 text-xs text-white">
+                          <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
+                            <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
+                          </div>
+                          <span className="text-[10px] font-mono text-amber-300">Delay alert active · Sync {formatSyncAge(selectedShipment.psaLastSyncAt)}</span>
                         </div>
                       </div>
                     )}
@@ -711,6 +1143,23 @@ export default function Logistics() {
                           <div className="text-[11px] text-slate-400 mt-1">
                             {selectedShipment.containerNumber} · {selectedShipment.vesselName} · <span className="text-emerald-400">{selectedShipment.psaSyncStatus?.toUpperCase()}</span>
                           </div>
+                          {(() => {
+                            const lines = getShipmentCargoLines(selectedShipment);
+                            const poCount = new Set(lines.map((l) => l.poNumber)).size;
+                            return (
+                              <div className="text-[11px] text-sky-300/90 mt-1.5">
+                                {poCount} PO{poCount === 1 ? '' : 's'} / {lines.length} item{lines.length === 1 ? '' : 's'} in this container
+                                {' · '}
+                                <button
+                                  type="button"
+                                  onClick={() => setActiveTab('containers')}
+                                  className="underline hover:text-sky-200"
+                                >
+                                  View all PO details
+                                </button>
+                              </div>
+                            );
+                          })()}
                           <div className="flex flex-wrap gap-2 mt-3">
                             <span className="flex items-center gap-1.5 border border-slate-700 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Clock className="w-3.5 h-3.5" />{selectedShipment.status === 'delivered' ? 'Landed @ DC' : `ETA ${selectedShipment.eta}`}</span>
                             <span className="flex items-center gap-1.5 border border-emerald-900/60 bg-emerald-950/40 text-emerald-400 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Thermometer className="w-3.5 h-3.5" />{selectedShipment.temp}</span>
@@ -724,76 +1173,20 @@ export default function Logistics() {
 
                 {viewMode === 'timeline' && (
                   <div className="absolute inset-0 overflow-y-auto p-4 lg:p-5 pt-20">
-                    <div className="w-full bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden">
-                      <div className="px-6 py-4 bg-[#0c1e36] text-white">
-                        <h2 className="text-lg font-black font-mono uppercase tracking-wider">PSA Portnet event stream</h2>
-                        <p className="text-xs text-slate-400 mt-1">{selectedShipment ? `${selectedShipment.containerNumber} · completely synced with PSA` : 'Select a shipment'}</p>
-                      </div>
-                      <div className="p-6">
-                      {selectedShipment?.psaEvents?.length ? (
-                        <div className="space-y-4 pl-4 border-l-2 border-sky-300 dark:border-sky-800">
-                          {[...selectedShipment.psaEvents].reverse().map((ev) => (
-                            <div key={ev.id} className="relative">
-                              <span className="absolute -left-[21px] top-1.5 w-3 h-3 rounded-full bg-sky-500 border-2 border-white dark:border-slate-900" />
-                              <div className="font-bold text-sm">{ev.label}</div>
-                              <div className="text-xs text-slate-500">{ev.location} · {ev.source}</div>
-                              {ev.details && <div className="text-xs text-slate-600 mt-1">{ev.details}</div>}
-                              <div className="text-[10px] font-mono text-slate-400 mt-1">{format(new Date(ev.timestamp), 'PPpp')}</div>
-                            </div>
-                          ))}
-                        </div>
-                      ) : (
-                        <div className="text-xs text-slate-400 font-mono py-8 text-center">No PSA events yet.</div>
-                      )}
-                      </div>
-                    </div>
+                    <PsaTimelinePanel shipment={selectedShipment} />
                   </div>
                 )}
 
                 {viewMode === 'calendar' && (
                   <div className="absolute inset-0 overflow-auto p-4 lg:p-5 pt-20">
-                    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-md overflow-hidden w-full">
-                      <div className="px-6 py-4 bg-[#0c1e36] text-white flex justify-between items-center">
-                        <div>
-                          <span className="text-[10px] font-bold tracking-wider text-sky-300 uppercase font-mono">PSA delivery calendar</span>
-                          <h2 className="text-xl font-bold">Delivery schedule</h2>
-                        </div>
-                        <div className="flex gap-2 font-mono">
-                          <button onClick={() => setCurrentDate(subDays(currentDate, 7))} className="p-2 border rounded-md border-white/20 hover:bg-white/10"><ChevronLeft className="w-4 h-4" /></button>
-                          <span className="flex items-center px-4 font-bold text-xs bg-white/10 border rounded-md border-white/15">
-                            {format(weekStart, 'MMM d')} – {format(addDays(weekStart, 6), 'MMM d, yyyy')}
-                          </span>
-                          <button onClick={() => setCurrentDate(addDays(currentDate, 7))} className="p-2 border rounded-md border-white/20 hover:bg-white/10"><ChevronRight className="w-4 h-4" /></button>
-                        </div>
-                      </div>
-                      <div className="p-6">
-                      <div className="grid grid-cols-1 md:grid-cols-7 gap-4">
-                        {weekDays.map((day, idx) => {
-                          const dayDels = calendarDeliveries.filter((d) => isSameDay(d.date, day));
-                          const isToday = isSameDay(day, new Date());
-                          return (
-                            <div key={idx} className={cn('h-[380px] flex flex-col border rounded-xl overflow-hidden', isToday ? 'border-sky-400 ring-1 ring-sky-400' : 'border-slate-200 dark:border-slate-800')}>
-                              <div className={cn('px-3 py-2 border-b text-xs text-center', isToday ? 'bg-sky-50 text-sky-800 font-extrabold' : 'bg-slate-50 dark:bg-slate-900')}>
-                                {format(day, 'EEE')}<br /><span className="text-lg font-semibold">{format(day, 'd')}</span>
-                              </div>
-                              <div className="p-2 space-y-2 overflow-y-auto flex-1">
-                                {dayDels.map((del, i) => (
-                                  <div key={i} className={cn('p-2.5 rounded-lg border text-xs', del.issue === 'delayed' ? 'border-rose-200 text-rose-700' : 'border-slate-200 dark:border-slate-800')}>
-                                    <div className="font-bold flex justify-between font-mono text-[10px]">
-                                      <span>{del.id}</span>
-                                      {del.type === 'ship' ? <Ship className="w-3 h-3" /> : <Truck className="w-3 h-3" />}
-                                    </div>
-                                    <div className="text-slate-500 mt-1 line-clamp-2">{del.items}</div>
-                                    <div className="text-[9px] font-mono text-slate-400 mt-1">{del.container}</div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      </div>
-                    </div>
+                    <ShipmentCalendar
+                      shipments={filteredTransitShipments}
+                      searchQuery={searchQuery}
+                      onSelectShipment={(id) => {
+                        setSelectedShipmentId(id);
+                        setViewMode('map');
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -854,13 +1247,20 @@ function ShipmentListItem({
   active: boolean;
   onClick: () => void;
 }) {
-  const isDelayed = shipment.status === 'delayed' || shipment.hasAnomaly;
+  const isDelayed = shipment.status === 'delayed' || !!shipment.hasAnomaly;
   const isDelivered = shipment.status === 'delivered';
   return (
     <div onClick={onClick} className={cn(
-      'p-4 rounded-xl border cursor-pointer flex flex-col gap-2.5',
-      active ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900',
-      isDelayed && !active && !isDelivered && 'border-rose-200'
+      'p-4 rounded-xl border cursor-pointer flex flex-col gap-2.5 transition-colors',
+      isDelivered && (active
+        ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20'
+        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'),
+      isDelayed && !isDelivered && (active
+        ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-100 dark:bg-rose-950/40'
+        : 'border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/25'),
+      !isDelayed && !isDelivered && (active
+        ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40'
+        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900')
     )}>
       <div className="flex justify-between gap-2">
         <div>
@@ -870,12 +1270,12 @@ function ShipmentListItem({
         {isDelivered ? (
           <span className="bg-emerald-600 text-white font-mono text-[8.5px] font-black uppercase px-2 py-0.5 rounded">Delivered</span>
         ) : isDelayed ? (
-          <span className="bg-rose-50 border border-rose-200 px-2 py-0.5 rounded text-[8.5px] font-black uppercase text-rose-600 font-mono flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Alert</span>
+          <span className="bg-rose-200/80 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-700 px-2 py-0.5 rounded text-[8.5px] font-black uppercase text-rose-700 dark:text-rose-300 font-mono flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Delayed</span>
         ) : (
           <span className="bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded text-[8.5px] font-black uppercase text-emerald-600 font-mono">On track</span>
         )}
       </div>
-      <div className="border-t border-slate-100 dark:border-slate-800 pt-2 flex justify-between text-[11px] text-slate-500">
+      <div className={cn('border-t pt-2 flex justify-between text-[11px] text-slate-500', isDelayed && !isDelivered ? 'border-rose-200/80 dark:border-rose-800/50' : 'border-slate-100 dark:border-slate-800')}>
         <span className="truncate">From: <strong className="text-slate-700 dark:text-slate-300">{shipment.origin}</strong></span>
         <ArrowRight className="w-3.5 h-3.5 mx-1 shrink-0" />
         <span className="truncate text-right">To: <strong className="text-slate-700 dark:text-slate-300">{shipment.destination}</strong></span>
@@ -890,24 +1290,52 @@ function ShipmentListItem({
 
 function BuyerShipmentListItem({ shipment, active, onClick }: { shipment: Shipment; active: boolean; onClick: () => void }) {
   const isDelivered = shipment.status === 'delivered';
+  const isDelayed = shipment.status === 'delayed' || !!shipment.hasAnomaly;
   let status = 'In transit · PSA synced';
   if (isDelivered) status = 'Delivered';
+  else if (isDelayed) status = 'Delayed · PSA update';
   else if (shipment.rerouted) status = 'Approaching DC';
-  else if (shipment.status === 'delayed') status = 'Delayed · PSA update';
+  else if (shipment.expectedDelay) status = 'Expected delay ahead';
   let eta = shipment.eta;
-  if (shipment.id === 'PO-2026-8842') eta = 'Oct 19, 08:30 AM';
+  if (shipment.id === 'PO-2026-DELAY1') eta = shipment.eta;
+  else if (shipment.id === 'PO-2026-8842') eta = 'Oct 19, 08:30 AM';
   else if (shipment.id === 'PO-2026-9912A') eta = 'Oct 20, 11:15 AM';
   else if (shipment.id === 'PO-2026-7731C') eta = 'Oct 22, 02:45 PM';
 
   return (
     <div onClick={onClick} className={cn(
-      'p-4 rounded-xl border cursor-pointer flex flex-col gap-2',
-      active ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40' : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'
+      'p-4 rounded-xl border cursor-pointer flex flex-col gap-2 transition-colors',
+      isDelivered && (active
+        ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50'
+        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'),
+      isDelayed && !isDelivered && (active
+        ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-100 dark:bg-rose-950/40'
+        : 'border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/25'),
+      !isDelayed && !isDelivered && (active
+        ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40'
+        : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900')
     )}>
-      <h4 className="text-xs font-black font-mono">{shipment.id}: <span className="font-sans font-extrabold text-emerald-700 dark:text-emerald-400">{shipment.product || shipment.item}</span></h4>
+      <div className="flex items-start justify-between gap-2">
+        <h4 className="text-xs font-black font-mono">
+          {shipment.id}:{' '}
+          <span className={cn('font-sans font-extrabold', isDelayed ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400')}>
+            {shipment.product || shipment.item}
+          </span>
+        </h4>
+        {isDelayed && !isDelivered && (
+          <span className="shrink-0 bg-rose-200/80 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-rose-700 dark:text-rose-300 flex items-center gap-0.5">
+            <AlertTriangle className="w-2.5 h-2.5" /> Delayed
+          </span>
+        )}
+      </div>
       <div className="text-[10px] font-mono text-slate-500">{shipment.containerNumber} · {shipment.vesselName}</div>
       <div className="text-[11px] mt-1">
-        <div className="font-semibold text-slate-600">Status: <span className="text-emerald-700 dark:text-emerald-400 font-bold">{status}</span></div>
+        <div className="font-semibold text-slate-600">
+          Status:{' '}
+          <span className={cn('font-bold', isDelayed ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400')}>
+            {status}
+          </span>
+        </div>
         <div className="text-slate-500 font-mono mt-0.5">Expected: <span className="text-slate-700 dark:text-slate-300 font-bold">{isDelivered ? 'Closed' : eta}</span></div>
       </div>
     </div>

@@ -1,239 +1,681 @@
-import { subDays } from 'date-fns';
+import { addDays, subDays } from 'date-fns';
 import { createPsaEvent } from './psa';
-import type { Shipment } from './shipmentTypes';
+import type { ContainerCargoLine, Shipment } from './shipmentTypes';
 
 function hoursAgo(h: number) {
   return Date.now() - h * 3600_000;
 }
 
-export function seedDefaultShipments(): Shipment[] {
-  const now = new Date().toISOString();
-  return [
+function dayIso(offset: number) {
+  return addDays(new Date(), offset).toISOString();
+}
+
+const SUPPLIERS = [
+  'Global Farms Suppliers',
+  'Ocean Catch Suppliers',
+  'Sunrise Dairy Co.',
+  'Berry Farms Suppliers',
+  'Valley Meats Inc.',
+  'FreshPack Co.',
+  'AgriGro Wholesale',
+  'PureLand Creamery',
+  'Plains Beef & Co.',
+  'Valley Green Produce',
+  'Midwest Dairy Group',
+  'Coastal Citrus Co.',
+];
+
+const PRODUCTS: Array<{ product: string; unit: string; baseQty: number }> = [
+  { product: 'Hard-Boiled Eggs', unit: 'Cases', baseQty: 800 },
+  { product: 'Fresh Salmon', unit: 'Cases', baseQty: 200 },
+  { product: 'Organic Milk', unit: 'Cases', baseQty: 400 },
+  { product: 'Strawberries', unit: 'Cases', baseQty: 650 },
+  { product: 'Chilled Beef', unit: 'Cases', baseQty: 320 },
+  { product: 'Romaine Hearts', unit: 'Cases', baseQty: 900 },
+  { product: 'Tuna Loins', unit: 'Cases', baseQty: 150 },
+  { product: 'Hass Avocados', unit: 'Cases', baseQty: 500 },
+  { product: 'Greek Yogurt', unit: 'Cases', baseQty: 280 },
+  { product: 'Organic Cucumbers', unit: 'Cases', baseQty: 1100 },
+  { product: 'Atlantic Cod', unit: 'Cases', baseQty: 180 },
+  { product: 'Baby Spinach', unit: 'Cases', baseQty: 720 },
+  { product: 'Chicken Breast', unit: 'Cases', baseQty: 450 },
+  { product: 'Blueberries', unit: 'Cases', baseQty: 380 },
+  { product: 'Butter Blocks', unit: 'Cases', baseQty: 260 },
+  { product: 'Shrimp (IQF)', unit: 'Cases', baseQty: 220 },
+];
+
+const LAND_ROUTES = [
+  { origin: 'Miami Reefer Yard', route: 'Miami → Chicago DC', originLat: 25.7781, originLng: -80.1797 },
+  { origin: 'Wisconsin Creamery', route: 'Wisconsin → Chicago DC', originLat: 43.0731, originLng: -89.4012 },
+  { origin: 'Salinas Grower Hub', route: 'Salinas → Chicago DC', originLat: 36.6777, originLng: -121.6555 },
+  { origin: 'Kansas City Hub', route: 'KC → Chicago DC', originLat: 39.0997, originLng: -94.5786 },
+  { origin: 'Yuma Greenhouse Yard', route: 'Yuma → Chicago DC', originLat: 32.6927, originLng: -114.6277 },
+  { origin: 'Iowa Produce Cluster', route: 'Iowa → Chicago DC', originLat: 41.5868, originLng: -93.625 },
+  { origin: 'Atlanta Cross-Dock', route: 'Atlanta → Chicago DC', originLat: 33.749, originLng: -84.388 },
+  { origin: 'Dallas Cold Hub', route: 'Dallas → Chicago DC', originLat: 32.7767, originLng: -96.797 },
+  { origin: 'Detroit Food Terminal', route: 'Detroit → Chicago DC', originLat: 42.3314, originLng: -83.0458 },
+  { origin: 'Minneapolis Dairy Gate', route: 'Minneapolis → Chicago DC', originLat: 44.9778, originLng: -93.265 },
+];
+
+const SEA_ROUTES = [
+  {
+    origin: 'PSA Singapore — Tuas Port',
+    route: 'Singapore → LA → Chicago DC',
+    originLat: 1.2644,
+    originLng: 103.666,
+    terminal: 'PSA Tuas Terminal',
+    vesselPrefix: 'MV Pacific',
+  },
+  {
+    origin: 'PSA Busan Terminal',
+    route: 'Busan → Seattle → Chicago DC',
+    originLat: 35.1028,
+    originLng: 129.0403,
+    terminal: 'PSA Busan Gate',
+    vesselPrefix: 'MV North Star',
+  },
+  {
+    origin: 'Port of Rotterdam — Reefer Quay',
+    route: 'Rotterdam → NY → Chicago DC',
+    originLat: 51.9225,
+    originLng: 4.4792,
+    terminal: 'PSA / ECT Rotterdam',
+    vesselPrefix: 'MV Atlantic Chill',
+  },
+  {
+    origin: 'Port of Valparaíso',
+    route: 'Valparaíso → LA → Chicago DC',
+    originLat: -33.0472,
+    originLng: -71.6127,
+    terminal: 'PSA LatAm Partner Gate',
+    vesselPrefix: 'MV Andes Fresh',
+  },
+  {
+    origin: 'Port of Auckland',
+    route: 'Auckland → Long Beach → Chicago DC',
+    originLat: -36.8485,
+    originLng: 174.7633,
+    terminal: 'PSA Oceania Link',
+    vesselPrefix: 'MV Kiwi Stream',
+  },
+  {
+    origin: 'Port of Santos',
+    route: 'Santos → Houston → Chicago DC',
+    originLat: -23.9608,
+    originLng: -46.3336,
+    terminal: 'PSA Brasil Partner',
+    vesselPrefix: 'MV Samba Cool',
+  },
+];
+
+const STATUSES: Array<Shipment['status']> = ['on-time', 'on-time', 'on-time', 'delayed', 'delivered'];
+const STAGES: Array<NonNullable<Shipment['stage']>> = ['delivering', 'delivering', 'delivering', 'packing', 'delivered'];
+const BUYER_REFS = ['HQ DC Chicago', 'Lincoln Park', 'West Loop', 'River North', 'South Loop'];
+
+/** Build multi-PO cargo for a shared container. */
+function buildCargoLines(
+  primaryId: string,
+  primaryProduct: string,
+  primaryQty: number,
+  primaryUnit: string,
+  seed: number,
+  extraCount?: number
+): ContainerCargoLine[] {
+  const extras = extraCount ?? 1 + (seed % 4);
+  const lines: ContainerCargoLine[] = [
     {
-      id: 'PO-2026-8842',
-      vendor: 'Global Farms Suppliers',
-      item: '1,200 Cases of Hard-Boiled Eggs',
-      product: 'Hard-Boiled Eggs',
-      quantity: 1200,
-      unit: 'Cases',
-      fleetSpecification: 'Active Refrigerated',
-      logisticsRouteAndProvider: 'Route #402 Corridor',
-      status: 'delayed',
-      eta: '14 hrs',
-      origin: 'Global Farms Plant #4 — Miami Port',
-      destination: 'Chicago DC',
-      temp: '3.2°C',
-      route: 'Miami → Chicago DC',
-      date: now,
-      hasAnomaly: true,
-      stage: 'packing',
-      packingProgress: 65,
-      preCoolingTarget: 'Pre-Cooling Target: 3°C (Currently: 3.2°C)',
-      containerNumber: 'FGUU4582190',
-      vesselName: 'Road Reefer Unit RT-402',
-      voyageNumber: 'N/A',
-      bookingNumber: 'BK-8842-GF',
-      psaTerminal: 'PortMiami / PSA Haulage Sync',
-      psaSyncStatus: 'synced',
-      psaLastSyncAt: now,
-      transportMode: 'road',
-      originLat: 25.7781,
-      originLng: -80.1797,
-      destLat: 41.8781,
-      destLng: -87.6298,
-      currentLat: 33.45,
-      currentLng: -84.2,
-      psaEvents: [
-        createPsaEvent('BOOKING_CONFIRMED', 'PortMiami', {
-          id: 'e-8842-1',
-          timestamp: new Date(hoursAgo(48)).toISOString(),
-          lat: 25.7781,
-          lng: -80.1797,
-        }),
-        createPsaEvent('GATE_IN', 'PortMiami Gate 3', {
-          id: 'e-8842-2',
-          timestamp: new Date(hoursAgo(36)).toISOString(),
-          lat: 25.7781,
-          lng: -80.1797,
-        }),
-        createPsaEvent('INLAND_TRANSIT', 'I-75 North Corridor', {
-          id: 'e-8842-3',
-          timestamp: new Date(hoursAgo(12)).toISOString(),
-          lat: 33.45,
-          lng: -84.2,
-          details: 'Flash flood delay near Sector 4',
-        }),
-        createPsaEvent('TEMP_ALERT', 'Sector 4 Gateway', {
-          id: 'e-8842-4',
-          timestamp: new Date(hoursAgo(2)).toISOString(),
-          lat: 35.1,
-          lng: -85.3,
-          details: 'Reefer hold at 3.2°C — warning band',
-        }),
-      ],
-    },
-    {
-      id: 'PO-2026-9912A',
-      vendor: 'Ocean Catch Suppliers',
-      item: '200 Cases of Fresh Salmon',
-      product: 'Fresh Salmon',
-      quantity: 200,
-      unit: 'Cases',
-      fleetSpecification: 'Active Refrigerated',
-      logisticsRouteAndProvider: 'PSA Portnet · Tuas Terminal',
-      status: 'on-time',
-      eta: '1.5 Days',
-      origin: 'PSA Singapore — Tuas Port',
-      destination: 'Chicago DC',
-      temp: '3°C [Stable]',
-      route: 'Singapore → LA → Chicago DC',
-      date: subDays(new Date(), 1).toISOString(),
-      stage: 'delivering',
-      packingProgress: 100,
-      preCoolingTarget: 'Pre-Cooling Target: 3°C (Currently: 3.0°C)',
-      containerNumber: 'PSAU8823147',
-      vesselName: 'MV Pacific Fresh',
-      voyageNumber: 'PF-229W',
-      bookingNumber: 'SG-PSA-9912A',
-      psaTerminal: 'PSA Tuas Terminal',
-      psaSyncStatus: 'synced',
-      psaLastSyncAt: now,
-      transportMode: 'ocean',
-      originLat: 1.2644,
-      originLng: 103.666,
-      destLat: 41.8781,
-      destLng: -87.6298,
-      currentLat: 28.5,
-      currentLng: -145.2,
-      psaEvents: [
-        createPsaEvent('BOOKING_CONFIRMED', 'PSA Portnet', {
-          id: 'e-9912-1',
-          timestamp: new Date(hoursAgo(120)).toISOString(),
-          lat: 1.2644,
-          lng: 103.666,
-        }),
-        createPsaEvent('GATE_IN', 'PSA Tuas Gate A', {
-          id: 'e-9912-2',
-          timestamp: new Date(hoursAgo(96)).toISOString(),
-          lat: 1.2644,
-          lng: 103.666,
-        }),
-        createPsaEvent('LOADED', 'MV Pacific Fresh · Bay 42', {
-          id: 'e-9912-3',
-          timestamp: new Date(hoursAgo(84)).toISOString(),
-          lat: 1.2644,
-          lng: 103.666,
-        }),
-        createPsaEvent('VESSEL_DEPARTURE', 'Singapore Strait', {
-          id: 'e-9912-4',
-          timestamp: new Date(hoursAgo(72)).toISOString(),
-          lat: 1.13,
-          lng: 103.55,
-        }),
-        createPsaEvent('IN_TRANSIT_SEA', 'North Pacific', {
-          id: 'e-9912-5',
-          timestamp: new Date(hoursAgo(8)).toISOString(),
-          lat: 28.5,
-          lng: -145.2,
-          details: 'AIS position synced via PSA Portnet',
-        }),
-      ],
-    },
-    {
-      id: 'PO-2026-7731C',
-      vendor: 'Sunrise Dairy Co.',
-      item: '400 Cases of Organic Milk',
-      product: 'Organic Milk',
-      quantity: 400,
-      unit: 'Cases',
-      fleetSpecification: 'Active Refrigerated',
-      logisticsRouteAndProvider: 'US-12 West',
-      status: 'on-time',
-      eta: '3 Days',
-      origin: 'Wisconsin Farm Store',
-      destination: 'Chicago DC',
-      temp: '4°C [Stable]',
-      route: 'Wisconsin → Chicago DC',
-      date: subDays(new Date(), 2).toISOString(),
-      stage: 'delivering',
-      packingProgress: 100,
-      preCoolingTarget: 'Pre-Cooling Target: 4°C (Currently: 4.0°C)',
-      containerNumber: 'FGRU2201844',
-      vesselName: 'Road Reefer Unit RT-12',
-      voyageNumber: 'N/A',
-      bookingNumber: 'BK-7731-SD',
-      psaTerminal: 'PSA Connected Haulage',
-      psaSyncStatus: 'synced',
-      psaLastSyncAt: now,
-      transportMode: 'road',
-      originLat: 43.0731,
-      originLng: -89.4012,
-      destLat: 41.8781,
-      destLng: -87.6298,
-      currentLat: 42.5,
-      currentLng: -88.4,
-      psaEvents: [
-        createPsaEvent('BOOKING_CONFIRMED', 'FreshGuard ↔ PSA', {
-          id: 'e-7731-1',
-          timestamp: new Date(hoursAgo(60)).toISOString(),
-          lat: 43.0731,
-          lng: -89.4012,
-        }),
-        createPsaEvent('GATE_IN', 'Vendor Yard Gate', {
-          id: 'e-7731-2',
-          timestamp: new Date(hoursAgo(40)).toISOString(),
-          lat: 43.0731,
-          lng: -89.4012,
-        }),
-        createPsaEvent('INLAND_TRANSIT', 'US-12 West', {
-          id: 'e-7731-3',
-          timestamp: new Date(hoursAgo(6)).toISOString(),
-          lat: 42.5,
-          lng: -88.4,
-        }),
-      ],
+      poNumber: primaryId,
+      product: primaryProduct,
+      item: `${primaryQty.toLocaleString()} ${primaryUnit} of ${primaryProduct}`,
+      quantity: primaryQty,
+      unit: primaryUnit,
+      sku: `SKU-${(1000 + seed).toString()}`,
+      buyerRef: BUYER_REFS[seed % BUYER_REFS.length],
+      lineStatus: 'shipped',
     },
   ];
+  for (let j = 0; j < extras; j++) {
+    const prod = PRODUCTS[(seed + j + 3) % PRODUCTS.length];
+    const qty = prod.baseQty + ((seed + j) % 5) * 20;
+    const poNum = `PO-2026-${(3000 + seed * 10 + j).toString()}`;
+    lines.push({
+      poNumber: poNum,
+      product: prod.product,
+      item: `${qty.toLocaleString()} ${prod.unit} of ${prod.product}`,
+      quantity: qty,
+      unit: prod.unit,
+      sku: `SKU-${(2000 + seed * 10 + j).toString()}`,
+      buyerRef: BUYER_REFS[(seed + j + 1) % BUYER_REFS.length],
+      lineStatus: j === extras - 1 && seed % 7 === 0 ? 'partial' : 'shipped',
+    });
+  }
+  return lines;
+}
+
+/** Generate a large mixed Sea + Land shipment catalog for buyer calendar / tracking demos. */
+export function seedDefaultShipments(): Shipment[] {
+  const now = new Date().toISOString();
+  const destLat = 41.8781;
+  const destLng = -87.6298;
+  const count = 80;
+  const list: Shipment[] = [];
+
+  list.push({
+    id: 'PO-2026-9912A',
+    vendor: 'Ocean Catch Suppliers',
+    item: '200 Cases of Fresh Salmon',
+    product: 'Fresh Salmon',
+    quantity: 200,
+    unit: 'Cases',
+    fleetSpecification: 'Ocean Reefer',
+    logisticsRouteAndProvider: 'PSA Portnet · Tuas Terminal',
+    status: 'on-time',
+    eta: '2 Days',
+    origin: 'PSA Singapore — Tuas Port',
+    destination: 'Chicago DC',
+    temp: '3°C [Stable]',
+    route: 'Singapore → LA → Chicago DC',
+    date: subDays(new Date(), 1).toISOString(),
+    etaDate: dayIso(2),
+    stage: 'delivering',
+    packingProgress: 100,
+    preCoolingTarget: 'Pre-Cooling Target: 3°C (Currently: 3.0°C)',
+    containerNumber: 'PSAU8823147',
+    vesselName: 'MV Pacific Fresh',
+    voyageNumber: 'PF-229W',
+    bookingNumber: 'SG-PSA-9912A',
+    psaTerminal: 'PSA Tuas Terminal',
+    psaSyncStatus: 'synced',
+    psaLastSyncAt: now,
+    transportMode: 'ocean',
+    originLat: 1.2644,
+    originLng: 103.666,
+    destLat,
+    destLng,
+    currentLat: 28.5,
+    currentLng: -145.2,
+    cargoLines: [
+      {
+        poNumber: 'PO-2026-9912A',
+        product: 'Fresh Salmon',
+        item: '200 Cases of Fresh Salmon',
+        quantity: 200,
+        unit: 'Cases',
+        sku: 'SKU-SAL-9912',
+        buyerRef: 'HQ DC Chicago',
+        lineStatus: 'shipped',
+      },
+      {
+        poNumber: 'PO-2026-9912B',
+        product: 'Tuna Loins',
+        item: '120 Cases of Tuna Loins',
+        quantity: 120,
+        unit: 'Cases',
+        sku: 'SKU-TUN-9912',
+        buyerRef: 'Lincoln Park',
+        lineStatus: 'shipped',
+      },
+      {
+        poNumber: 'PO-2026-9912C',
+        product: 'Shrimp (IQF)',
+        item: '180 Cases of Shrimp (IQF)',
+        quantity: 180,
+        unit: 'Cases',
+        sku: 'SKU-SHP-9912',
+        buyerRef: 'West Loop',
+        lineStatus: 'shipped',
+      },
+      {
+        poNumber: 'PO-2026-8840',
+        product: 'Atlantic Cod',
+        item: '90 Cases of Atlantic Cod',
+        quantity: 90,
+        unit: 'Cases',
+        sku: 'SKU-COD-8840',
+        buyerRef: 'River North',
+        lineStatus: 'partial',
+      },
+    ],
+    psaEvents: [
+      createPsaEvent('BOOKING_CONFIRMED', 'PSA Portnet', {
+        id: 'e-9912-1',
+        timestamp: new Date(hoursAgo(120)).toISOString(),
+        lat: 1.2644,
+        lng: 103.666,
+      }),
+      createPsaEvent('GATE_IN', 'PSA Tuas Gate A', {
+        id: 'e-9912-2',
+        timestamp: new Date(hoursAgo(96)).toISOString(),
+        lat: 1.2644,
+        lng: 103.666,
+      }),
+      createPsaEvent('LOADED', 'MV Pacific Fresh · Bay 42', {
+        id: 'e-9912-3',
+        timestamp: new Date(hoursAgo(84)).toISOString(),
+        lat: 1.2644,
+        lng: 103.666,
+        details: '4 purchase orders consolidated in PSAU8823147',
+      }),
+      createPsaEvent('VESSEL_DEPARTURE', 'Singapore Strait', {
+        id: 'e-9912-4',
+        timestamp: new Date(hoursAgo(72)).toISOString(),
+        lat: 1.13,
+        lng: 103.55,
+      }),
+      createPsaEvent('IN_TRANSIT_SEA', 'North Pacific', {
+        id: 'e-9912-5',
+        timestamp: new Date(hoursAgo(8)).toISOString(),
+        lat: 28.5,
+        lng: -145.2,
+        details: 'AIS position synced via PSA Portnet',
+      }),
+    ],
+  });
+
+  // Showcase: active delayed stretch (red) + expected delay ahead (orange)
+  list.push({
+    id: 'PO-2026-DELAY1',
+    vendor: 'Global Farms Suppliers',
+    item: '1,200 Cases of Hard-Boiled Eggs',
+    product: 'Hard-Boiled Eggs',
+    quantity: 1200,
+    unit: 'Cases',
+    fleetSpecification: 'Active Refrigerated',
+    logisticsRouteAndProvider: 'Route #402 Corridor · PSA Haulage',
+    status: 'delayed',
+    eta: '14 hrs (revised)',
+    origin: 'Global Farms Plant #4 — Miami Port',
+    destination: 'Chicago DC',
+    temp: '5.8°C [Rising]',
+    route: 'Miami → Chicago DC',
+    date: subDays(new Date(), 1).toISOString(),
+    etaDate: dayIso(1),
+    hasAnomaly: true,
+    expectedDelay: true,
+    stage: 'delivering',
+    packingProgress: 100,
+    preCoolingTarget: 'Pre-Cooling Target: 3°C (Currently: 5.8°C)',
+    shelfLifeDays: 14,
+    shelfLifeDaysAtRisk: 9,
+    storeOnHandCases: 180,
+    dailyDemandCases: 120,
+    containerNumber: 'FGUU4582190',
+    vesselName: 'Road Reefer RT-402',
+    voyageNumber: 'N/A',
+    bookingNumber: 'BK-DELAY-402',
+    psaTerminal: 'PSA Connected Haulage',
+    psaSyncStatus: 'synced',
+    psaLastSyncAt: now,
+    transportMode: 'road',
+    originLat: 25.7781,
+    originLng: -80.1797,
+    destLat,
+    destLng,
+    // Mid-corridor — creates a visible red delayed stretch behind the asset
+    currentLat: 35.2,
+    currentLng: -86.8,
+    cargoLines: buildCargoLines('PO-2026-DELAY1', 'Hard-Boiled Eggs', 1200, 'Cases', 42, 2),
+    psaEvents: [
+      createPsaEvent('BOOKING_CONFIRMED', 'Miami Reefer Yard', {
+        id: 'e-delay-1',
+        timestamp: new Date(hoursAgo(40)).toISOString(),
+        lat: 25.7781,
+        lng: -80.1797,
+      }),
+      createPsaEvent('GATE_OUT', 'Miami Gate B', {
+        id: 'e-delay-2',
+        timestamp: new Date(hoursAgo(36)).toISOString(),
+        lat: 25.9,
+        lng: -80.3,
+      }),
+      createPsaEvent('INLAND_TRANSIT', 'I-75 North', {
+        id: 'e-delay-3',
+        timestamp: new Date(hoursAgo(28)).toISOString(),
+        lat: 30.1,
+        lng: -83.2,
+      }),
+      createPsaEvent('TEMP_ALERT', 'Sector 4 Gateway — flash flood zone', {
+        id: 'e-delay-4',
+        timestamp: new Date(hoursAgo(10)).toISOString(),
+        lat: 33.8,
+        lng: -85.4,
+        details: 'Delayed stretch: corridor congestion + reefer temp climb. ETA +14 hrs.',
+      }),
+      createPsaEvent('ETA_REVISED', 'Nashville bypass hold', {
+        id: 'e-delay-5',
+        timestamp: new Date(hoursAgo(4)).toISOString(),
+        lat: 35.2,
+        lng: -86.8,
+        details: 'Expected delay ahead through Indianapolis corridor — PSA Portnet revised ETA.',
+      }),
+    ],
+  });
+
+  // Showcase: on-time so far, but expected delay ahead (orange remaining path)
+  list.push({
+    id: 'PO-2026-EXPECT1',
+    vendor: 'Ocean Catch Suppliers',
+    item: '180 Cases of Fresh Salmon',
+    product: 'Fresh Salmon',
+    quantity: 180,
+    unit: 'Cases',
+    fleetSpecification: 'Ocean Reefer',
+    logisticsRouteAndProvider: 'PSA Portnet · Tuas Terminal',
+    status: 'on-time',
+    eta: '3 Days (at risk)',
+    origin: 'PSA Singapore — Tuas Port',
+    destination: 'Chicago DC',
+    temp: '3.1°C [Stable]',
+    route: 'Singapore → LA → Chicago DC',
+    date: subDays(new Date(), 2).toISOString(),
+    etaDate: dayIso(3),
+    hasAnomaly: false,
+    expectedDelay: true,
+    stage: 'delivering',
+    packingProgress: 100,
+    preCoolingTarget: 'Pre-Cooling Target: 3°C (Currently: 3.1°C)',
+    shelfLifeDays: 12,
+    shelfLifeDaysAtRisk: 8,
+    storeOnHandCases: 40,
+    dailyDemandCases: 55,
+    containerNumber: 'PSAU7700144',
+    vesselName: 'MV Pacific Fresh',
+    voyageNumber: 'PF-231W',
+    bookingNumber: 'SG-PSA-EXPECT1',
+    psaTerminal: 'PSA Tuas Terminal',
+    psaSyncStatus: 'synced',
+    psaLastSyncAt: now,
+    transportMode: 'ocean',
+    originLat: 1.2644,
+    originLng: 103.666,
+    destLat,
+    destLng,
+    currentLat: 20.5,
+    currentLng: -155.0,
+    cargoLines: buildCargoLines('PO-2026-EXPECT1', 'Fresh Salmon', 180, 'Cases', 77, 1),
+    psaEvents: [
+      createPsaEvent('VESSEL_DEPARTURE', 'Singapore Strait', {
+        id: 'e-exp-1',
+        timestamp: new Date(hoursAgo(72)).toISOString(),
+        lat: 1.13,
+        lng: 103.55,
+      }),
+      createPsaEvent('IN_TRANSIT_SEA', 'Central Pacific', {
+        id: 'e-exp-2',
+        timestamp: new Date(hoursAgo(24)).toISOString(),
+        lat: 20.5,
+        lng: -155.0,
+      }),
+      createPsaEvent('ETA_REVISED', 'LA berth congestion forecast', {
+        id: 'e-exp-3',
+        timestamp: new Date(hoursAgo(6)).toISOString(),
+        lat: 25.0,
+        lng: -140.0,
+        details: 'Expected delay ahead: LA terminal berth wait ~18 hrs. Shelf life may compress on inland leg.',
+      }),
+    ],
+  });
+
+  // Supplier packing queue — pending delivery confirmation / shipment details
+  list.push({
+    id: 'PO-2026-PEND1',
+    vendor: 'Global Farms Suppliers',
+    item: '800 Cases of Hass Avocados',
+    product: 'Hass Avocados',
+    quantity: 800,
+    unit: 'Cases',
+    fleetSpecification: 'Active Refrigerated',
+    logisticsRouteAndProvider: 'Corridor 418 · PSA Haulage',
+    status: 'on-time',
+    eta: 'Pending dispatch',
+    origin: 'Global Farms Packhouse — Salinas',
+    destination: 'Chicago DC',
+    temp: '4.0°C',
+    route: 'Salinas → Chicago DC',
+    date: now,
+    etaDate: dayIso(4),
+    stage: 'packing',
+    packingProgress: 55,
+    preCoolingTarget: 'Pre-Cooling Target: 4°C (Currently: 4.2°C)',
+    containerNumber: 'FGRU8800121',
+    vesselName: 'Road Reefer RT-418',
+    voyageNumber: 'N/A',
+    bookingNumber: 'BK-PEND-418',
+    psaTerminal: 'PSA Connected Haulage',
+    psaSyncStatus: 'pending',
+    psaLastSyncAt: now,
+    transportMode: 'road',
+    originLat: 36.6777,
+    originLng: -121.6555,
+    destLat,
+    destLng,
+    currentLat: 36.6777,
+    currentLng: -121.6555,
+    cargoLines: buildCargoLines('PO-2026-PEND1', 'Hass Avocados', 800, 'Cases', 11, 1),
+  });
+
+  list.push({
+    id: 'PO-2026-PEND2',
+    vendor: 'Global Farms Suppliers',
+    item: '1,100 Cases of Organic Cucumbers',
+    product: 'Organic Cucumbers',
+    quantity: 1100,
+    unit: 'Cases',
+    fleetSpecification: 'Active Refrigerated',
+    logisticsRouteAndProvider: 'Corridor 422 · PSA Haulage',
+    status: 'on-time',
+    eta: 'Pending dispatch',
+    origin: 'Global Farms Greenhouse — Yuma',
+    destination: 'Chicago DC',
+    temp: '3.5°C',
+    route: 'Yuma → Chicago DC',
+    date: now,
+    etaDate: dayIso(3),
+    stage: 'packing',
+    packingProgress: 35,
+    preCoolingTarget: 'Pre-Cooling Target: 3°C (Currently: 5.1°C)',
+    containerNumber: 'FGRU8800199',
+    vesselName: 'Road Reefer RT-422',
+    voyageNumber: 'N/A',
+    bookingNumber: 'BK-PEND-422',
+    psaTerminal: 'PSA Connected Haulage',
+    psaSyncStatus: 'pending',
+    psaLastSyncAt: now,
+    transportMode: 'road',
+    originLat: 32.6927,
+    originLng: -114.6277,
+    destLat,
+    destLng,
+    currentLat: 32.6927,
+    currentLng: -114.6277,
+    cargoLines: buildCargoLines('PO-2026-PEND2', 'Organic Cucumbers', 1100, 'Cases', 22, 2),
+  });
+
+  for (let i = 1; i <= count; i++) {
+    const id = `PO-2026-${(1000 + i).toString()}`;
+    if (
+      id === 'PO-2026-9912A' ||
+      id === 'PO-2026-DELAY1' ||
+      id === 'PO-2026-EXPECT1' ||
+      id === 'PO-2026-PEND1' ||
+      id === 'PO-2026-PEND2' ||
+      list.some((s) => s.id === id)
+    )
+      continue;
+
+    const isOcean = i % 5 === 0 || i % 5 === 1;
+    const supplier = SUPPLIERS[i % SUPPLIERS.length];
+    const prod = PRODUCTS[i % PRODUCTS.length];
+    const status = STATUSES[i % STATUSES.length];
+    let stage = STAGES[i % STAGES.length];
+    if (status === 'delivered') stage = 'delivered';
+    if (status === 'delayed' && stage === 'delivered') stage = 'delivering';
+
+    const etaOffset = status === 'delivered' ? -((i % 10) + 1) : i % 28;
+    const qty = prod.baseQty + (i % 7) * 25;
+    const syncPending = i % 11 === 0;
+    const cargoLines = buildCargoLines(id, prod.product, qty, prod.unit, i);
+
+    if (isOcean) {
+      const sea = SEA_ROUTES[i % SEA_ROUTES.length];
+      const voyage = `${sea.vesselPrefix.split(' ').pop()?.slice(0, 2).toUpperCase() || 'VX'}-${200 + (i % 80)}${i % 2 === 0 ? 'W' : 'E'}`;
+      list.push({
+        id,
+        vendor: supplier,
+        item: `${qty.toLocaleString()} ${prod.unit} of ${prod.product}`,
+        product: prod.product,
+        quantity: qty,
+        unit: prod.unit,
+        fleetSpecification: 'Ocean Reefer',
+        logisticsRouteAndProvider: `PSA Portnet · ${sea.terminal}`,
+        status,
+        eta: status === 'delivered' ? 'Closed' : `${Math.max(1, etaOffset || 1)} Days`,
+        origin: sea.origin,
+        destination: i % 4 === 0 ? 'Lincoln Park Store' : 'Chicago DC',
+        temp: `${(i % 5) - 1}.${i % 9}°C`,
+        route: sea.route,
+        date: subDays(new Date(), (i % 6) + 1).toISOString(),
+        etaDate: dayIso(etaOffset),
+        hasAnomaly: status === 'delayed',
+        stage,
+        packingProgress: stage === 'packing' ? 40 + (i % 50) : 100,
+        preCoolingTarget: `Pre-Cooling Target: 3°C (Currently: ${(i % 5) - 1}.${i % 9}°C)`,
+        containerNumber: `PSAU${(8800000 + i * 137).toString().slice(0, 7)}`,
+        vesselName: `${sea.vesselPrefix} ${100 + (i % 50)}`,
+        voyageNumber: voyage,
+        bookingNumber: `SG-PSA-${1000 + i}`,
+        psaTerminal: sea.terminal,
+        psaSyncStatus: syncPending ? 'pending' : 'synced',
+        psaLastSyncAt: now,
+        transportMode: 'ocean',
+        originLat: sea.originLat,
+        originLng: sea.originLng,
+        destLat,
+        destLng,
+        currentLat: sea.originLat + ((i % 20) - 10) * 1.5,
+        currentLng: sea.originLng + ((i % 30) - 15) * 2,
+        cargoLines,
+      });
+    } else {
+      const land = LAND_ROUTES[i % LAND_ROUTES.length];
+      list.push({
+        id,
+        vendor: supplier,
+        item: `${qty.toLocaleString()} ${prod.unit} of ${prod.product}`,
+        product: prod.product,
+        quantity: qty,
+        unit: prod.unit,
+        fleetSpecification: 'Active Refrigerated',
+        logisticsRouteAndProvider: `Corridor ${400 + (i % 40)} · PSA Haulage`,
+        status,
+        eta:
+          status === 'delivered'
+            ? 'Closed'
+            : etaOffset === 0
+              ? `${8 + (i % 12)} hrs`
+              : `${Math.max(1, etaOffset)} Days`,
+        origin: land.origin,
+        destination: i % 5 === 0 ? 'West Loop Store' : 'Chicago DC',
+        temp: `${2 + (i % 4)}.${i % 9}°C`,
+        route: land.route,
+        date: subDays(new Date(), i % 5).toISOString(),
+        etaDate: dayIso(etaOffset),
+        hasAnomaly: status === 'delayed',
+        stage,
+        packingProgress: stage === 'packing' ? 35 + (i % 55) : 100,
+        preCoolingTarget: `Pre-Cooling Target: 3°C (Currently: ${2 + (i % 4)}.${i % 9}°C)`,
+        containerNumber: `FGRU${(2200000 + i * 211).toString().slice(0, 7)}`,
+        vesselName: `Road Reefer RT-${400 + (i % 90)}`,
+        voyageNumber: 'N/A',
+        bookingNumber: `BK-${1000 + i}-LD`,
+        psaTerminal: 'PSA Connected Haulage',
+        psaSyncStatus: syncPending ? 'pending' : 'synced',
+        psaLastSyncAt: now,
+        transportMode: 'road',
+        originLat: land.originLat,
+        originLng: land.originLng,
+        destLat,
+        destLng,
+        currentLat: land.originLat + (destLat - land.originLat) * ((i % 7) / 10 + 0.2),
+        currentLng: land.originLng + (destLng - land.originLng) * ((i % 7) / 10 + 0.2),
+        cargoLines,
+      });
+    }
+  }
+
+  return list.map((s) => enrichWithPsaDefaults(s));
 }
 
 export function enrichWithPsaDefaults(s: Shipment): Shipment {
-  if (s.containerNumber && s.psaEvents?.length) {
+  const withCargo: Shipment = {
+    ...s,
+    cargoLines:
+      s.cargoLines?.length
+        ? s.cargoLines
+        : buildCargoLines(
+            s.id,
+            s.product || s.item,
+            s.quantity || 100,
+            s.unit || 'Cases',
+            s.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0) % 97,
+            1 + (s.id.length % 3)
+          ),
+  };
+
+  if (withCargo.containerNumber && withCargo.psaEvents?.length) {
     return {
-      ...s,
-      psaSyncStatus: s.psaSyncStatus || 'synced',
-      psaLastSyncAt: s.psaLastSyncAt || new Date().toISOString(),
-      destLat: s.destLat ?? 41.8781,
-      destLng: s.destLng ?? -87.6298,
+      ...withCargo,
+      psaSyncStatus: withCargo.psaSyncStatus || 'synced',
+      psaLastSyncAt: withCargo.psaLastSyncAt || new Date().toISOString(),
+      destLat: withCargo.destLat ?? 41.8781,
+      destLng: withCargo.destLng ?? -87.6298,
+      etaDate: withCargo.etaDate || withCargo.date,
     };
   }
-  const hash = s.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const hash = withCargo.id.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  const isOcean = withCargo.transportMode === 'ocean';
   return {
-    ...s,
-    containerNumber: s.containerNumber || `FGUU${(1000000 + (hash % 8999999)).toString().slice(0, 7)}`,
+    ...withCargo,
+    containerNumber:
+      withCargo.containerNumber ||
+      `${isOcean ? 'PSAU' : 'FGUU'}${(1000000 + (hash % 8999999)).toString().slice(0, 7)}`,
     vesselName:
-      s.vesselName ||
-      (s.fleetSpecification.includes('Ship') ? 'MV FreshGuard Link' : `Road Reefer RT-${hash % 900}`),
-    voyageNumber: s.voyageNumber || 'N/A',
-    bookingNumber: s.bookingNumber || `BK-${s.id.slice(-4)}`,
-    psaTerminal: s.psaTerminal || 'PSA Portnet Connected',
-    psaSyncStatus: s.psaSyncStatus || 'synced',
-    psaLastSyncAt: s.psaLastSyncAt || new Date().toISOString(),
-    transportMode: s.transportMode || 'road',
-    originLat: s.originLat ?? 25.7 + (hash % 20),
-    originLng: s.originLng ?? -90 + (hash % 30),
-    destLat: s.destLat ?? 41.8781,
-    destLng: s.destLng ?? -87.6298,
-    currentLat: s.currentLat ?? 35 + (hash % 10),
-    currentLng: s.currentLng ?? -88 + (hash % 8),
-    psaEvents: s.psaEvents?.length
-      ? s.psaEvents
-      : [
-          createPsaEvent('BOOKING_CONFIRMED', s.origin || 'Supplier', {
-            timestamp: subDays(new Date(), 2).toISOString(),
-          }),
-          createPsaEvent('INLAND_TRANSIT', s.route || 'Corridor', {
-            timestamp: new Date().toISOString(),
-          }),
-        ],
+      withCargo.vesselName ||
+      (isOcean ? 'MV FreshGuard Link' : `Road Reefer RT-${hash % 900}`),
+    voyageNumber: withCargo.voyageNumber || (isOcean ? `FG-${hash % 400}W` : 'N/A'),
+    bookingNumber: withCargo.bookingNumber || `BK-${withCargo.id.slice(-4)}`,
+    psaTerminal: withCargo.psaTerminal || (isOcean ? 'PSA Portnet Connected' : 'PSA Connected Haulage'),
+    psaSyncStatus: withCargo.psaSyncStatus || 'synced',
+    psaLastSyncAt: withCargo.psaLastSyncAt || new Date().toISOString(),
+    transportMode: withCargo.transportMode || (isOcean ? 'ocean' : 'road'),
+    originLat: withCargo.originLat ?? 25.7 + (hash % 20),
+    originLng: withCargo.originLng ?? -90 + (hash % 30),
+    destLat: withCargo.destLat ?? 41.8781,
+    destLng: withCargo.destLng ?? -87.6298,
+    currentLat: withCargo.currentLat ?? 35 + (hash % 10),
+    currentLng: withCargo.currentLng ?? -88 + (hash % 8),
+    etaDate: withCargo.etaDate || withCargo.date,
+    psaEvents: withCargo.psaEvents?.length
+      ? withCargo.psaEvents
+      : isOcean
+        ? [
+            createPsaEvent('BOOKING_CONFIRMED', withCargo.origin || 'PSA Terminal', {
+              timestamp: subDays(new Date(), 4).toISOString(),
+            }),
+            createPsaEvent('GATE_IN', withCargo.psaTerminal || 'PSA Gate', {
+              timestamp: subDays(new Date(), 3).toISOString(),
+            }),
+            createPsaEvent('IN_TRANSIT_SEA', withCargo.route || 'Ocean corridor', {
+              timestamp: new Date().toISOString(),
+            }),
+          ]
+        : [
+            createPsaEvent('BOOKING_CONFIRMED', withCargo.origin || 'Supplier', {
+              timestamp: subDays(new Date(), 2).toISOString(),
+            }),
+            createPsaEvent('INLAND_TRANSIT', withCargo.route || 'Corridor', {
+              timestamp: new Date().toISOString(),
+            }),
+          ],
   };
 }

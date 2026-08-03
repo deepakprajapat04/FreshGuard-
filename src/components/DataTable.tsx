@@ -42,7 +42,7 @@ function cellValue<T>(row: T, col: DataTableColumn<T>): string {
   return raw == null ? '' : String(raw);
 }
 
-function downloadExcelCsv(filename: string, headers: string[], rows: string[][]) {
+export function downloadExcelCsv(filename: string, headers: string[], rows: string[][]) {
   const escape = (v: string) => {
     const s = v.replace(/"/g, '""');
     return /[",\n]/.test(s) ? `"${s}"` : s;

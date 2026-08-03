@@ -32,6 +32,8 @@ export interface PsaEvent {
   details?: string;
 }
 
+export type BuyerAlertCategory = 'Urgent' | 'Info only' | 'Regular';
+
 export interface BuyerShipmentAlert {
   id: string;
   shipmentId: string;
@@ -39,6 +41,7 @@ export interface BuyerShipmentAlert {
   title: string;
   message: string;
   severity: 'info' | 'warning' | 'critical' | 'success';
+  category: BuyerAlertCategory;
   timestamp: string;
   read: boolean;
   source: 'PSA Portnet' | 'FreshGuard';
@@ -73,6 +76,143 @@ export const PSA_EVENT_LABELS: Record<PsaEventCode, string> = {
   ETA_REVISED: 'ETA revised via PSA sync',
   TEMP_ALERT: 'Reefer temperature alert',
 };
+
+/** Visual / semantic bucket for timeline styling */
+export type PsaEventKind = 'movement' | 'alert' | 'warning' | 'milestone';
+
+export function getPsaEventKind(code: PsaEventCode): PsaEventKind {
+  if (code === 'TEMP_ALERT') return 'alert';
+  if (code === 'ETA_REVISED') return 'warning';
+  if (
+    code === 'BOOKING_CONFIRMED' ||
+    code === 'VESSEL_ARRIVAL' ||
+    code === 'DC_ARRIVAL' ||
+    code === 'DISCHARGE'
+  ) {
+    return 'milestone';
+  }
+  return 'movement';
+}
+
+export type ShipmentNextAction = {
+  id: string;
+  title: string;
+  detail: string;
+  owner: 'Buyer' | 'Warehouse' | 'Customs' | 'Finance' | 'Carrier';
+  priority: 'urgent' | 'soon' | 'planned';
+  dueHint: string;
+  status: 'todo' | 'in_progress' | 'done';
+};
+
+/**
+ * Operational next actions for inbound / arriving lots (DP bill, staffing, dock prep…).
+ */
+export function buildShipmentNextActions(shipment: {
+  id: string;
+  status?: string;
+  stage?: string;
+  eta?: string;
+  transportMode?: string;
+  destination?: string;
+  containerNumber?: string;
+  psaEvents?: PsaEvent[];
+  expectedDelay?: boolean;
+}): ShipmentNextAction[] {
+  if (shipment.status === 'delivered' || shipment.stage === 'delivered') {
+    return [
+      {
+        id: `${shipment.id}-qc`,
+        title: 'Complete inbound QC checklist',
+        detail: 'Confirm temp log, seal intact, and put-away location in WMS.',
+        owner: 'Warehouse',
+        priority: 'soon',
+        dueHint: 'Within 2 hours of gate-in',
+        status: 'todo',
+      },
+      {
+        id: `${shipment.id}-close`,
+        title: 'Close PSA container loop',
+        detail: `Mark ${shipment.containerNumber || shipment.id} received and sync GRN to ERP.`,
+        owner: 'Buyer',
+        priority: 'planned',
+        dueHint: 'Same day',
+        status: 'todo',
+      },
+    ];
+  }
+
+  const delayed = shipment.status === 'delayed' || !!shipment.expectedDelay;
+  const ocean = shipment.transportMode === 'ocean' || shipment.transportMode === 'multimodal';
+  const dest = shipment.destination || 'destination DC';
+  const eta = shipment.eta || 'upcoming ETA';
+
+  const actions: ShipmentNextAction[] = [
+    {
+      id: `${shipment.id}-dp`,
+      title: 'Prepare DP / delivery order bill',
+      detail:
+        'Finance must release Delivery Order / DP bill before carrier can collect cargo at terminal or hand over at DC.',
+      owner: 'Finance',
+      priority: delayed ? 'urgent' : 'soon',
+      dueHint: `Before collection · ETA ${eta}`,
+      status: 'todo',
+    },
+    {
+      id: `${shipment.id}-staff`,
+      title: 'Arrange warehouse receiving staff',
+      detail: `Roster dock crew and forklift for inbound at ${dest}. Align shift with revised ETA.`,
+      owner: 'Warehouse',
+      priority: delayed ? 'urgent' : 'soon',
+      dueHint: `Staff ready ${eta}`,
+      status: 'todo',
+    },
+    {
+      id: `${shipment.id}-dock`,
+      title: 'Reserve dock door & pre-cool bay',
+      detail: 'Book door slot and pull bay temp to SLA range before trailer/container arrival.',
+      owner: 'Warehouse',
+      priority: 'soon',
+      dueHint: '4–6 hrs before ETA',
+      status: 'todo',
+    },
+  ];
+
+  if (ocean) {
+    actions.unshift({
+      id: `${shipment.id}-customs`,
+      title: 'Confirm customs / clearance docs',
+      detail: 'Verify BOL, packing list, and certificate of origin are filed before pickup.',
+      owner: 'Customs',
+      priority: delayed ? 'urgent' : 'soon',
+      dueHint: 'Before gate-out',
+      status: 'todo',
+    });
+  }
+
+  if (delayed) {
+    actions.push({
+      id: `${shipment.id}-buyer-notify`,
+      title: 'Notify category buyer of revised ETA',
+      detail: 'Push delay impact to Inbox / shelf-cover plan so fill-in proposals can proceed if needed.',
+      owner: 'Buyer',
+      priority: 'urgent',
+      dueHint: 'Immediately',
+      status: 'in_progress',
+    });
+  }
+
+  actions.push({
+    id: `${shipment.id}-carrier`,
+    title: 'Confirm last-mile / haulage slot',
+    detail: 'Lock appointment with carrier for terminal pickup or DC drop window.',
+    owner: 'Carrier',
+    priority: 'planned',
+    dueHint: `Window around ${eta}`,
+    status: 'todo',
+  });
+
+  return actions;
+}
 
 export function createPsaEvent(
   code: PsaEventCode,
@@ -117,6 +257,7 @@ export function buildPeriodicBuyerAlerts(input: {
       title: 'Delivery confirmed',
       message: `${product} (${container}) has been received at DC. PSA Portnet closed the container loop.`,
       severity: 'success',
+      category: 'Regular',
       timestamp: new Date().toISOString(),
       read: false,
       source: 'PSA Portnet',
@@ -134,6 +275,7 @@ export function buildPeriodicBuyerAlerts(input: {
           ? `${container} reports a delay. Latest ETA: ${input.eta || 'TBD'}. Track live on the shipment dashboard.`
           : `PSA Portnet pushed a status change for ${container} aboard ${input.vesselName || 'vessel'}: ${latest?.label || 'In transit'}.`,
       severity: 'warning',
+      category: 'Urgent',
       timestamp: new Date().toISOString(),
       read: false,
       source: 'PSA Portnet',
@@ -147,6 +289,7 @@ export function buildPeriodicBuyerAlerts(input: {
       title: 'PSA sync heartbeat',
       message: `${container} is fully synced with PSA Portnet®. Last event: ${latest?.label || 'Awaiting terminal scan'}.`,
       severity: 'info',
+      category: 'Info only',
       source: 'PSA Portnet',
     },
     {
@@ -155,6 +298,7 @@ export function buildPeriodicBuyerAlerts(input: {
       title: 'ETA checkpoint',
       message: `Expected arrival for ${product}: ${input.eta || 'Updating'}. Vessel ${input.vesselName || 'TBD'} position refreshed from PSA.`,
       severity: 'info',
+      category: 'Regular',
       source: 'FreshGuard',
     },
     {
@@ -163,6 +307,7 @@ export function buildPeriodicBuyerAlerts(input: {
       title: 'Cold-chain snapshot',
       message: `Reefer reading for ${container}: ${input.temp || 'Stable'}. PSA temperature feed is live.`,
       severity: 'info',
+      category: 'Info only',
       source: 'PSA Portnet',
     },
     {
@@ -171,6 +316,7 @@ export function buildPeriodicBuyerAlerts(input: {
       title: 'Buyer tracking reminder',
       message: `Periodic reminder: open Shipment Tracking to follow ${container} milestones from PSA Portnet.`,
       severity: 'info',
+      category: 'Info only',
       source: 'FreshGuard',
     },
   ];
