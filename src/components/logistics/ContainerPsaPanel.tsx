@@ -32,7 +32,7 @@ interface Props {
 }
 
 type StatusFilter = 'all' | Shipment['status'];
-type ModeFilter = 'all' | 'ocean' | 'road';
+type ModeFilter = 'all' | 'ocean' | 'air' | 'road';
 type SyncFilter = 'all' | 'synced' | 'syncing' | 'pending' | 'error';
 
 export function ContainerPsaPanel({
@@ -208,6 +208,7 @@ export function ContainerPsaPanel({
                 >
                   <option value="all">Sea &amp; land</option>
                   <option value="ocean">Sea only</option>
+                  <option value="air">Air only</option>
                   <option value="road">Land only</option>
                 </select>
               </label>

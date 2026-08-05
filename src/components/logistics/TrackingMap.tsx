@@ -40,7 +40,7 @@ export interface MapShipment {
   originLng?: number;
   destLat?: number;
   destLng?: number;
-  transportMode?: 'ocean' | 'road' | 'multimodal';
+  transportMode?: 'ocean' | 'road' | 'air' | 'multimodal';
   rerouted?: boolean;
   hasAnomaly?: boolean;
   /** Forecast delay ahead (orange stretch) even if not yet delayed */
@@ -248,7 +248,15 @@ export function TrackingMap({ shipment }: { shipment: MapShipment | undefined })
       shipment.currentLat ?? (origin[0] + dest[0]) / 2,
       shipment.currentLng ?? (origin[1] + dest[1]) / 2,
     ];
-    const route = buildArc(origin, dest, shipment.transportMode === 'ocean' ? 0.28 : 0.12);
+    const bend =
+      shipment.transportMode === 'ocean'
+        ? 0.28
+        : shipment.transportMode === 'air'
+          ? 0.22
+          : shipment.transportMode === 'multimodal'
+            ? 0.24
+            : 0.12;
+    const route = buildArc(origin, dest, bend);
     const eventPoints = (shipment.psaEvents || [])
       .filter((e) => typeof e.lat === 'number' && typeof e.lng === 'number')
       .map((e) => ({ ...e, pos: [e.lat!, e.lng!] as [number, number] }));
@@ -359,10 +367,11 @@ export function TrackingMap({ shipment }: { shipment: MapShipment | undefined })
             <div className="text-xs font-sans space-y-1 min-w-[180px]">
               <strong>{shipment.containerNumber || shipment.id}</strong>
               <div>{shipment.product || shipment.item}</div>
-              <div>Vessel: {shipment.vesselName || 'Road fleet'}</div>
+              <div>Vessel/Fleet: {shipment.vesselName || 'Road fleet'}</div>
               <div>Temp: {shipment.temp}</div>
               <div>ETA: {shipment.eta}</div>
               <div>Status: {shipment.status}</div>
+              {shipment.transportMode && <div>Mode: {shipment.transportMode}</div>}
               <div>PSA: {shipment.psaSyncStatus || 'pending'}</div>
             </div>
           </Popup>

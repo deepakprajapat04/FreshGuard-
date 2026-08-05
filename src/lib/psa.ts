@@ -94,6 +94,119 @@ export function getPsaEventKind(code: PsaEventCode): PsaEventKind {
   return 'movement';
 }
 
+export type TransportCategory = 'water' | 'land' | 'air' | 'multimodal' | 'unknown';
+
+function normalizeExpectedTransport(transportMode?: string): TransportCategory {
+  const t = (transportMode || '').toLowerCase().trim();
+  if (!t) return 'unknown';
+  if (t === 'multimodal') return 'multimodal';
+  if (t === 'ocean' || t === 'sea' || t === 'water') return 'water';
+  if (t === 'road' || t === 'land') return 'land';
+  if (t === 'air') return 'air';
+  return 'unknown';
+}
+
+function inferActualTransportFromEvents(psaEvents?: PsaEvent[]): TransportCategory {
+  const events = psaEvents || [];
+  if (!events.length) return 'unknown';
+
+  let waterScore = 0;
+  let landScore = 0;
+  let airScore = 0;
+
+  for (const e of events) {
+    const code = String(e.code || '').toLowerCase();
+    const hay = `${e.label || ''} ${e.details || ''} ${e.location || ''}`.toLowerCase();
+
+    if (
+      code.includes('in_transit_sea') ||
+      code.includes('vessel_departure') ||
+      code.includes('vessel_arrival') ||
+      code.includes('loaded') ||
+      code.includes('discharge')
+    ) {
+      waterScore += 1;
+    }
+
+    if (code.includes('inland_transit') || code.includes('dc_arrival') || code.includes('gate_in')) {
+      landScore += 1;
+    }
+
+    if (code.includes('gate_out') || code.includes('gated_out')) {
+      // Most Gate-Out sequences are terminal/road handoff, but we keep it conservative.
+      landScore += 0.5;
+    }
+
+    if (/air|flight|plane/.test(hay)) {
+      airScore += 1;
+    }
+
+    // Also use textual cues even when codes are not explicit.
+    if (/ocean|sea|vessel|port|terminal/.test(hay)) waterScore += 0.25;
+    if (/inland|truck|haulage|dc arrival|warehouse|road/.test(hay)) landScore += 0.25;
+  }
+
+  const both = waterScore > 0 && landScore > 0;
+  if (both && Math.abs(waterScore - landScore) <= 1) {
+    return 'multimodal';
+  }
+
+  if (airScore >= Math.max(waterScore, landScore) && airScore >= 1) return 'air';
+  if (waterScore >= landScore && waterScore >= 1.5) return 'water';
+  if (landScore >= waterScore && landScore >= 1.5) return 'land';
+  return 'unknown';
+}
+
+export function getTransportModeMismatch(input: {
+  transportMode?: string;
+  psaEvents?: PsaEvent[];
+}): {
+  isMismatch: boolean;
+  expected: TransportCategory;
+  actual: TransportCategory;
+  confidence: 'low' | 'medium' | 'high';
+  hint: string;
+} {
+  const expected = normalizeExpectedTransport(input.transportMode);
+  const actual = inferActualTransportFromEvents(input.psaEvents);
+
+  if (expected === 'unknown' || actual === 'unknown') {
+    return {
+      isMismatch: false,
+      expected,
+      actual,
+      confidence: 'low',
+      hint: 'PSA event data insufficient for transport leg classification.',
+    };
+  }
+
+  // Multimodal is an OK state for both water and land expectations.
+  const ok =
+    expected === 'multimodal' ||
+    actual === 'multimodal' ||
+    expected === actual;
+
+  if (ok) {
+    return {
+      isMismatch: false,
+      expected,
+      actual,
+      confidence: 'high',
+      hint: 'Transport leg matches expected corridor mode.',
+    };
+  }
+
+  const confidence: 'low' | 'medium' | 'high' = 'medium';
+
+  return {
+    isMismatch: true,
+    expected,
+    actual,
+    confidence,
+    hint: `Expected ${expected}, but PSA events indicate ${actual}. Validate shipping method + corridor handoff.`,
+  };
+}
+
 export type ShipmentNextAction = {
   id: string;
   title: string;
@@ -142,9 +255,14 @@ export function buildShipmentNextActions(shipment: {
   }
 
   const delayed = shipment.status === 'delayed' || !!shipment.expectedDelay;
-  const ocean = shipment.transportMode === 'ocean' || shipment.transportMode === 'multimodal';
   const dest = shipment.destination || 'destination DC';
   const eta = shipment.eta || 'upcoming ETA';
+
+  const mismatch = getTransportModeMismatch({
+    transportMode: shipment.transportMode,
+    psaEvents: shipment.psaEvents,
+  });
+  const customs = mismatch.actual === 'water' || mismatch.actual === 'multimodal';
 
   const actions: ShipmentNextAction[] = [
     {
@@ -177,7 +295,19 @@ export function buildShipmentNextActions(shipment: {
     },
   ];
 
-  if (ocean) {
+  if (mismatch.isMismatch) {
+    actions.unshift({
+      id: `${shipment.id}-transport-mismatch`,
+      title: 'Validate transport mode mismatch',
+      detail: mismatch.hint,
+      owner: 'Carrier',
+      priority: 'urgent',
+      dueHint: 'Immediately · before next leg movement',
+      status: 'todo',
+    });
+  }
+
+  if (customs) {
     actions.unshift({
       id: `${shipment.id}-customs`,
       title: 'Confirm customs / clearance docs',

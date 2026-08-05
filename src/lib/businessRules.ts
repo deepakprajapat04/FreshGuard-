@@ -24,7 +24,80 @@ export type BusinessRulesConfig = {
   requireStockShortageForProposal: boolean;
   /** Days of cover below which stock is treated as shortage risk */
   minDaysOfCoverThreshold: number;
+  /**
+   * Which disruption alert types are monitored (Natural Events, Pandemic, …).
+   * Used for logistics / buyer risk alerts.
+   */
+  enabledAlertTypes: AlertRiskType[];
+  /** Custom alerts created from Business Rules (global or vessel). */
+  customAlerts: CustomBusinessAlert[];
 };
+
+/** Risk / disruption families (same idea as enterprise alert type picker). */
+export const ALERT_TYPE_OPTIONS = [
+  'Natural Events',
+  'Socio Political',
+  'Supply Chain',
+  'Geo Political',
+  'Commodity Specific',
+  'Pandemic',
+  'Weather / Climate',
+  'Port / Terminal',
+  'Transport Mode Mismatch',
+] as const;
+
+export type AlertRiskType = (typeof ALERT_TYPE_OPTIONS)[number];
+
+export type AlertEventMode = 'global' | 'vessel';
+
+export type AlertRiskScore = 'Low' | 'Medium' | 'High' | 'Critical';
+
+export type CustomBusinessAlert = {
+  id: string;
+  name: string;
+  eventMode: AlertEventMode;
+  riskScore: AlertRiskScore;
+  /** One or more types from ALERT_TYPE_OPTIONS */
+  alertTypes: AlertRiskType[];
+  alertCategory: string;
+  eventType: string;
+  country: string;
+  endDate: string;
+  enabled: boolean;
+  createdAt: string;
+};
+
+export const ALERT_CATEGORY_OPTIONS = [
+  'Delay / ETA',
+  'Cold chain',
+  'Corridor disruption',
+  'Shelf / stock risk',
+  'Customs / docs',
+  'Other',
+] as const;
+
+export const ALERT_EVENT_TYPE_OPTIONS = [
+  'Flood / storm',
+  'Strike / unrest',
+  'Port congestion',
+  'Border closure',
+  'Disease outbreak',
+  'Commodity shortage',
+  'Route blockage',
+  'Other',
+] as const;
+
+export const COUNTRY_OPTIONS = [
+  'United States',
+  'Singapore',
+  'China',
+  'India',
+  'Netherlands',
+  'Japan',
+  'Brazil',
+  'Mexico',
+  'Global / Multi-country',
+] as const;
 
 export type ShelfStockSnapshot = {
   storeOnHandCases: number;
@@ -106,9 +179,31 @@ export const DEFAULT_BUSINESS_RULES: BusinessRulesConfig = {
   maxShipDaysForAltSupplier: 3,
   requireStockShortageForProposal: true,
   minDaysOfCoverThreshold: 2,
+  enabledAlertTypes: [
+    'Natural Events',
+    'Supply Chain',
+    'Weather / Climate',
+    'Port / Terminal',
+    'Transport Mode Mismatch',
+  ],
+  customAlerts: [
+    {
+      id: 'ALERT-DEMO-FLOOD',
+      name: 'Midwest corridor flood watch',
+      eventMode: 'global',
+      riskScore: 'High',
+      alertTypes: ['Natural Events', 'Weather / Climate'],
+      alertCategory: 'Corridor disruption',
+      eventType: 'Flood / storm',
+      country: 'United States',
+      endDate: '',
+      enabled: true,
+      createdAt: new Date().toISOString(),
+    },
+  ],
 };
 
-const RULES_KEY = 'freshguard-business-rules-v2';
+const RULES_KEY = 'freshguard-business-rules-v3';
 /** v3: delayed + cancelled proposal test cases */
 const PROPOSALS_KEY = 'freshguard-auto-proposals-v3';
 
@@ -152,10 +247,41 @@ export function estimateShelfShortage(opts: {
 export function loadBusinessRules(): BusinessRulesConfig {
   try {
     const raw = localStorage.getItem(RULES_KEY);
-    if (!raw) return { ...DEFAULT_BUSINESS_RULES };
-    return { ...DEFAULT_BUSINESS_RULES, ...JSON.parse(raw) };
+    if (!raw) {
+      // migrate from v2 if present
+      const legacy = localStorage.getItem('freshguard-business-rules-v2');
+      if (legacy) {
+        const parsed = JSON.parse(legacy) as Partial<BusinessRulesConfig>;
+        return {
+          ...DEFAULT_BUSINESS_RULES,
+          ...parsed,
+          enabledAlertTypes: parsed.enabledAlertTypes?.length
+            ? parsed.enabledAlertTypes
+            : DEFAULT_BUSINESS_RULES.enabledAlertTypes,
+          customAlerts: parsed.customAlerts?.length
+            ? parsed.customAlerts
+            : DEFAULT_BUSINESS_RULES.customAlerts,
+        };
+      }
+      return { ...DEFAULT_BUSINESS_RULES, customAlerts: [...DEFAULT_BUSINESS_RULES.customAlerts] };
+    }
+    const parsed = JSON.parse(raw) as Partial<BusinessRulesConfig>;
+    return {
+      ...DEFAULT_BUSINESS_RULES,
+      ...parsed,
+      enabledAlertTypes: parsed.enabledAlertTypes?.length
+        ? parsed.enabledAlertTypes
+        : DEFAULT_BUSINESS_RULES.enabledAlertTypes,
+      customAlerts: Array.isArray(parsed.customAlerts)
+        ? parsed.customAlerts
+        : [...DEFAULT_BUSINESS_RULES.customAlerts],
+      buyerOwnerByCategory: {
+        ...DEFAULT_BUYER_OWNERS,
+        ...(parsed.buyerOwnerByCategory || {}),
+      },
+    };
   } catch {
-    return { ...DEFAULT_BUSINESS_RULES };
+    return { ...DEFAULT_BUSINESS_RULES, customAlerts: [...DEFAULT_BUSINESS_RULES.customAlerts] };
   }
 }
 

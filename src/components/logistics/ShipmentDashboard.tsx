@@ -183,7 +183,6 @@ export function ShipmentDashboard({
         ))}
       </div>
 
-      {/* Calendar / Table switch — one view at a time */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div className="inline-flex bg-[#0c1e36] p-1 rounded-xl border border-sky-900/60 shadow-sm">
           <button

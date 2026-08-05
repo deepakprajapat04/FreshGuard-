@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Plus, 
@@ -65,6 +65,46 @@ interface Quotation {
   fleetSpecification?: 'Active Refrigerated' | 'Passive Cooling' | 'Ambient';
   pricePerCase?: number;
   availableQuantity?: number;
+}
+
+function getQuoteCompareMetrics(quote: Quotation) {
+  const isRefrigerated = quote.fleetSpecification === 'Active Refrigerated';
+  const isPassive = quote.fleetSpecification === 'Passive Cooling';
+  let riskLabel = 'Critical risk';
+  let wastePct = 15.0;
+  let riskTone: 'low' | 'medium' | 'high' = 'high';
+  if (isRefrigerated) {
+    riskLabel = 'Low risk · ~96% shelf-life retention';
+    wastePct = 1.2;
+    riskTone = 'low';
+  } else if (isPassive) {
+    riskLabel = 'Elevated risk · ~84% shelf-life retention';
+    wastePct = 5.4;
+    riskTone = 'medium';
+  }
+  let harvestAgeText = 'N/A';
+  if (quote.harvestTimestamp) {
+    const hrs = Math.round((Date.now() - new Date(quote.harvestTimestamp).getTime()) / 3600000);
+    harvestAgeText = hrs > 0 ? `${hrs} hrs post-harvest` : 'Freshly harvested';
+  }
+  const caseRate = quote.pricePerCase || quote.pricePerUnit;
+  const baseQuotePrice = quote.totalPrice;
+  const trueCost = Math.round(baseQuotePrice * (1 + wastePct / 100));
+  const reliabilityNum = parseInt(String(quote.qualityIndex).replace(/[^\d]/g, ''), 10) || 0;
+  return {
+    caseRate,
+    baseQuotePrice,
+    trueCost,
+    wastePct,
+    riskLabel,
+    riskTone,
+    harvestAgeText,
+    reliabilityNum,
+    fleet: quote.fleetSpecification || 'Ambient',
+    route: quote.logisticsRouteAndProvider || 'Carrier Standby',
+    eta: quote.eta,
+    available: quote.availableQuantity,
+  };
 }
 
 type OrderType = 'one-time' | 'repeat';
@@ -927,9 +967,11 @@ export default function Procurement() {
             asnExtra.carrier && asnExtra.portOfDischarge
               ? `${asnExtra.carrier} · ${asnExtra.portOfLoading || ''} → ${asnExtra.portOfDischarge}`
               : 'PSA Connected Haulage',
-          transportMode: /ocean|sea/i.test(asnExtra.shippingMethod || '')
-            ? 'ocean'
-            : 'road',
+          transportMode: /air|flight|plane/i.test(asnExtra.shippingMethod || '')
+            ? 'air'
+            : /ocean|sea/i.test(asnExtra.shippingMethod || '')
+              ? 'ocean'
+              : 'road',
         };
         if (idx >= 0) list[idx] = { ...list[idx], ...patch };
         else
@@ -1134,6 +1176,42 @@ export default function Procurement() {
   // Quotation comparison award flow
   const [awardingQuoteId, setAwardingQuoteId] = useState<string | null>(null);
   const [isAwardingInProgress, setIsAwardingInProgress] = useState(false);
+  const [compareQuoteIds, setCompareQuoteIds] = useState<string[]>([]);
+  const [showCompareModal, setShowCompareModal] = useState(false);
+
+  useEffect(() => {
+    setCompareQuoteIds([]);
+    setShowCompareModal(false);
+  }, [selectedBidId]);
+
+  const toggleCompareQuote = (quoteId: string) => {
+    setCompareQuoteIds((prev) =>
+      prev.includes(quoteId) ? prev.filter((id) => id !== quoteId) : [...prev, quoteId]
+    );
+  };
+
+  const comparedQuotes = useMemo(() => {
+    if (!selectedBid) return [];
+    return selectedBid.quotations.filter((q) => compareQuoteIds.includes(q.id));
+  }, [selectedBid, compareQuoteIds]);
+
+  const compareWinners = useMemo(() => {
+    if (comparedQuotes.length < 2) return null;
+    const rows = comparedQuotes.map((q) => ({ q, m: getQuoteCompareMetrics(q) }));
+    const bestCase = rows.reduce((a, b) => (a.m.caseRate <= b.m.caseRate ? a : b));
+    const bestTrue = rows.reduce((a, b) => (a.m.trueCost <= b.m.trueCost ? a : b));
+    const bestRel = rows.reduce((a, b) => (a.m.reliabilityNum >= b.m.reliabilityNum ? a : b));
+    const bestRisk = rows.reduce((a, b) => {
+      const rank = { low: 0, medium: 1, high: 2 };
+      return rank[a.m.riskTone] <= rank[b.m.riskTone] ? a : b;
+    });
+    return {
+      lowestCaseRateId: bestCase.q.id,
+      lowestTrueCostId: bestTrue.q.id,
+      highestReliabilityId: bestRel.q.id,
+      lowestRiskId: bestRisk.q.id,
+    };
+  }, [comparedQuotes]);
 
   // Initiate simulation of vendor quotes
   const [isSimulatingQuotes, setIsSimulatingQuotes] = useState(false);
@@ -1919,25 +1997,56 @@ export default function Procurement() {
                       </p>
                     </div>
                     
-                    {selectedBid.status === 'open' && (
-                      <button
-                        onClick={handleSimulateIncomingQuotes}
-                        disabled={isSimulatingQuotes}
-                        className="px-2.5 py-1 bg-amber-600 dark:bg-amber-500 text-white hover:bg-amber-700 rounded-lg text-[10.5px] font-bold transition-all shadow-sm flex items-center gap-1 disabled:opacity-50 cursor-pointer"
-                      >
-                        {isSimulatingQuotes ? (
-                          <>
-                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            <span>Awaiting Quotes...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
-                            <span>Simulate Response</span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <div className="flex flex-wrap items-center gap-2 shrink-0">
+                      {selectedBid.quotations.length >= 2 && selectedBid.status !== 'awarded' && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (compareQuoteIds.length >= 2) {
+                              setShowCompareModal(true);
+                            } else if (compareQuoteIds.length === 0) {
+                              setCompareQuoteIds(selectedBid.quotations.slice(0, 3).map((q) => q.id));
+                              setShowCompareModal(true);
+                            } else {
+                              setAwardSuccessAlert('Select at least 2 bids to compare (use the checkboxes on each quote card).');
+                              setTimeout(() => setAwardSuccessAlert(null), 4000);
+                            }
+                          }}
+                          className={cn(
+                            'px-2.5 py-1 rounded-lg text-[10.5px] font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer border',
+                            compareQuoteIds.length >= 2
+                              ? 'bg-indigo-600 border-indigo-500 text-white hover:bg-indigo-700'
+                              : 'bg-white dark:bg-slate-900 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40'
+                          )}
+                        >
+                          <Calculator className="w-3.5 h-3.5" />
+                          <span>
+                            {compareQuoteIds.length >= 2
+                              ? `Compare ${compareQuoteIds.length} Bids`
+                              : 'Compare Bids'}
+                          </span>
+                        </button>
+                      )}
+                      {selectedBid.status === 'open' && (
+                        <button
+                          onClick={handleSimulateIncomingQuotes}
+                          disabled={isSimulatingQuotes}
+                          className="px-2.5 py-1 bg-amber-600 dark:bg-amber-500 text-white hover:bg-amber-700 rounded-lg text-[10.5px] font-bold transition-all shadow-sm flex items-center gap-1 disabled:opacity-50 cursor-pointer"
+                        >
+                          {isSimulatingQuotes ? (
+                            <>
+                              <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                              <span>Awaiting Quotes...</span>
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5 text-white animate-pulse" />
+                              <span>Simulate Response</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {/* Biological Parameters */}
@@ -1973,6 +2082,31 @@ export default function Procurement() {
                     </div>
                   ) : (
                     <div className="space-y-4">
+                      {compareQuoteIds.length >= 1 && selectedBid.status !== 'awarded' && (
+                        <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-2.5 shadow-sm">
+                          <span className="text-[11px] font-semibold text-indigo-800 dark:text-indigo-200">
+                            {compareQuoteIds.length} bid{compareQuoteIds.length === 1 ? '' : 's'} selected for comparison
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setCompareQuoteIds([])}
+                              className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-300 hover:underline"
+                            >
+                              Clear
+                            </button>
+                            <button
+                              type="button"
+                              disabled={compareQuoteIds.length < 2}
+                              onClick={() => setShowCompareModal(true)}
+                              className="px-3 py-1.5 rounded-lg text-[10.5px] font-bold bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white flex items-center gap-1"
+                            >
+                              <Calculator className="w-3.5 h-3.5" />
+                              Open comparison
+                            </button>
+                          </div>
+                        </div>
+                      )}
                       {selectedBid.quotations.map((quote) => {
                         // AI risk parameters scoring based on fleet specifications
                         const isRefrigerated = quote.fleetSpecification === 'Active Refrigerated';
@@ -2011,7 +2145,9 @@ export default function Procurement() {
                               "border rounded-2xl transition-all relative overflow-hidden bg-white dark:bg-slate-900 flex flex-col h-auto min-h-[max-content] p-6 shadow-sm gap-6",
                               selectedBid.awardedVendor === quote.vendor
                                 ? "border-emerald-500 ring-2 ring-emerald-500/20 bg-emerald-50/5 dark:bg-emerald-955/5" 
-                                : "border-slate-200 dark:border-slate-800"
+                                : compareQuoteIds.includes(quote.id)
+                                  ? "border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/30 dark:bg-indigo-950/20"
+                                  : "border-slate-200 dark:border-slate-800"
                             )}
                           >
                             {/* Left Side: Supplier & Logistics Attributes Grid */}
@@ -2021,6 +2157,22 @@ export default function Procurement() {
                               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pt-2">
                                 <div className="space-y-1.5">
                                   <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                                    {selectedBid.status !== 'awarded' && selectedBid.quotations.length >= 2 && (
+                                      <label
+                                        className="inline-flex items-center gap-1.5 cursor-pointer mr-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={compareQuoteIds.includes(quote.id)}
+                                          onChange={() => toggleCompareQuote(quote.id)}
+                                          className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                        />
+                                        <span className="text-[9px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                                          Compare
+                                        </span>
+                                      </label>
+                                    )}
                                     <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm tracking-tight">{quote.vendor}</h4>
                                     <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold">
                                       Reliability: {quote.qualityIndex}
@@ -2408,6 +2560,7 @@ export default function Procurement() {
             subtitle="Filter, sort, and export contract ledger"
             excelFileName="procurement-contracts.xls"
             emptyMessage="No contracts match the current filters."
+            initialFilterOpen={false}
           />
         </div>
       )}
@@ -2581,6 +2734,7 @@ export default function Procurement() {
             }
             excelFileName="procurement-orders.xls"
             emptyMessage="No purchase orders match the current filters."
+            initialFilterOpen={false}
             toolbarExtra={
               isVendor ? (
                 <button
@@ -3572,6 +3726,207 @@ export default function Procurement() {
 
                 </form>
               )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Compare Bids Modal */}
+      <AnimatePresence>
+        {showCompareModal && comparedQuotes.length >= 2 && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-slate-950/55 backdrop-blur-[2px]"
+              onClick={() => setShowCompareModal(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 12, scale: 0.98 }}
+              className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col"
+            >
+              <div className="px-5 py-4 border-b border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 bg-slate-50/80 dark:bg-slate-950/50">
+                <div>
+                  <h3 className="text-sm font-black uppercase tracking-wider text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                    <Calculator className="w-4 h-4 text-indigo-600" />
+                    Compare Bids
+                  </h3>
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Side-by-side for <span className="font-semibold text-slate-700 dark:text-slate-300">{selectedBid.item}</span>
+                    {' · '}{comparedQuotes.length} suppliers selected
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowCompareModal(false)}
+                  className="p-1.5 rounded-lg hover:bg-slate-200/80 dark:hover:bg-slate-800 text-slate-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-auto p-4">
+                <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+                  <table className="w-full text-left text-xs min-w-[640px]">
+                    <thead className="bg-slate-50 dark:bg-slate-950/70">
+                      <tr>
+                        <th className="px-3 py-3 font-bold text-[10px] uppercase tracking-wide text-slate-500 w-40 sticky left-0 bg-slate-50 dark:bg-slate-950/70 z-10">
+                          Metric
+                        </th>
+                        {comparedQuotes.map((q) => (
+                          <th key={q.id} className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100 min-w-[160px]">
+                            <div className="text-sm">{q.vendor}</div>
+                            <div className="text-[10px] font-medium text-slate-400 mt-0.5 normal-case tracking-normal">
+                              Reliability {q.qualityIndex}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                      {([
+                        {
+                          label: 'Case rate',
+                          render: (q: Quotation) => {
+                            const m = getQuoteCompareMetrics(q);
+                            const win = compareWinners?.lowestCaseRateId === q.id;
+                            return (
+                              <span className={cn('font-extrabold font-mono', win && 'text-emerald-600 dark:text-emerald-400')}>
+                                ${m.caseRate.toFixed(2)}
+                                {win && <span className="ml-1.5 text-[9px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          label: 'Base sourcing value',
+                          render: (q: Quotation) => `$${getQuoteCompareMetrics(q).baseQuotePrice.toLocaleString()}`,
+                        },
+                        {
+                          label: 'AI true cost (w/ waste)',
+                          render: (q: Quotation) => {
+                            const m = getQuoteCompareMetrics(q);
+                            const win = compareWinners?.lowestTrueCostId === q.id;
+                            return (
+                              <span className={cn('font-extrabold font-mono', win && 'text-indigo-600 dark:text-indigo-400')}>
+                                ${m.trueCost.toLocaleString()}
+                                <span className="text-[10px] text-slate-400 font-medium ml-1">({m.wastePct}% waste)</span>
+                                {win && <span className="ml-1.5 text-[9px] uppercase font-bold bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">Best</span>}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          label: 'Reliability score',
+                          render: (q: Quotation) => {
+                            const win = compareWinners?.highestReliabilityId === q.id;
+                            return (
+                              <span className={cn(win && 'font-extrabold text-emerald-600 dark:text-emerald-400')}>
+                                {q.qualityIndex}
+                                {win && <span className="ml-1.5 text-[9px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          label: 'Est. delivery',
+                          render: (q: Quotation) => getQuoteCompareMetrics(q).eta,
+                        },
+                        {
+                          label: 'Harvest batch age',
+                          render: (q: Quotation) => getQuoteCompareMetrics(q).harvestAgeText,
+                        },
+                        {
+                          label: 'Thermal fleet',
+                          render: (q: Quotation) => getQuoteCompareMetrics(q).fleet,
+                        },
+                        {
+                          label: 'Logistics route',
+                          render: (q: Quotation) => getQuoteCompareMetrics(q).route,
+                        },
+                        {
+                          label: 'Available qty',
+                          render: (q: Quotation) => {
+                            const a = getQuoteCompareMetrics(q).available;
+                            return a != null ? `${a.toLocaleString()} cases` : '—';
+                          },
+                        },
+                        {
+                          label: 'AI shrinkage risk',
+                          render: (q: Quotation) => {
+                            const m = getQuoteCompareMetrics(q);
+                            const win = compareWinners?.lowestRiskId === q.id;
+                            return (
+                              <span
+                                className={cn(
+                                  'inline-flex flex-wrap items-center gap-1.5',
+                                  m.riskTone === 'low' && 'text-emerald-700 dark:text-emerald-400',
+                                  m.riskTone === 'medium' && 'text-amber-700 dark:text-amber-400',
+                                  m.riskTone === 'high' && 'text-rose-700 dark:text-rose-400'
+                                )}
+                              >
+                                {m.riskLabel}
+                                {win && <span className="text-[9px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
+                              </span>
+                            );
+                          },
+                        },
+                        {
+                          label: 'Supplier notes',
+                          render: (q: Quotation) => (
+                            <span className="text-slate-500 italic line-clamp-3">{q.notes || '—'}</span>
+                          ),
+                        },
+                      ] as const).map((row) => (
+                        <tr key={row.label} className="hover:bg-slate-50/80 dark:hover:bg-slate-950/40">
+                          <td className="px-3 py-3 font-bold text-[10px] uppercase tracking-wide text-slate-500 sticky left-0 bg-white dark:bg-slate-900 z-10">
+                            {row.label}
+                          </td>
+                          {comparedQuotes.map((q) => (
+                            <td key={q.id} className="px-3 py-3 text-slate-800 dark:text-slate-200 align-top">
+                              {row.render(q)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-wrap items-center justify-between gap-3">
+                <p className="text-[10px] text-slate-500 max-w-md">
+                  Green / indigo <strong>Best</strong> tags highlight the strongest metric per row. Award from here or close and use the quote cards.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCompareModal(false)}
+                    className="px-3 py-2 rounded-lg text-xs font-bold border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 hover:bg-white dark:hover:bg-slate-800"
+                  >
+                    Close
+                  </button>
+                  {selectedBid.status !== 'awarded' &&
+                    comparedQuotes.map((q) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        disabled={isAwardingInProgress}
+                        onClick={() => {
+                          setShowCompareModal(false);
+                          handleAwardQuotation(q);
+                        }}
+                        className="px-3 py-2 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1.5 disabled:opacity-50"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        Award {q.vendor.split(' ')[0]}
+                      </button>
+                    ))}
+                </div>
+              </div>
             </motion.div>
           </div>
         )}

@@ -51,7 +51,6 @@ export interface Shipment {
   containerNumber?: string;
   vesselName?: string;
   voyageNumber?: string;
-  bookingNumber?: string;
   psaTerminal?: string;
   psaSyncStatus?: PsaSyncStatus;
   psaLastSyncAt?: string;
@@ -62,7 +61,7 @@ export interface Shipment {
   originLng?: number;
   destLat?: number;
   destLng?: number;
-  transportMode?: 'ocean' | 'road' | 'multimodal';
+  transportMode?: 'ocean' | 'road' | 'air' | 'multimodal';
   /** All POs / items loaded in this container (multi-PO consolidations). */
   cargoLines?: ContainerCargoLine[];
   /** Advance ship notice number shared across cargo lines */

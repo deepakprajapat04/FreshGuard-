@@ -11,6 +11,7 @@ import {
   Calendar as CalendarIcon, Map as MapIcon, Filter, X,
   Thermometer, ArrowRight, RefreshCw, TrendingDown, Box, Loader2,
   LayoutDashboard, Link2, Container, Navigation, Activity, ShoppingCart,
+  ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
@@ -28,9 +29,13 @@ import { ContainerPsaPanel } from '../components/logistics/ContainerPsaPanel';
 import { BuyerAlertsDrawer } from '../components/logistics/BuyerAlertsDrawer';
 import { ShipmentCalendar } from '../components/logistics/ShipmentCalendar';
 import { PsaTimelinePanel } from '../components/logistics/PsaEventTimeline';
+import { RiskOverviewKpis } from '../components/logistics/RiskOverviewKpis';
 
 const TrackingMap = lazy(() =>
   import('../components/logistics/TrackingMap').then((m) => ({ default: m.TrackingMap }))
+);
+const GlobalFleetMap = lazy(() =>
+  import('../components/logistics/GlobalFleetMap').then((m) => ({ default: m.GlobalFleetMap }))
 );
 
 const STORAGE_KEY = 'freshguard-active-shipments-v5';
@@ -39,6 +44,9 @@ export default function Logistics() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<LogisticsTab>('dashboard');
   const [viewMode, setViewMode] = useState<'map' | 'calendar' | 'timeline'>('map');
+  /** lot = one shipment route · fleet = all lots on world map */
+  const [mapScope, setMapScope] = useState<'lot' | 'fleet'>('fleet');
+  const [fleetFilter, setFleetFilter] = useState<'all' | 'ocean' | 'air' | 'road'>('all');
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [selectedShipmentId, setSelectedShipmentId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -56,9 +64,11 @@ export default function Logistics() {
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   const [savingContainer, setSavingContainer] = useState(false);
   const [transitStatusFilter, setTransitStatusFilter] = useState<'all' | 'on-time' | 'delayed' | 'delivered'>('delayed');
-  const [transitModeFilter, setTransitModeFilter] = useState<'all' | 'ocean' | 'road'>('all');
+  const [transitModeFilter, setTransitModeFilter] = useState<'all' | 'ocean' | 'air' | 'road'>('all');
   const [transitSupplierFilter, setTransitSupplierFilter] = useState('all');
   const [transitFiltersOpen, setTransitFiltersOpen] = useState(true);
+  /** Keep buyer alert compact so the map stays visible */
+  const [alertDetailsOpen, setAlertDetailsOpen] = useState(false);
   const [containerForm, setContainerForm] = useState<ContainerUpdatePayload>({
     containerNumber: '', vesselName: '', voyageNumber: '', bookingNumber: '',
     psaTerminal: '', eta: '', temp: '', origin: '', notes: '',
@@ -519,7 +529,7 @@ export default function Logistics() {
 
   const transitSuppliers = useMemo(() => {
     const set = new Set(transitShipments.map((s) => s.vendor).filter(Boolean));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    return Array.from(set).sort((a: string, b: string) => a.localeCompare(b));
   }, [transitShipments]);
 
   const filteredTransitShipments = useMemo(() => {
@@ -545,13 +555,15 @@ export default function Logistics() {
     onTrack: filteredTransitShipments.filter((s) => !((s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered')),
   }), [filteredTransitShipments]);
 
-  // Keep selection inside the filtered list
+  // Keep selection inside the filtered Live Tracking list only —
+  // do not override PSA Containers / Dashboard selections (those show all lots).
   useEffect(() => {
+    if (activeTab !== 'transit') return;
     if (!filteredTransitShipments.length) return;
     if (!filteredTransitShipments.some((s) => s.id === selectedShipmentId)) {
       setSelectedShipmentId(filteredTransitShipments[0].id);
     }
-  }, [filteredTransitShipments, selectedShipmentId]);
+  }, [activeTab, filteredTransitShipments, selectedShipmentId]);
 
   const tabs: Array<{ id: LogisticsTab; label: string; icon: typeof Truck; vendorOnly?: boolean }> = [
     { id: 'dashboard', label: 'Tracking Dashboard', icon: LayoutDashboard },
@@ -883,8 +895,9 @@ export default function Logistics() {
                           onChange={(e) => setTransitModeFilter(e.target.value as typeof transitModeFilter)}
                           className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
                         >
-                          <option value="all">Sea &amp; land</option>
+                          <option value="all">Sea, air &amp; land</option>
                           <option value="ocean">Sea only</option>
+                          <option value="air">Air only</option>
                           <option value="road">Land only</option>
                         </select>
                       </label>
@@ -949,7 +962,17 @@ export default function Logistics() {
               </div>
 
               <div className="flex-1 relative flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-950">
-                <div className="absolute top-4 right-4 z-20 flex bg-[#0c1e36] rounded-lg shadow-lg border border-sky-900/60 p-1">
+                <div className="shrink-0 px-4 lg:px-5 pt-3 pb-2 border-b border-slate-200/80 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-950/90 z-20">
+                  <RiskOverviewKpis
+                    shipments={transitShipments}
+                    buyerAlerts={buyerAlerts}
+                    onOpenAlerts={() => setShowAlertsPanel(true)}
+                    showAlertsLink={!isVendor}
+                  />
+                </div>
+                <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div className="absolute top-3 right-4 z-20">
+                  <div className="flex bg-[#0c1e36] rounded-lg shadow-lg border border-sky-900/60 p-1">
                   {([['map', MapIcon, 'Map'], ['timeline', Activity, 'PSA Timeline'], ['calendar', CalendarIcon, 'Calendar']] as const).map(([mode, Icon, label]) => (
                     <button
                       key={mode}
@@ -962,6 +985,7 @@ export default function Logistics() {
                       <Icon className="w-3.5 h-3.5" /> {label}
                     </button>
                   ))}
+                  </div>
                 </div>
 
                 <AnimatePresence>
@@ -974,12 +998,12 @@ export default function Logistics() {
                 </AnimatePresence>
 
                 {viewMode === 'map' && (
-                  <div className="absolute inset-0 flex flex-col pt-16 overflow-hidden">
+                  <div className="absolute inset-0 flex flex-col pt-14 overflow-y-auto">
                     {selectedShipment && activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 z-10 w-full">
                         <div
                           className={cn(
-                            'rounded-xl p-4 border space-y-3',
+                            'rounded-xl p-3 border space-y-2',
                             selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
                               ? 'bg-red-50/95 dark:bg-rose-950/20 border-l-4 border-rose-500 border-rose-200/50'
                               : 'bg-amber-50/95 dark:bg-amber-950/20 border-l-4 border-amber-500 border-amber-200/50'
@@ -1005,14 +1029,14 @@ export default function Logistics() {
                               >
                                 {isVendor ? 'Supplier alert' : 'Buyer alert'} · {activeDisruption.routeId}
                               </h4>
-                              <p className="text-xs mt-1 font-mono text-slate-700 dark:text-slate-300">
+                              <p className="text-xs mt-1 font-mono text-slate-700 dark:text-slate-300 line-clamp-2">
                                 {activeDisruption.threatVector}
                               </p>
-                              <p className="text-xs mt-2 flex items-start gap-2 bg-white/70 dark:bg-slate-900/40 p-3 rounded-lg">
-                                <TrendingDown className="w-4 h-4 shrink-0 mt-0.5" />
-                                {activeDisruption.delayText}
+                              <p className="text-xs mt-1.5 flex items-start gap-2 text-slate-600 dark:text-slate-400">
+                                <TrendingDown className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                                <span className="line-clamp-2">{activeDisruption.delayText}</span>
                               </p>
-                              {!isVendor && (
+                              {!isVendor && alertDetailsOpen && (
                                 <div className="mt-2 space-y-2">
                                   <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/50 border border-amber-200/60 dark:border-amber-800/40 space-y-1.5">
                                     <div className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
@@ -1086,25 +1110,36 @@ export default function Logistics() {
                             )}
                           </div>
                           {!isVendor && (
-                            <div className="border-t border-amber-200/70 dark:border-amber-800/40 pt-3 flex flex-wrap justify-between gap-3 items-center">
-                              <p className="text-xs text-slate-700 dark:text-slate-300 flex-1">
-                                {activeDisruption.suggestedAction}
-                              </p>
+                            <div className="border-t border-amber-200/70 dark:border-amber-800/40 pt-2 flex flex-wrap justify-between gap-2 items-center">
                               <button
                                 type="button"
-                                onClick={() => navigate('/inbox')}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-black uppercase font-mono shrink-0"
+                                onClick={() => setAlertDetailsOpen((v) => !v)}
+                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300 hover:text-sky-700"
                               >
-                                Review Inbox approvals
+                                {alertDetailsOpen ? (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                )}
+                                {alertDetailsOpen ? 'Hide impact' : 'Show shelf impact'}
                               </button>
-                              <button
-                                type="button"
-                                onClick={() => navigate('/procurement')}
-                                className="inline-flex items-center gap-2 px-4 py-2.5 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-xs font-black uppercase font-mono shrink-0"
-                              >
-                                <ShoppingCart className="w-3.5 h-3.5" />
-                                Ask alternative suppliers
-                              </button>
+                              <div className="flex flex-wrap gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate('/inbox')}
+                                  className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                >
+                                  Review Inbox approvals
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate('/procurement')}
+                                  className="inline-flex items-center gap-2 px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                >
+                                  <ShoppingCart className="w-3.5 h-3.5" />
+                                  Ask alternative suppliers
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -1130,10 +1165,48 @@ export default function Logistics() {
                         </div>
                       </div>
                     )}
-                    <div className="flex-1 px-4 lg:px-5 pb-4 min-h-0 flex flex-col gap-3 w-full">
-                      <div className="flex-1 min-h-[280px]">
+                    <div className="flex-1 px-4 lg:px-5 pb-4 min-h-[420px] flex flex-col gap-2 w-full">
+                      <div className="flex justify-end shrink-0">
+                        <div className="flex bg-[#0c1e36] rounded-lg shadow-md border border-sky-900/60 p-1">
+                          <button
+                            type="button"
+                            onClick={() => setMapScope('fleet')}
+                            className={cn(
+                              'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase',
+                              mapScope === 'fleet' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white'
+                            )}
+                          >
+                            All lots
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMapScope('lot')}
+                            className={cn(
+                              'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase',
+                              mapScope === 'lot' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white'
+                            )}
+                          >
+                            One lot
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex-1 min-h-[360px] h-[min(52vh,520px)]">
                         <Suspense fallback={<div className="h-full min-h-[320px] rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-500 font-mono text-xs gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading PSA map…</div>}>
-                          <TrackingMap shipment={selectedShipment} />
+                          {mapScope === 'fleet' ? (
+                            <GlobalFleetMap
+                              shipments={filteredTransitShipments}
+                              selectedId={selectedShipmentId}
+                              filter={fleetFilter}
+                              onFilterChange={setFleetFilter}
+                              onSelect={(id) => setSelectedShipmentId(id)}
+                              onOpenLot={(id) => {
+                                setSelectedShipmentId(id);
+                                setMapScope('lot');
+                              }}
+                            />
+                          ) : (
+                            <TrackingMap shipment={selectedShipment} />
+                          )}
                         </Suspense>
                       </div>
                       {selectedShipment && (
@@ -1189,6 +1262,7 @@ export default function Logistics() {
                     />
                   </div>
                 )}
+                </div>
               </div>
             </motion.div>
           )}

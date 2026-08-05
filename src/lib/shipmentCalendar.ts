@@ -59,10 +59,25 @@ export function getShipmentStartDate(s: Shipment): Date {
   if (fromDate) {
     return isBefore(fromDate, end) || fromDate.getTime() === end.getTime()
       ? fromDate
-      : startOfDay(addDays(end, -Math.max(1, s.transportMode === 'ocean' ? 14 : 3)));
+      : startOfDay(
+          addDays(
+            end,
+            -Math.max(
+              1,
+              s.transportMode === 'ocean' ? 14 : s.transportMode === 'air' ? 5 : 3
+            )
+          )
+        );
   }
   // Infer span by mode when only ETA exists
-  const back = s.transportMode === 'ocean' ? 18 : s.transportMode === 'multimodal' ? 10 : 4;
+  const back =
+    s.transportMode === 'ocean'
+      ? 18
+      : s.transportMode === 'multimodal'
+        ? 10
+        : s.transportMode === 'air'
+          ? 6
+          : 4;
   return startOfDay(addDays(end, -back));
 }
 

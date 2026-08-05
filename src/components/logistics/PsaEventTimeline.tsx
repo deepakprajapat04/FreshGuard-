@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { Fragment } from 'react';
 import {
   AlertTriangle,
   ArrowDown,
@@ -11,6 +12,7 @@ import {
 import { cn } from '../../lib/utils';
 import {
   buildShipmentNextActions,
+  getTransportModeMismatch,
   getPsaEventKind,
   type PsaEvent,
   type PsaEventKind,
@@ -102,6 +104,10 @@ export function PsaEventTimeline({
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
   const nextActions = buildShipmentNextActions(shipment);
+  const transportMismatch = getTransportModeMismatch({
+    transportMode: shipment.transportMode,
+    psaEvents: shipment.psaEvents,
+  });
   const alertCount = events.filter((e) => getPsaEventKind(e.code) === 'alert').length;
   const moveCount = events.filter((e) => getPsaEventKind(e.code) === 'movement').length;
 
@@ -153,12 +159,13 @@ export function PsaEventTimeline({
               <div className="absolute left-[7px] top-2 bottom-2 w-0.5 bg-gradient-to-b from-sky-400 via-slate-300 to-slate-200 dark:from-sky-600 dark:via-slate-700 dark:to-slate-800" />
               <div className="space-y-0">
                 {events.map((ev, idx) => (
-                  <TimelineEventRow
-                    key={ev.id}
-                    ev={ev}
-                    isLatest={idx === 0}
-                    isOldest={idx === events.length - 1}
-                  />
+                  <Fragment key={ev.id}>
+                    <TimelineEventRow
+                      ev={ev}
+                      isLatest={idx === 0}
+                      isOldest={idx === events.length - 1}
+                    />
+                  </Fragment>
                 ))}
               </div>
             </div>
@@ -181,9 +188,32 @@ export function PsaEventTimeline({
             {nextActions.filter((a) => a.status !== 'done').length} open
           </span>
         </div>
+
+        {transportMismatch.isMismatch && (
+          <div className="px-5 pt-4 pb-0">
+            <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/60 dark:border-rose-900/40 dark:bg-rose-950/20 p-3">
+              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-300 shrink-0 mt-0.5" />
+              <div className="min-w-0">
+                <div className="text-[10px] font-black uppercase tracking-wider text-rose-800 dark:text-rose-200">
+                  Transport mode mismatch detected
+                </div>
+                <div className="text-[11px] text-slate-700 dark:text-slate-300">
+                  Expected <span className="font-bold">{transportMismatch.expected}</span>, but observed{' '}
+                  <span className="font-bold">{transportMismatch.actual}</span>.
+                </div>
+                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1">
+                  {transportMismatch.hint}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="p-4 grid sm:grid-cols-2 gap-3">
           {nextActions.map((a) => (
-            <ActionCard key={a.id} action={a} />
+            <Fragment key={a.id}>
+              <ActionCard action={a} />
+            </Fragment>
           ))}
         </div>
       </div>
