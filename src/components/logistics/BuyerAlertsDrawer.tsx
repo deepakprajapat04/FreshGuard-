@@ -46,7 +46,7 @@ export function BuyerAlertsDrawer({
             role="dialog"
             aria-label="Periodic shipment alerts"
           >
-            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-[#0c1e36] text-white">
+            <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
               <div>
                 <h3 className="text-sm font-bold uppercase tracking-wider">
                   Periodic Shipment Alerts

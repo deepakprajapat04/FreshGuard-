@@ -281,7 +281,7 @@ export default function BusinessRules() {
 
       <div className="grid xl:grid-cols-12 gap-3.5">
         <section className="xl:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-          <div className="px-4 py-2 bg-[#0c1e36] text-white flex items-center gap-2">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center gap-2">
             <ShieldAlert className="w-4 h-4 text-rose-300" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">1. Urgent alert</h2>
@@ -317,7 +317,7 @@ export default function BusinessRules() {
         </section>
 
         <section className="xl:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-          <div className="px-4 py-2 bg-[#0c1e36] text-white flex items-center gap-2">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-300" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">2. Warning expected delay</h2>
@@ -356,8 +356,8 @@ export default function BusinessRules() {
         </section>
 
         <section className="xl:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-          <div className="px-4 py-2 bg-[#0c1e36] text-white flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-sky-300" />
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-sky-600 dark:text-sky-300" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">3. Auto-generate proposal</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">Scope for fill-in proposals → Inbox</p>
@@ -426,7 +426,7 @@ export default function BusinessRules() {
 
       {/* Disruption families */}
       <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-        <div className="px-4 py-2 bg-[#0c1e36] text-white flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Bell className="w-4 h-4 text-amber-300" />
             <div>
@@ -543,7 +543,7 @@ export default function BusinessRules() {
 
       <div className="grid lg:grid-cols-12 gap-3.5">
         <section className="lg:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-          <div className="px-4 py-2 bg-[#0f2744] text-white">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
             <h2 className="text-sm font-bold uppercase tracking-wider">In-scope categories</h2>
             <p className="text-[11px] text-slate-400 mt-0.5">Toggle categories eligible for auto-proposals</p>
           </div>
@@ -570,7 +570,7 @@ export default function BusinessRules() {
         </section>
 
         <section className="lg:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-          <div className="px-4 py-2 bg-[#0f2744] text-white">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
             <h2 className="text-sm font-bold uppercase tracking-wider">In-scope items</h2>
             <p className="text-[11px] text-slate-400 mt-0.5">Optional item allow-list (empty = all in category)</p>
           </div>
@@ -623,7 +623,7 @@ export default function BusinessRules() {
         </section>
 
         <section className="lg:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-          <div className="px-4 py-2 bg-[#0f2744] text-white">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white">
             <h2 className="text-sm font-bold uppercase tracking-wider">Category buyer owners</h2>
             <p className="text-[11px] text-slate-400 mt-0.5">Who receives Inbox proposals per category</p>
           </div>
@@ -651,7 +651,7 @@ export default function BusinessRules() {
       </div>
 
       <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-        <div className="px-4 py-2 bg-[#0f2744] text-white flex items-center gap-2">
+        <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white flex items-center gap-2">
           <FileSignature className="w-4 h-4 text-emerald-300" />
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider">Auto-proposal workflow</h2>
@@ -708,18 +708,18 @@ export default function BusinessRules() {
       {alertModalOpen && (
         <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 bg-slate-950/60">
           <div
-            className="w-full max-w-lg rounded-2xl bg-[#0c1e36] text-white shadow-2xl border border-sky-900/60 overflow-hidden max-h-[90vh] flex flex-col"
+            className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden max-h-[90vh] flex flex-col"
             role="dialog"
             aria-labelledby="add-alert-title"
           >
-            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between shrink-0">
+            <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
               <h2 id="add-alert-title" className="text-base font-bold">
                 Create watch rule
               </h2>
               <button
                 type="button"
                 onClick={() => setAlertModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-300"
+                className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-white/10 text-slate-500 dark:text-slate-300"
                 aria-label="Close"
               >
                 <X className="w-4 h-4" />
@@ -728,17 +728,17 @@ export default function BusinessRules() {
 
             <div className="p-3.5 space-y-3 overflow-y-auto flex-1">
               <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Watch rule name</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Watch rule name</span>
                 <input
                   value={alertForm.name}
                   onChange={(e) => setAlertForm((f) => ({ ...f, name: e.target.value }))}
                   placeholder="e.g. Gulf Coast lane storm watch"
-                  className="w-full rounded-lg border border-sky-900/80 bg-[#0a1829] px-3 py-2.5 text-sm text-white placeholder:text-slate-500"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-white placeholder:text-slate-400"
                 />
               </label>
 
               <div>
-                <div className="text-[11px] font-semibold text-slate-300 mb-2">Watch scope</div>
+                <div className="text-[11px] font-semibold text-slate-600 dark:text-slate-300 mb-2">Watch scope</div>
                 <div className="flex gap-4 text-sm">
                   {(
                     [
@@ -761,9 +761,9 @@ export default function BusinessRules() {
               </div>
 
               <div className="space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Impact families</span>
-                <div className="rounded-xl border border-sky-900/80 bg-[#0a1829] overflow-hidden">
-                  <div className="relative border-b border-sky-900/60">
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Impact families</span>
+                <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+                  <div className="relative border-b border-slate-200 dark:border-slate-700">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                     <input
                       value={alertTypeSearch}
@@ -795,11 +795,11 @@ export default function BusinessRules() {
               </div>
 
               <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Trigger category</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Trigger category</span>
                 <select
                   value={alertForm.alertCategory}
                   onChange={(e) => setAlertForm((f) => ({ ...f, alertCategory: e.target.value }))}
-                  className="w-full rounded-lg border border-sky-900/80 bg-[#0a1829] px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-white"
                 >
                   <option value="">Choose trigger category</option>
                   {ALERT_CATEGORY_OPTIONS.map((c) => (
@@ -811,11 +811,11 @@ export default function BusinessRules() {
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Trigger detail</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Trigger detail</span>
                 <select
                   value={alertForm.eventType}
                   onChange={(e) => setAlertForm((f) => ({ ...f, eventType: e.target.value }))}
-                  className="w-full rounded-lg border border-sky-900/80 bg-[#0a1829] px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-white"
                 >
                   <option value="">Choose trigger detail</option>
                   {ALERT_EVENT_TYPE_OPTIONS.map((c) => (
@@ -827,13 +827,13 @@ export default function BusinessRules() {
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Risk priority</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Risk priority</span>
                 <select
                   value={alertForm.riskScore}
                   onChange={(e) =>
                     setAlertForm((f) => ({ ...f, riskScore: e.target.value as AlertRiskScore }))
                   }
-                  className="w-full rounded-lg border border-sky-900/80 bg-[#0a1829] px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-white"
                 >
                   {(['Low', 'Medium', 'High', 'Critical'] as const).map((s) => (
                     <option key={s} value={s}>
@@ -844,11 +844,11 @@ export default function BusinessRules() {
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Region</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Region</span>
                 <select
                   value={alertForm.country}
                   onChange={(e) => setAlertForm((f) => ({ ...f, country: e.target.value }))}
-                  className="w-full rounded-lg border border-sky-900/80 bg-[#0a1829] px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-white"
                 >
                   <option value="">Choose region</option>
                   {COUNTRY_OPTIONS.map((c) => (
@@ -860,12 +860,12 @@ export default function BusinessRules() {
               </label>
 
               <label className="block space-y-1.5">
-                <span className="text-[11px] font-semibold text-slate-300">Valid until</span>
+                <span className="text-[11px] font-semibold text-slate-600 dark:text-slate-300">Valid until</span>
                 <input
                   type="date"
                   value={alertForm.endDate}
                   onChange={(e) => setAlertForm((f) => ({ ...f, endDate: e.target.value }))}
-                  className="w-full rounded-lg border border-sky-900/80 bg-[#0a1829] px-3 py-2.5 text-sm text-white"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 text-sm text-slate-800 dark:text-white"
                 />
               </label>
 
@@ -874,7 +874,7 @@ export default function BusinessRules() {
               )}
             </div>
 
-            <div className="px-4 py-3 border-t border-white/10 flex justify-end gap-2 shrink-0">
+            <div className="px-4 py-3 border-t border-slate-100 dark:border-white/10 flex justify-end gap-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setAlertModalOpen(false)}

@@ -171,16 +171,16 @@ export function GlobalFleetMap({
       {/* Top bar */}
       <div className="absolute top-3 left-3 right-3 z-[500] flex flex-wrap items-center justify-between gap-2 pointer-events-none">
         <div className="flex flex-wrap items-center gap-2 pointer-events-auto">
-          <div className="bg-[#0c1e36]/95 text-white text-[11px] font-semibold px-3 py-2 rounded-lg shadow-md border border-sky-900/60">
+          <div className="bg-white dark:bg-slate-900/95 text-slate-800 dark:text-white text-[11px] font-semibold px-3 py-2 rounded-lg shadow-md border border-slate-200 dark:border-slate-700">
             Global fleet map · {filterLabel}: {visible.length}
           </div>
-          <div className="flex bg-[#0c1e36]/95 rounded-lg shadow-md border border-sky-900/60 p-0.5">
+          <div className="flex bg-white dark:bg-slate-900/95 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 p-0.5">
             <button
               type="button"
               onClick={() => setBasemap('street')}
               className={cn(
                 'px-2.5 py-1 rounded-md text-[10px] font-bold uppercase',
-                basemap === 'street' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white'
+                basemap === 'street' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               )}
             >
               Street
@@ -190,7 +190,7 @@ export function GlobalFleetMap({
               onClick={() => setBasemap('satellite')}
               className={cn(
                 'px-2.5 py-1 rounded-md text-[10px] font-bold uppercase',
-                basemap === 'satellite' ? 'bg-emerald-600 text-white' : 'text-slate-300 hover:text-white'
+                basemap === 'satellite' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               )}
             >
               Satellite
@@ -199,10 +199,10 @@ export function GlobalFleetMap({
         </div>
 
         <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="bg-[#0c1e36]/95 text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-md border border-sky-900/60">
+          <div className="bg-white dark:bg-slate-900/95 text-slate-800 dark:text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-md border border-slate-200 dark:border-slate-700">
             In transit: {counts.all}
           </div>
-          <div className="flex bg-[#0c1e36]/95 rounded-lg shadow-md border border-sky-900/60 p-0.5">
+          <div className="flex bg-white dark:bg-slate-900/95 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 p-0.5">
             {(
               [
                 ['all', Box, 'All', counts.all],
@@ -217,7 +217,7 @@ export function GlobalFleetMap({
                 onClick={() => onFilterChange(id)}
                 className={cn(
                   'px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase flex items-center gap-1',
-                  filter === id ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white'
+                  filter === id ? 'bg-sky-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                 )}
                 title={label}
               >

@@ -64,10 +64,10 @@ export function ShipmentDashboard({
   const syncPct = shipments.length ? Math.round((synced / shipments.length) * 100) : 100;
 
   const cards = [
-    { label: 'Active', value: active, sub: 'In transit', valueClass: 'text-sky-300', bar: 'bg-sky-400' },
-    { label: 'PSA sync', value: `${syncPct}%`, sub: `${synced} linked`, valueClass: 'text-emerald-300', bar: 'bg-emerald-400' },
-    { label: 'On-time / delayed', value: `${onTime}/${delayed}`, sub: 'Status mix', valueClass: 'text-amber-300', bar: 'bg-amber-400' },
-    { label: 'Sea lots', value: ocean, sub: 'Ocean via PSA', valueClass: 'text-cyan-300', bar: 'bg-cyan-400' },
+    { label: 'Active', value: active, sub: 'In transit', valueClass: 'text-sky-600', bar: 'bg-sky-500' },
+    { label: 'PSA sync', value: `${syncPct}%`, sub: `${synced} linked`, valueClass: 'text-emerald-600', bar: 'bg-emerald-500' },
+    { label: 'On-time / delayed', value: `${onTime}/${delayed}`, sub: 'Status mix', valueClass: 'text-amber-600', bar: 'bg-amber-500' },
+    { label: 'Sea lots', value: ocean, sub: 'Ocean via PSA', valueClass: 'text-cyan-600', bar: 'bg-cyan-500' },
   ];
 
   const transitShipments = shipments.filter((s) => s.stage === 'delivering' || s.status !== 'delivered');
@@ -222,11 +222,10 @@ export function ShipmentDashboard({
           {cards.map((card) => (
             <div
               key={card.label}
-              className="relative overflow-hidden rounded-xl border border-slate-700/80 px-3 py-2.5 shadow-md"
-              style={{ backgroundColor: '#0f2744' }}
+              className="relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-3 shadow-sm"
             >
               <div className="flex items-center justify-between">
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
                   {card.label}
                 </div>
                 <span className={cn('h-1 w-6 rounded-full', card.bar)} />
@@ -234,14 +233,14 @@ export function ShipmentDashboard({
               <div className={cn('text-xl font-bold mt-1 tracking-tight', card.valueClass)}>
                 {card.value}
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5">{card.sub}</div>
+              <div className="text-[10px] text-slate-500 mt-0.5">{card.sub}</div>
             </div>
           ))}
         </div>
       )}
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-        <div className="inline-flex bg-[#0c1e36] p-1 rounded-xl border border-sky-900/60 shadow-sm">
+        <div className="inline-flex bg-white dark:bg-slate-900 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm">
           <button
             type="button"
             onClick={() => {
@@ -252,7 +251,7 @@ export function ShipmentDashboard({
               'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors',
               boardView === 'calendar'
                 ? 'bg-sky-600 text-white shadow'
-                : 'text-slate-300 hover:text-white'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
             )}
           >
             <CalendarDays className="w-4 h-4" />
@@ -268,7 +267,7 @@ export function ShipmentDashboard({
               'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors',
               boardView === 'table'
                 ? 'bg-sky-600 text-white shadow'
-                : 'text-slate-300 hover:text-white'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
             )}
           >
             <Table2 className="w-4 h-4" />
@@ -281,7 +280,7 @@ export function ShipmentDashboard({
               'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors',
               boardView === 'risk'
                 ? 'bg-sky-600 text-white shadow'
-                : 'text-slate-300 hover:text-white'
+                : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
             )}
           >
             <Radar className="w-4 h-4" />
@@ -313,7 +312,7 @@ export function ShipmentDashboard({
               emptyMessage="No shipments match the current filters."
               initialFilterOpen={true}
               toolbarExtra={
-                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-lg">
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/30 px-2.5 py-1 rounded-lg">
                   <Activity className="w-3.5 h-3.5" />
                   Live feed
                 </div>
@@ -322,31 +321,31 @@ export function ShipmentDashboard({
           </div>
 
           <div className="xl:col-span-4 space-y-3">
-            <div className="bg-gradient-to-br from-[#0c1e36] via-[#123556] to-[#0a4d68] text-white rounded-2xl p-4 shadow-xl border border-sky-900/40">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-300">
+            <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
                 <Link2 className="w-4 h-4" /> Integration
               </div>
               <h3 className="text-base font-bold mt-1.5">PSA Portnet® Connected</h3>
-              <p className="text-xs text-sky-100/75 mt-1.5 leading-relaxed">
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-relaxed">
                 Sea and land lots share the same event ledger for retail buyers.
               </p>
-              <ul className="mt-3 space-y-1.5 text-[11px] text-sky-50/90">
+              <ul className="mt-3 space-y-1.5 text-[11px] text-slate-600 dark:text-slate-300">
                 <li className="flex gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" /> Bi-directional events
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" /> Bi-directional events
                 </li>
                 <li className="flex gap-2">
-                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-400" /> Vessel &amp; haulage sync
+                  <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-500" /> Vessel &amp; haulage sync
                 </li>
               </ul>
             </div>
 
             {!isVendor && (
-              <div className="rounded-2xl overflow-hidden border border-slate-700/50 shadow-lg bg-white dark:bg-slate-900">
-                <div className="px-4 py-2.5 bg-[#0f2744] flex items-center justify-between">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Buyer alerts</h4>
+              <div className="rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700 shadow-sm bg-white dark:bg-slate-900">
+                <div className="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Buyer alerts</h4>
                   <button
                     onClick={onOpenAlerts}
-                    className="text-[10px] font-bold text-sky-300 uppercase hover:text-white"
+                    className="text-[10px] font-bold text-sky-600 dark:text-sky-300 uppercase hover:text-sky-800 dark:hover:text-white"
                   >
                     View all
                   </button>
@@ -392,10 +391,10 @@ export function ShipmentDashboard({
             buyerAlerts={buyerAlerts}
           />
 
-          <div className="rounded-xl border border-slate-700/60 bg-[#0c1e36] px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white">All-lots fleet map</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">All-lots fleet map</h3>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                 Network-wide exposure view · land, sea, and air lots on one map
               </p>
             </div>
@@ -404,7 +403,7 @@ export function ShipmentDashboard({
                 <button
                   type="button"
                   onClick={() => setMapAlertsOpen(true)}
-                  className="px-3 py-1.5 rounded-lg bg-amber-500/20 border border-amber-400/40 text-amber-200 text-[10px] font-bold uppercase"
+                  className="px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-500/20 dark:border-amber-400/40 dark:text-amber-200 text-[10px] font-bold uppercase"
                 >
                   Alerts{buyerAlerts.length ? ` (${buyerAlerts.length})` : ''}
                 </button>
@@ -457,7 +456,7 @@ export function ShipmentDashboard({
                   role="dialog"
                   aria-label="Periodic shipment alerts"
                 >
-                  <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-[#0c1e36] text-white">
+                  <div className="px-3 py-2.5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between shrink-0 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
                     <div>
                       <h3 className="text-xs font-bold uppercase tracking-wider">
                         Periodic Shipment Alerts

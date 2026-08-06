@@ -199,13 +199,13 @@ export default function Store() {
       >
         <button
           onClick={handleResetForDemo}
-          className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold hover:bg-white/15 transition-colors cursor-pointer text-white"
+          className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold hover:bg-slate-50 transition-colors cursor-pointer text-slate-700 dark:bg-white/10 dark:border-white/20 dark:hover:bg-white/15 dark:text-white"
           title="Reset storage for demo testing"
         >
           <RotateCcw className="w-3.5 h-3.5" /> Reset Node Logs
         </button>
-        <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 rounded-lg px-3.5 py-1.5 flex items-center gap-2 text-xs font-mono font-bold">
-          <ShieldCheck className="w-4 h-4 text-emerald-400 animate-pulse" />
+        <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 dark:bg-emerald-500/15 dark:border-emerald-500/40 dark:text-emerald-300 rounded-lg px-3.5 py-1.5 flex items-center gap-2 text-xs font-mono font-bold">
+          <ShieldCheck className="w-4 h-4 text-emerald-500 dark:text-emerald-400 animate-pulse" />
           AI Audit Chain Active
         </div>
       </PageHeader>
@@ -216,7 +216,7 @@ export default function Store() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-3 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-300 rounded-xl border border-sky-200 dark:border-sky-900/60 text-xs font-mono flex items-center gap-2 shadow-sm"
+            className="p-3 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-300 rounded-xl border border-sky-200 dark:border-slate-700 text-xs font-mono flex items-center gap-2 shadow-sm"
           >
             <Info className="w-4 h-4 text-sky-500 shrink-0" />
             <span>{feedback}</span>
@@ -228,19 +228,19 @@ export default function Store() {
         <StatCard
           label="Bypassed QA Batches"
           value={`${filteredItems.length} Lots`}
-          sub={<>Frictionless auto-acceptance: <strong className="text-emerald-300">100%</strong></>}
+          sub={<>Frictionless auto-acceptance: <strong className="text-emerald-600 dark:text-emerald-300">100%</strong></>}
           tone="emerald"
         />
         <StatCard
           label="Distributed Volume"
           value={`${totalVolumeCalculated.toLocaleString()} Cases`}
-          sub={<>Assigned to <strong className="text-sky-300">{branches.length - 1} metro centers</strong></>}
+          sub={<>Assigned to <strong className="text-sky-600 dark:text-sky-300">{branches.length - 1} metro centers</strong></>}
           tone="sky"
         />
         <StatCard
           label="Target Store Markdown Override"
           value="-0% Base"
-          sub={<>Calculated by <strong className="text-cyan-300">FreshDetect AI</strong></>}
+          sub={<>Calculated by <strong className="text-cyan-600 dark:text-cyan-300">FreshDetect AI</strong></>}
           tone="cyan"
         />
       </div>
@@ -267,7 +267,7 @@ export default function Store() {
                     'px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-tight transition-all cursor-pointer whitespace-nowrap border',
                     selectedBranch === br
                       ? 'bg-sky-600 border-sky-500 text-white'
-                      : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+                      : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/10'
                   )}
                 >
                   {br}

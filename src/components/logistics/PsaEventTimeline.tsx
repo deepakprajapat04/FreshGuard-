@@ -141,14 +141,14 @@ export function PsaEventTimeline({
   return (
     <div className="space-y-4">
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
-        <div className="px-5 py-3.5 bg-[#0f2744] flex flex-wrap items-center justify-between gap-2">
+        <div className="px-5 py-3.5 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <h3 className="text-sm font-black font-mono uppercase tracking-wider text-white">{title}</h3>
-            <p className="text-[10px] text-slate-400 mt-0.5">
+            <h3 className="text-sm font-black font-mono uppercase tracking-wider text-slate-900 dark:text-white">{title}</h3>
+            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
               Newest at top · scroll down for earlier moves
             </p>
           </div>
-          <span className="text-[10px] font-mono text-emerald-300 font-bold flex items-center gap-1.5">
+          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-300 font-bold flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             {syncedLabel}
           </span>
@@ -201,9 +201,9 @@ export function PsaEventTimeline({
       </div>
 
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
-        <div className="px-5 py-3.5 bg-[#0c1e36] text-white flex flex-wrap items-center justify-between gap-2">
+        <div className="px-5 py-3.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <ClipboardList className="w-4 h-4 text-sky-300 shrink-0" />
+            <ClipboardList className="w-4 h-4 text-sky-600 dark:text-sky-300 shrink-0" />
             <div>
               <h3 className="text-sm font-black font-mono uppercase tracking-wider">Next actions</h3>
               <p className="text-[10px] text-slate-400 mt-0.5">

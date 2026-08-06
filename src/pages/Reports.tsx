@@ -36,7 +36,7 @@ export default function Reports() {
             : 'Deep analytics into inventory loss, markdowns, and AI preventative impact.'
         }
       >
-        <select className="bg-[#0a1829] border border-sky-900/80 rounded-lg px-3 py-2 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        <select className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
           <option>Last 6 Months</option>
           <option>Last Quarter</option>
           <option>Year to Date</option>

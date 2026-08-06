@@ -58,7 +58,7 @@ export function Layout({ children }: { children: ReactNode }) {
   });
 
   return (
-    <div className="min-h-screen bg-[#e4ebf3] dark:bg-[#0d1a2a] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-[#F0F3F8] dark:bg-[#0d1a2a] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
@@ -162,35 +162,35 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-14 bg-[#e8eef5] dark:bg-[#1b334d] border-b border-slate-300/80 dark:border-sky-800/60 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0 transition-colors duration-300">
+        <header className="h-14 bg-[#0c1e36] border-b border-sky-900/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/10 rounded-lg"
+              className="lg:hidden p-2 -ml-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="hidden sm:flex items-center gap-2 text-slate-600 dark:text-slate-300 border border-slate-300 dark:border-sky-900/80 rounded-full px-3 py-1.5 bg-white dark:bg-[#0f2744] w-64 focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
-              <Search className="w-4 h-4 text-slate-400" />
+            <div className="hidden sm:flex items-center gap-2 text-slate-300 border border-sky-900/80 rounded-full px-3 py-1.5 bg-[#0a1829] w-64 focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
+              <Search className="w-4 h-4 text-slate-500" />
               <input
                 type="text"
                 placeholder="Search POs, vendors, lots..."
-                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-400 text-slate-800 dark:text-slate-100 placeholder:select-none"
+                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-500 text-slate-100 placeholder:select-none"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="hidden sm:flex items-center gap-2 mr-1">
-              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">View as:</span>
-              <div className="bg-white dark:bg-[#0f2744] p-1 rounded-lg flex gap-1 border border-slate-300 dark:border-sky-900/80">
+              <span className="text-xs font-medium text-slate-400">View as:</span>
+              <div className="bg-[#0a1829] p-1 rounded-lg flex gap-1 border border-sky-900/80">
                 <button
                   onClick={() => setPersona('admin')}
                   className={cn(
                     'px-3 py-1 text-xs font-medium rounded-md transition-all duration-200',
                     persona === 'admin'
                       ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                      : 'text-slate-400 hover:text-white'
                   )}
                 >
                   Buyer
@@ -201,7 +201,7 @@ export function Layout({ children }: { children: ReactNode }) {
                     'px-3 py-1 text-xs font-medium rounded-md transition-all duration-200',
                     persona === 'vendor'
                       ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
+                      : 'text-slate-400 hover:text-white'
                   )}
                 >
                   Vendor
@@ -211,7 +211,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
             <button
               onClick={toggleTheme}
-              className="p-2 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/10 rounded-lg transition-colors relative flex items-center justify-center min-w-[36px] min-h-[36px]"
+              className="p-2 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-colors relative flex items-center justify-center min-w-[36px] min-h-[36px]"
               title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
               aria-label="Toggle Theme"
             >
@@ -244,8 +244,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 className={cn(
                   'relative p-2 rounded-lg transition-colors',
                   alertsOpen
-                    ? 'bg-sky-100 text-sky-700 dark:bg-sky-900/50 dark:text-sky-300'
-                    : 'text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/70 dark:hover:bg-white/10'
+                    ? 'bg-sky-600 text-white'
+                    : 'text-slate-300 hover:text-white hover:bg-white/10'
                 )}
                 title="Alerts"
                 aria-label="Open alerts"
@@ -253,7 +253,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#e8eef5] dark:ring-[#1b334d]">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#0c1e36]">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -265,16 +265,16 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             </div>
 
-            <div className="h-8 w-px bg-slate-300 dark:bg-sky-900/80 hidden sm:block" />
+            <div className="h-8 w-px bg-sky-900/80 hidden sm:block" />
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-700 dark:text-slate-200">
+              <span className="text-sm font-medium text-slate-200">
                 HQ DC - Chicago
               </span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#e4ebf3] dark:bg-[#0d1a2a] transition-colors duration-300">
+        <main className="flex-1 overflow-auto bg-[#F0F3F8] dark:bg-[#0d1a2a] transition-colors duration-300">
           {children}
         </main>
       </div>

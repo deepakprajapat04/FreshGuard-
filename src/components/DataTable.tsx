@@ -207,14 +207,14 @@ export function DataTable<T>({
   return (
     <div className={cn('flex flex-col min-h-0', className)}>
       {/* Toolbar */}
-      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-[#0c1e36] text-white flex flex-col gap-3">
+      <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex flex-col gap-3">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
           <div className="min-w-0">
             {title && (
-              <h3 className="text-sm font-bold tracking-tight text-white">{title}</h3>
+              <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">{title}</h3>
             )}
-            {subtitle && <p className="text-[12px] text-slate-400 mt-0.5 normal-case tracking-normal">{subtitle}</p>}
-            <p className="text-[11px] text-sky-300 mt-1">
+            {subtitle && <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 normal-case tracking-normal">{subtitle}</p>}
+            <p className="text-[11px] text-sky-600 dark:text-sky-300 mt-1">
               Showing {processed.length} of {data.length} rows
               {activeFilterCount > 0 ? ` · ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active` : ''}
             </p>
@@ -228,7 +228,7 @@ export function DataTable<T>({
                 value={globalQuery}
                 onChange={(e) => setGlobalQuery(e.target.value)}
                 placeholder="Search all columns…"
-                className="pl-8 pr-3 py-1.5 w-44 sm:w-56 rounded-lg bg-[#0a1829] border border-sky-900/80 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="pl-8 pr-3 py-1.5 w-44 sm:w-56 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
               />
             </div>
 
@@ -239,7 +239,7 @@ export function DataTable<T>({
                 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase border transition-colors',
                 filterBarOpen
                   ? 'bg-sky-600 border-sky-500 text-white'
-                  : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                  : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/15 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10'
               )}
               title={filterBarOpen ? 'Hide filters for more space' : 'Show column filters'}
             >
@@ -257,21 +257,21 @@ export function DataTable<T>({
               <button
                 type="button"
                 onClick={() => setColumnsOpen((v) => !v)}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase border bg-white/5 border-white/15 text-slate-200 hover:bg-white/10"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase border bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/15 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10"
                 title="Show / hide columns"
               >
                 <Columns3 className="w-3.5 h-3.5" />
                 Columns
               </button>
               {columnsOpen && (
-                <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-xl border border-slate-700 bg-slate-900 shadow-2xl p-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 px-2 py-1 mb-1">
+                <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-2">
+                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-2 py-1 mb-1">
                     Hide / unhide columns
                   </div>
                   {columns.map((col) => (
                     <label
                       key={col.key}
-                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/5 text-xs text-slate-200 cursor-pointer"
+                      className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-white/5 text-xs text-slate-700 dark:text-slate-200 cursor-pointer"
                     >
                       <input
                         type="checkbox"
@@ -300,7 +300,7 @@ export function DataTable<T>({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase text-slate-300 hover:text-white"
+                className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               >
                 <X className="w-3.5 h-3.5" /> Clear
               </button>
@@ -310,12 +310,12 @@ export function DataTable<T>({
 
         {/* Collapsible column filter bar */}
         {filterBarOpen && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 pt-1 border-t border-white/10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 pt-1 border-t border-slate-100 dark:border-white/10">
             {visibleColumns
               .filter((c) => c.filterable !== false)
               .map((col) => (
                 <div key={col.key} className="space-y-1">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     {col.label}
                   </label>
                   {col.filterType === 'select' ? (
@@ -324,7 +324,7 @@ export function DataTable<T>({
                       onChange={(e) =>
                         setColFilters((prev) => ({ ...prev, [col.key]: e.target.value }))
                       }
-                      className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     >
                       <option value="">All</option>
                       {(selectOptions[col.key] || []).map((opt) => (
@@ -340,7 +340,7 @@ export function DataTable<T>({
                         setColFilters((prev) => ({ ...prev, [col.key]: e.target.value }))
                       }
                       placeholder={`Filter ${col.label.toLowerCase()}…`}
-                      className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-xs text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
                     />
                   )}
                 </div>
@@ -371,7 +371,7 @@ export function DataTable<T>({
                       <button
                         type="button"
                         onClick={() => toggleSort(col.key)}
-                        className="inline-flex items-center gap-1 hover:text-sky-700 dark:hover:text-sky-300"
+                        className="inline-flex items-center gap-1 hover:text-sky-700 dark:hover:text-sky-600 dark:text-sky-300"
                       >
                         {col.label}
                         {active && sortDir === 'asc' ? (

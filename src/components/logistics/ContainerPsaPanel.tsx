@@ -133,7 +133,7 @@ export function ContainerPsaPanel({
   return (
     <div className="w-full grid lg:grid-cols-12 gap-5">
       <div className="lg:col-span-4 space-y-3">
-        <div className="rounded-xl bg-[#0c1e36] px-4 py-3 text-white space-y-2.5">
+        <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 text-slate-900 dark:text-white space-y-2.5 border border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-bold uppercase tracking-wider text-sky-200">
               {isVendor ? 'Select lot to update' : 'PSA container ledger'}
@@ -150,7 +150,7 @@ export function ContainerPsaPanel({
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               placeholder="Search PO, container, item…"
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-[#0a1829] border border-sky-900/80 text-[11px] text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
             />
           </div>
 
@@ -162,7 +162,7 @@ export function ContainerPsaPanel({
                 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
                 filtersOpen || filterCount > 0
                   ? 'bg-sky-600 border-sky-500 text-white'
-                  : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'
               )}
             >
               <Filter className="w-3.5 h-3.5" />
@@ -177,7 +177,7 @@ export function ContainerPsaPanel({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1 text-[10px] text-slate-300 hover:text-white"
+                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               >
                 <X className="w-3 h-3" /> Clear
               </button>
@@ -185,13 +185,13 @@ export function ContainerPsaPanel({
           </div>
 
           {filtersOpen && (
-            <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/10">
+            <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-slate-100 dark:border-white/10">
               <label className="space-y-0.5">
                 <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-                  className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                  className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-slate-100"
                 >
                   <option value="all">All statuses</option>
                   <option value="on-time">On-time</option>
@@ -204,7 +204,7 @@ export function ContainerPsaPanel({
                 <select
                   value={modeFilter}
                   onChange={(e) => setModeFilter(e.target.value as ModeFilter)}
-                  className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                  className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-slate-100"
                 >
                   <option value="all">Sea &amp; land</option>
                   <option value="ocean">Sea only</option>
@@ -217,7 +217,7 @@ export function ContainerPsaPanel({
                 <select
                   value={syncFilter}
                   onChange={(e) => setSyncFilter(e.target.value as SyncFilter)}
-                  className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                  className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-slate-100"
                 >
                   <option value="all">All sync states</option>
                   <option value="synced">Synced</option>
@@ -231,7 +231,7 @@ export function ContainerPsaPanel({
                 <select
                   value={supplierFilter}
                   onChange={(e) => setSupplierFilter(e.target.value)}
-                  className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                  className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-slate-100"
                 >
                   <option value="all">All suppliers</option>
                   {suppliers.map((v) => (
@@ -319,7 +319,7 @@ export function ContainerPsaPanel({
           <>
             {isVendor ? (
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
-                <div className="px-6 py-4 bg-[#0c1e36] text-white flex items-start justify-between gap-3">
+                <div className="px-6 py-4 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-black font-mono uppercase tracking-wider">
                       Supplier container update
@@ -375,7 +375,7 @@ export function ContainerPsaPanel({
               </div>
             ) : (
               <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
-                <div className="px-6 py-4 bg-[#0c1e36] text-white">
+                <div className="px-6 py-4 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
                   <h3 className="text-sm font-black font-mono uppercase tracking-wider">
                     Retail view · PSA mirrored data
                   </h3>
@@ -410,13 +410,13 @@ export function ContainerPsaPanel({
 
             {/* Multi-PO cargo manifest */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
-              <div className="px-5 py-3.5 bg-[#0f2744] flex flex-wrap items-center justify-between gap-2">
+              <div className="px-5 py-3.5 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2">
                 <div>
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-white flex items-center gap-2">
-                    <Package className="w-4 h-4 text-sky-300" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
+                    <Package className="w-4 h-4 text-sky-600 dark:text-sky-300" />
                     Shipped POs &amp; items
                   </h3>
-                  <p className="text-[11px] text-slate-400 mt-0.5">
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                     {cargoTotals.pos} purchase order{cargoTotals.pos === 1 ? '' : 's'} ·{' '}
                     {cargoTotals.lines} line{cargoTotals.lines === 1 ? '' : 's'} ·{' '}
                     {cargoTotals.cases.toLocaleString()} total units in {selectedShipment.containerNumber}
@@ -425,7 +425,7 @@ export function ContainerPsaPanel({
                 <button
                   type="button"
                   onClick={() => setShowAllPos((v) => !v)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                 >
                   {showAllPos ? (
                     <>

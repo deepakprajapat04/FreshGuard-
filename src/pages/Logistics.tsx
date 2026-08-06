@@ -632,7 +632,7 @@ export default function Logistics() {
   ];
 
   return (
-    <div className="flex flex-col h-screen min-h-screen bg-[#dce6f0] dark:bg-slate-950 font-sans antialiased overflow-hidden">
+    <div className="flex flex-col h-screen min-h-screen bg-[#F0F3F8] dark:bg-slate-950 font-sans antialiased overflow-hidden">
       <AnimatePresence>
         {successToast && (
           <motion.div
@@ -646,19 +646,19 @@ export default function Logistics() {
         )}
       </AnimatePresence>
 
-      <header className="bg-[#0c1e36] text-white border-b border-sky-900/50 px-4 lg:px-5 py-2.5 shrink-0 shadow-lg z-30">
+      <header className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 lg:px-5 py-2.5 shrink-0 shadow-lg z-30">
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-2 w-full">
           <div className="min-w-0 flex items-center gap-3">
             <div className="min-w-0">
               <div className="flex items-baseline gap-2 flex-wrap">
-                <h1 className="text-lg font-bold text-white tracking-tight">
+                <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                   Logistics &amp; Shipment Tracking
                 </h1>
-                <span className="text-[10px] font-semibold tracking-wide text-sky-300 uppercase">
+                <span className="text-[10px] font-semibold tracking-wide text-sky-600 dark:text-sky-300 uppercase">
                   FreshGuard × PSA Portnet®
                 </span>
               </div>
-              <p className="text-slate-400 text-[11px] mt-0.5 truncate max-w-xl hidden sm:block">
+              <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-0.5 truncate max-w-xl hidden sm:block">
                 Bi-directional container sync · sea &amp; land lots
               </p>
             </div>
@@ -668,20 +668,20 @@ export default function Logistics() {
               'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold',
               psaSyncPulse
                 ? 'bg-emerald-500 text-white border-emerald-400'
-                : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/40'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40'
             )}>
               <Link2 className="w-3.5 h-3.5" />
               PSA Synced
               <span className="w-1.5 h-1.5 rounded-full bg-current animate-pulse" />
             </div>
-            <span className="bg-white/10 text-slate-200 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-white/15">
+            <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-lg text-[11px] font-semibold border border-slate-200 dark:bg-white/10 dark:text-slate-200 dark:border-white/15">
               {shipments.length} lots
             </span>
           </div>
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-2 bg-[#132a45] p-1.5 rounded-xl border border-sky-900/60 w-full mt-2">
-          <div className="flex bg-[#0a1829]/80 p-0.5 rounded-lg min-w-0 flex-1 overflow-x-auto">
+        <div className="flex flex-col md:flex-row justify-between items-stretch md:items-center gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 w-full mt-2">
+          <div className="flex bg-white dark:bg-slate-900/80 p-0.5 rounded-lg min-w-0 flex-1 overflow-x-auto border border-slate-200/80 dark:border-slate-700">
             {tabs.filter((t) => !t.vendorOnly || isVendor).map((t) => {
               const Icon = t.icon;
               return (
@@ -692,7 +692,7 @@ export default function Logistics() {
                     'flex-1 min-w-[100px] py-1.5 px-2.5 rounded-md text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all',
                     activeTab === t.id
                       ? 'bg-sky-600 text-white shadow-md'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5'
                   )}
                 >
                   <Icon className="w-3.5 h-3.5" /> {t.label}
@@ -705,7 +705,7 @@ export default function Logistics() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search PO, container, vendor..."
-            className="w-full md:w-64 bg-[#0a1829] border border-sky-900/80 text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-500"
+            className="w-full md:w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-400"
           />
         </div>
       </header>
@@ -745,12 +745,12 @@ export default function Logistics() {
           {activeTab === 'packing' && isVendor && (
             <motion.div key="pack" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 overflow-y-auto px-4 lg:px-5 py-5">
               <div className="w-full space-y-5">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-[#0f2744] text-white border border-slate-700/60 rounded-xl p-5 shadow-lg gap-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm gap-4">
                   <div>
-                    <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-sky-300">Warehouse readiness</h3>
-                    <p className="text-xs text-slate-400 mt-1">Finalize packing, then dispatch — manifests push to PSA Portnet for retail visibility.</p>
+                    <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-sky-600 dark:text-sky-300">Warehouse readiness</h3>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Finalize packing, then dispatch — manifests push to PSA Portnet for retail visibility.</p>
                   </div>
-                  <span className="bg-amber-500/15 border border-amber-400/40 text-amber-300 px-3.5 py-1.5 rounded-lg text-xs font-mono font-extrabold flex items-center gap-2">
+                  <span className="bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-500/15 dark:border-amber-400/40 dark:text-amber-300 px-3.5 py-1.5 rounded-lg text-xs font-mono font-extrabold flex items-center gap-2">
                     <span className="w-1.5 h-1.5 bg-amber-400 rounded-full animate-ping" /> Staging: {preDispatchShipments.length}
                   </span>
                 </div>
@@ -764,7 +764,7 @@ export default function Logistics() {
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-5">
                     {preDispatchShipments.map((s) => (
                       <div key={s.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-5 shadow-md flex flex-col justify-between relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#0c1e36] via-sky-500 to-emerald-500" />
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-600 via-sky-400 to-emerald-500" />
                         <div className="space-y-3">
                           <div>
                             <span className="font-mono text-xs font-black text-sky-700 dark:text-sky-400 uppercase tracking-widest">{s.id}</span>
@@ -875,7 +875,7 @@ export default function Logistics() {
           {activeTab === 'transit' && (
             <motion.div key="transit" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="absolute inset-0 flex flex-col lg:flex-row overflow-hidden">
               <div className="w-full lg:w-[32%] xl:w-[28%] bg-white dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col h-[42vh] lg:h-full shrink-0">
-                <div className="p-3 bg-[#0c1e36] text-white space-y-2 shrink-0">
+                <div className="p-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
                   <div className="flex justify-between items-center text-[11px]">
                     <span className="font-bold text-sky-200">PSA-linked fleet</span>
                     <span className="text-slate-400">
@@ -908,8 +908,8 @@ export default function Logistics() {
                                   ? 'bg-sky-600 border-sky-500 text-white'
                                   : value === 'on-time'
                                     ? 'bg-emerald-600 border-emerald-500 text-white'
-                                    : 'bg-white/20 border-white/30 text-white'
-                              : 'bg-white/5 border-white/15 text-slate-300 hover:bg-white/10'
+                                    : 'bg-slate-700 border-slate-600 text-white dark:bg-white/20 dark:border-white/30'
+                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/10'
                           )}
                         >
                           {label}
@@ -925,7 +925,7 @@ export default function Logistics() {
                         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
                         transitFiltersOpen || transitFilterCount > 0
                           ? 'bg-sky-600 border-sky-500 text-white'
-                          : 'bg-white/5 border-white/15 text-slate-200 hover:bg-white/10'
+                          : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'
                       )}
                     >
                       <Filter className="w-3.5 h-3.5" />
@@ -944,20 +944,20 @@ export default function Logistics() {
                           setTransitModeFilter('all');
                           setTransitSupplierFilter('all');
                         }}
-                        className="inline-flex items-center gap-1 text-[10px] text-slate-300 hover:text-white"
+                        className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                       >
                         <X className="w-3 h-3" /> Clear
                       </button>
                     )}
                   </div>
                   {transitFiltersOpen && (
-                    <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-white/10">
+                    <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-slate-100 dark:border-white/10">
                       <label className="space-y-0.5">
                         <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Transport</span>
                         <select
                           value={transitModeFilter}
                           onChange={(e) => setTransitModeFilter(e.target.value as typeof transitModeFilter)}
-                          className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                          className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-slate-100"
                         >
                           <option value="all">Sea, air &amp; land</option>
                           <option value="ocean">Sea only</option>
@@ -970,7 +970,7 @@ export default function Logistics() {
                         <select
                           value={transitSupplierFilter}
                           onChange={(e) => setTransitSupplierFilter(e.target.value)}
-                          className="w-full rounded-lg bg-[#0a1829] border border-sky-900/80 px-2.5 py-1.5 text-[11px] text-slate-100"
+                          className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-[11px] text-slate-800 dark:text-slate-100"
                         >
                           <option value="all">All suppliers</option>
                           {transitSuppliers.map((v) => (
@@ -1028,14 +1028,14 @@ export default function Logistics() {
               <div className="flex-1 relative flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-950">
                 <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div className="absolute top-3 right-4 z-20">
-                  <div className="flex bg-[#0c1e36] rounded-lg shadow-lg border border-sky-900/60 p-1">
+                  <div className="flex bg-white dark:bg-slate-900 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 p-1">
                   {([['map', MapIcon, 'Map'], ['timeline', Activity, 'PSA Timeline'], ['calendar', CalendarIcon, 'Calendar']] as const).map(([mode, Icon, label]) => (
                     <button
                       key={mode}
                       onClick={() => setViewMode(mode)}
                       className={cn(
                         'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase flex items-center gap-1.5',
-                        viewMode === mode ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white'
+                        viewMode === mode ? 'bg-sky-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                       )}
                     >
                       <Icon className="w-3.5 h-3.5" /> {label}
@@ -1244,7 +1244,7 @@ export default function Logistics() {
                     )}
                     {!isVendor && selectedShipment && !activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 w-full">
-                        <div className="bg-[#0f2744] border border-sky-900/50 rounded-xl px-4 py-3 flex flex-wrap justify-between gap-2 text-xs text-white">
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 flex flex-wrap justify-between gap-2 text-xs text-slate-700 dark:text-slate-200">
                           <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
@@ -1254,7 +1254,7 @@ export default function Logistics() {
                     )}
                     {!isVendor && selectedShipment && activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 w-full">
-                        <div className="bg-[#0f2744] border border-sky-900/50 rounded-xl px-4 py-2 flex flex-wrap justify-between gap-2 text-xs text-white">
+                        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 flex flex-wrap justify-between gap-2 text-xs text-slate-700 dark:text-slate-200">
                           <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
@@ -1300,7 +1300,7 @@ export default function Logistics() {
                           <div className="flex flex-wrap gap-2 mt-3">
                             <span className="flex items-center gap-1.5 border border-slate-700 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Clock className="w-3.5 h-3.5" />{selectedShipment.status === 'delivered' ? 'Landed @ DC' : `ETA ${selectedShipment.eta}`}</span>
                             <span className="flex items-center gap-1.5 border border-emerald-900/60 bg-emerald-950/40 text-emerald-400 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Thermometer className="w-3.5 h-3.5" />{selectedShipment.temp}</span>
-                            <span className="flex items-center gap-1.5 border border-sky-900/60 bg-sky-950/40 text-sky-300 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Navigation className="w-3.5 h-3.5" />{selectedShipment.fleetSpecification}</span>
+                            <span className="flex items-center gap-1.5 border border-sky-700/60 bg-sky-950/40 text-sky-300 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Navigation className="w-3.5 h-3.5" />{selectedShipment.fleetSpecification}</span>
                           </div>
                         </div>
                       )}

@@ -420,7 +420,7 @@ export default function Claims() {
           excelFileName="claims-ledger.xls"
           emptyMessage="No active dispute claims found matching filter criteria."
           toolbarExtra={
-            <div className="flex space-x-1 bg-white/5 p-1 rounded-lg border border-white/10">
+            <div className="flex space-x-1 bg-slate-100 dark:bg-white/5 p-1 rounded-lg border border-slate-200 dark:border-white/10">
               {['all', 'pending', 'approved', 'rejected'].map((tab) => (
                 <button
                   key={tab}
@@ -429,7 +429,7 @@ export default function Claims() {
                     'px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-tight transition-all cursor-pointer',
                     activeTab === tab
                       ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-300 hover:text-white'
+                      : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                   )}
                 >
                   {tab}

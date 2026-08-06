@@ -287,14 +287,14 @@ export default function Dashboard() {
             : 'Enterprise analytics monitor shrinkage, multi-node QC rejects, and smart retail pricing.'
         }
       >
-          <div className="flex items-center gap-1 p-1 bg-[#0a1829] border border-sky-900/80 rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl">
             <button
               onClick={() => setPersona('admin')}
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-tight transition-all cursor-pointer",
                 !isVendor 
                   ? "bg-sky-600 text-white shadow-sm font-extrabold"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               )}
             >
               Buyer View
@@ -305,7 +305,7 @@ export default function Dashboard() {
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-tight transition-all cursor-pointer",
                 isVendor 
                   ? "bg-sky-600 text-white shadow-sm font-extrabold"
-                  : "text-slate-400 hover:text-white"
+                  : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               )}
             >
               Vendor View
@@ -335,7 +335,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={handleExportCad}
-              className="px-4 py-2.5 bg-white/10 border border-white/20 hover:bg-white/15 rounded-xl text-xs font-semibold font-mono text-white shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2"
+              className="px-4 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-semibold font-mono text-slate-700 dark:bg-white/10 dark:border-white/20 dark:hover:bg-white/15 dark:text-white shadow-xs transition-colors cursor-pointer inline-flex items-center gap-2"
             >
               <FileSpreadsheet className="w-3.5 h-3.5" />
               Export CAD
@@ -432,8 +432,8 @@ export default function Dashboard() {
         
         {/* Main Chart Column (Buyer: Category Shrinkage, Vendor: Dispatched Volume Trends) */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md overflow-hidden flex flex-col justify-between">
-          <div className="px-4 py-2 bg-[#0c1e36] text-white">
-            <span className="text-[9px] font-extrabold text-sky-300 font-mono uppercase tracking-widest block">Analytics</span>
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
+            <span className="text-[9px] font-extrabold text-sky-600 dark:text-sky-300 font-mono uppercase tracking-widest block">Analytics</span>
             <h3 className="text-xs font-black uppercase tracking-tight mt-0.5">
               {isVendor ? 'Dispatched Volume Trends' : 'Shrinkage by Category'}
             </h3>
@@ -545,16 +545,16 @@ export default function Dashboard() {
         </div>
 
         {/* AI Disruption Intelligence Sidebar Panel with interactive newly appended alert */}
-        <div className="bg-gradient-to-br from-[#0c1e36] via-[#123556] to-[#0a4d68] border border-sky-900/50 rounded-xl p-4 text-white relative flex flex-col justify-between shadow-lg overflow-hidden min-h-[280px]">
-          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-sky-500 rounded-full blur-[90px] opacity-20"></div>
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-slate-900 dark:text-white relative flex flex-col justify-between shadow-sm overflow-hidden min-h-[280px]">
+          <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-sky-400 rounded-full blur-[90px] opacity-15"></div>
           
-          <div className="space-y-4">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <div className="space-y-4 relative">
+            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <ScanLine className="w-4 h-4 text-emerald-400 shrink-0" />
-                <h3 className="font-bold tracking-wider text-xs uppercase font-mono">AI Disruption Intelligence</h3>
+                <ScanLine className="w-4 h-4 text-emerald-500 shrink-0" />
+                <h3 className="font-bold tracking-wider text-xs uppercase font-mono text-slate-900 dark:text-white">AI Disruption Intelligence</h3>
               </div>
-              <span className="text-[8px] font-mono bg-emerald-500/10 text-emerald-350 border border-emerald-400/20 px-2 py-0.5 rounded uppercase">Threat Guard Live</span>
+              <span className="text-[8px] font-mono bg-emerald-50 text-emerald-700 border border-emerald-200 dark:bg-emerald-500/10 dark:text-emerald-300 dark:border-emerald-400/20 px-2 py-0.5 rounded uppercase">Threat Guard Live</span>
             </div>
 
             <div className="space-y-3 max-h-[320px] overflow-y-auto custom-scrollbar pr-1">
@@ -566,18 +566,18 @@ export default function Dashboard() {
                     initial={{ opacity: 0, x: -10, scale: 0.95 }}
                     animate={{ opacity: 1, x: 0, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
-                    className="bg-white/5 hover:bg-white/10 p-3.5 rounded-xl border border-white/10 backdrop-blur-md transition-all duration-200"
+                    className="bg-slate-50 hover:bg-slate-100 dark:bg-white/5 dark:hover:bg-white/10 p-3.5 rounded-xl border border-slate-200 dark:border-white/10 transition-all duration-200"
                   >
                     <div className="flex items-start gap-3">
                       <div className={cn(
                         "p-1.5 rounded mt-0.5 shrink-0",
-                        alert.type === "rose" ? "bg-rose-500/20 text-rose-300" : "bg-amber-500/20 text-amber-300"
+                        alert.type === "rose" ? "bg-rose-100 text-rose-600 dark:bg-rose-500/20 dark:text-rose-300" : "bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300"
                       )}>
                         <AlertTriangle className="w-3.5 h-3.5" />
                       </div>
                       <div>
-                        <div className="text-xs font-bold text-slate-100">{alert.title}</div>
-                        <div className="text-[10.5px] text-sky-200 mt-1 leading-normal font-sans">{alert.description}</div>
+                        <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{alert.title}</div>
+                        <div className="text-[10.5px] text-slate-500 dark:text-sky-200 mt-1 leading-normal font-sans">{alert.description}</div>
                       </div>
                     </div>
                   </motion.div>
@@ -586,8 +586,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/10 mt-4">
-            <button className="w-full py-2.5 bg-sky-500/20 hover:bg-sky-500/35 border border-sky-400/25 rounded-xl text-xs font-bold font-mono uppercase tracking-wide transition-colors flex items-center justify-center gap-1.5">
+          <div className="pt-4 border-t border-slate-100 dark:border-white/10 mt-4 relative">
+            <button className="w-full py-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 dark:bg-sky-500/20 dark:hover:bg-sky-500/35 dark:border-sky-400/25 dark:text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wide transition-colors flex items-center justify-center gap-1.5">
               <span>View All Active Gate Alarms</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
@@ -609,8 +609,8 @@ export default function Dashboard() {
           >
             {/* Vendor Performance Index (Bar Graph) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden flex flex-col justify-between">
-              <div className="px-5 py-3 bg-[#0c1e36] text-white">
-                <h3 className="text-xs font-black font-mono uppercase tracking-wider text-sky-200">Performance board</h3>
+              <div className="px-5 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
+                <h3 className="text-xs font-black font-mono uppercase tracking-wider text-sky-600 dark:text-sky-200">Performance board</h3>
               </div>
               <div className="p-6 flex flex-col justify-between flex-1">
               <div>
@@ -661,7 +661,7 @@ export default function Dashboard() {
           >
             {/* Your Pending Bids & Active SLA Checkpoints (Vendor Actionable Section) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
-              <div className="px-5 py-3 bg-[#0c1e36] text-white">
+              <div className="px-5 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
                 <h3 className="text-xs font-black font-mono uppercase tracking-wider text-sky-200">Vendor SLA & bids</h3>
               </div>
               <div className="p-6 border-b border-slate-150 dark:border-slate-805 bg-slate-50/50 dark:bg-slate-950/20 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
@@ -721,40 +721,39 @@ export default function Dashboard() {
   );
 }
 
-// Compact Sub-component: KPICard with navy theme matching Logistics
+// Compact Sub-component: KPICard — light Mall Media card
 function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
   const isPositive = trend === 'up';
   const valueTone =
-    color === 'emerald' ? 'text-emerald-300' :
-    color === 'rose' ? 'text-rose-300' :
-    'text-sky-300';
+    color === 'emerald' ? 'text-emerald-600' :
+    color === 'rose' ? 'text-rose-600' :
+    'text-sky-600';
   const barTone =
-    color === 'emerald' ? 'bg-emerald-400' :
-    color === 'rose' ? 'bg-rose-400' :
-    'bg-sky-400';
+    color === 'emerald' ? 'bg-emerald-500' :
+    color === 'rose' ? 'bg-rose-500' :
+    'bg-sky-500';
   const accent =
-    color === 'emerald' ? 'from-emerald-500/20' :
-    color === 'rose' ? 'from-rose-500/20' :
-    'from-sky-500/20';
+    color === 'emerald' ? 'from-emerald-500/10' :
+    color === 'rose' ? 'from-rose-500/10' :
+    'from-sky-500/10';
   
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-xl px-3 py-2.5 shadow-md border border-slate-700/80 group"
-      style={{ backgroundColor: '#0f2744' }}
+      className="relative overflow-hidden rounded-2xl px-3.5 py-3 shadow-sm border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 group"
     >
       <div className={cn('absolute inset-0 bg-gradient-to-br to-transparent', accent)} />
       <div className="relative">
         <div className="flex justify-between items-start mb-2">
-          <div className="p-1.5 rounded-lg bg-white/5 text-slate-200 border border-white/10">
+          <div className="p-1.5 rounded-lg bg-slate-50 text-slate-600 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700">
             <Icon className="w-3.5 h-3.5 shrink-0" />
           </div>
           
           <div className={cn("flex items-center text-[9px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-full border",
             isPositive 
-              ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" 
-              : "bg-rose-500/15 border-rose-500/40 text-rose-300"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
+              : "bg-rose-50 border-rose-200 text-rose-700"
           )}>
             {isPositive ? <ArrowUpRight className="w-3 h-3 mr-0.5" /> : <ArrowDownRight className="w-3 h-3 mr-0.5" />}
             {change}
@@ -763,7 +762,7 @@ function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
 
         <div>
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-slate-400 text-[9px] font-bold font-mono uppercase tracking-wider">{title}</h4>
+            <h4 className="text-slate-500 text-[9px] font-bold font-mono uppercase tracking-wider">{title}</h4>
             <span className={cn('h-1 w-6 rounded-full', barTone)} />
           </div>
           <div className={cn('text-xl font-black mt-0.5 tracking-tight', valueTone)}>{value}</div>

@@ -138,7 +138,7 @@ export function UserProfileMenu({
                 role="dialog"
                 aria-label="User profile"
               >
-                <div className="px-4 py-3 bg-[#0c1e36] text-white">
+                <div className="px-4 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
                   <div className="text-sm font-bold">{profile.name}</div>
                   <div className="text-[11px] text-sky-300 mt-0.5">{profile.role}</div>
                 </div>

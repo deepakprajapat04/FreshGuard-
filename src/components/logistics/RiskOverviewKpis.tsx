@@ -54,19 +54,18 @@ function RiskKpiCard({
 
   return (
     <div
-      className="rounded-xl border border-slate-700/80 px-3 py-2.5 shadow-md flex items-start justify-between gap-2 min-h-[76px]"
-      style={{ backgroundColor: '#0f2744' }}
+      className="rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 px-3 py-2.5 shadow-sm flex items-start justify-between gap-2 min-h-[76px]"
       title={hint}
     >
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xl font-bold text-white tracking-tight tabular-nums">
+          <span className="text-xl font-bold text-slate-900 dark:text-white tracking-tight tabular-nums">
             {value.toLocaleString()}
           </span>
           <span
             className={cn(
               'inline-flex items-center gap-0.5 text-[9px] font-bold',
-              flat ? 'text-slate-400' : good ? 'text-emerald-400' : 'text-rose-400'
+              flat ? 'text-slate-400' : good ? 'text-emerald-600' : 'text-rose-600'
             )}
           >
             {flat ? null : up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
@@ -74,7 +73,7 @@ function RiskKpiCard({
             <Info className="w-3 h-3 opacity-50" />
           </span>
         </div>
-        <div className="text-[10px] text-slate-300 mt-0.5 font-medium leading-snug">{label}</div>
+        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium leading-snug">{label}</div>
       </div>
       <MiniBars seed={barsSeed} tone={barTone} />
     </div>

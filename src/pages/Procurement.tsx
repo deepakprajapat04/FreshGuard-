@@ -1608,14 +1608,14 @@ export default function Procurement() {
       </div>
 
       {/* Tabs Switcher */}
-      <div className="flex space-x-1 bg-[#0c1e36] p-1 rounded-lg w-fit border border-sky-900/50">
+      <div className="flex space-x-1 bg-white dark:bg-slate-900 p-1 rounded-lg w-fit border border-slate-200 dark:border-slate-700">
         <button
           onClick={() => setActiveTab('bidding')}
           className={cn(
             "px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeTab === 'bidding' 
               ? "bg-sky-600 text-white shadow-sm" 
-              : "text-slate-300 hover:text-white hover:bg-white/5"
+              : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           )}
         >
           Replenishment Sourcing (Bidding)
@@ -1626,7 +1626,7 @@ export default function Procurement() {
             "px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeTab === 'contracts' 
               ? "bg-sky-600 text-white shadow-sm" 
-              : "text-slate-300 hover:text-white hover:bg-white/5"
+              : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           )}
         >
           SLA Agreements
@@ -1637,7 +1637,7 @@ export default function Procurement() {
             "px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeTab === 'orders' 
               ? "bg-sky-600 text-white shadow-sm" 
-              : "text-slate-300 hover:text-white hover:bg-white/5"
+              : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           )}
         >
           Purchase Orders
@@ -1655,7 +1655,7 @@ export default function Procurement() {
               fullscreenPanel === 'pipeline' && 'fixed inset-3 z-[120] lg:col-auto'
             )}
           >
-            <div className="px-4 py-3 bg-[#0c1e36] text-white flex items-center justify-between gap-2">
+            <div className="px-4 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
               <div>
                 <h2 className="text-xs font-black font-mono uppercase tracking-wider text-sky-200">
                   {isVendor ? 'Open Buyer Requests' : 'Active Demands'}
@@ -1678,7 +1678,7 @@ export default function Procurement() {
                   type="button"
                   title={fullscreenPanel === 'pipeline' ? 'Exit fullscreen' : 'Fullscreen'}
                   onClick={() => setFullscreenPanel((p) => (p === 'pipeline' ? null : 'pipeline'))}
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-sky-200"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sky-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-sky-200"
                 >
                   {fullscreenPanel === 'pipeline' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                 </button>
@@ -1806,7 +1806,7 @@ export default function Procurement() {
                 type="button"
                 title={fullscreenPanel === 'workspace' ? 'Exit fullscreen' : 'Fullscreen'}
                 onClick={() => setFullscreenPanel((p) => (p === 'workspace' ? null : 'workspace'))}
-                className="p-1.5 rounded-lg bg-[#0c1e36]/90 text-sky-200 hover:bg-[#0c1e36] border border-sky-800/50 shadow-sm"
+                className="p-1.5 rounded-lg bg-white dark:bg-slate-900/90 text-sky-200 hover:bg-white dark:bg-slate-900 border border-sky-800/50 shadow-sm"
               >
                 {fullscreenPanel === 'workspace' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
@@ -1943,7 +1943,7 @@ export default function Procurement() {
                       value={vendorNotes}
                       onChange={(e) => setVendorNotes(e.target.value)}
                       placeholder="Describe your cold-chain safety integrity measures..."
-                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 shadow-sm"
+                      className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-800 dark:text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-400 shadow-sm"
                     />
                   </div>
 
@@ -2770,7 +2770,7 @@ export default function Procurement() {
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               className="relative w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
-              <div className="px-5 py-4 bg-[#0c1e36] text-white flex items-start justify-between gap-3 shrink-0">
+              <div className="px-5 py-4 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 shrink-0">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider">
                     {poModal.mode === 'draft' ? 'Review draft PO' : 'Purchase order details'}
@@ -2994,7 +2994,7 @@ export default function Procurement() {
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               className="relative w-full max-w-2xl rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
-              <div className="px-5 py-4 bg-[#0c1e36] text-white flex items-start justify-between gap-3 shrink-0">
+              <div className="px-5 py-4 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-start justify-between gap-3 shrink-0">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider">Advance ship notice (ASN)</h3>
                   <p className="text-[11px] text-slate-400 mt-0.5">

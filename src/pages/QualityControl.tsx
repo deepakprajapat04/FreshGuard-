@@ -496,9 +496,9 @@ export default function QualityControl() {
         title="AI Quality Control & Receiving"
         subtitle="Scan incoming logistics lot samples to certify freshness, identify thermal defects, and trigger direct retail store routing."
       >
-        <div className="bg-white/10 border border-white/20 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold text-white">
+        <div className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-white">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Vision Core: <span className="font-semibold text-sky-200">FreshDetect v4.2</span>
+          Vision Core: <span className="font-semibold text-sky-600 dark:text-sky-200">FreshDetect v4.2</span>
         </div>
       </PageHeader>
 
@@ -507,9 +507,9 @@ export default function QualityControl() {
         {/* Left Column: Optical Laser Spectrograph Scanning Window */}
         <div className="lg:col-span-2 space-y-3.5">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl shadow-md overflow-hidden relative">
-            <div className="px-4 py-3 bg-[#0c1e36] text-white flex items-center justify-between">
+            <div className="px-4 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center justify-between">
               <span className="text-xs font-black font-mono uppercase tracking-wider">Inspection terminal</span>
-              <span className="text-[10px] font-mono text-sky-300">Spectrograph live</span>
+              <span className="text-[10px] font-mono text-sky-600 dark:text-sky-300">Spectrograph live</span>
             </div>
             <div className="p-2">
             <div className="relative bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden aspect-video flex items-center justify-center border border-slate-200/50 dark:border-slate-800/60">
@@ -677,7 +677,7 @@ export default function QualityControl() {
                     : "border-emerald-250 dark:border-emerald-900/60"
                 )}
               >
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-[#0c1e36]"></div>
+                <div className="absolute top-0 left-0 w-full h-1.5 bg-white dark:bg-slate-900"></div>
                 <div className={cn(
                   "absolute top-0 left-0 w-full h-1", 
                   scanResults?.defects_detected ? "bg-rose-500" : "bg-emerald-500"

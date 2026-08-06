@@ -108,9 +108,9 @@ export default function Inbox() {
       </div>
 
       <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-        <div className="px-4 py-2 bg-[#0c1e36] text-white flex flex-wrap items-center justify-between gap-2">
+        <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <InboxIcon className="w-4 h-4 text-sky-300 shrink-0" />
+            <InboxIcon className="w-4 h-4 text-sky-600 dark:text-sky-300 shrink-0" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">Buyer approval queue</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">
@@ -118,7 +118,7 @@ export default function Inbox() {
               </p>
             </div>
           </div>
-          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-500/20 text-amber-200 border border-amber-400/30">
+          <span className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 dark:bg-amber-500/20 dark:text-amber-200 dark:border-amber-400/30">
             {pending.length} pending
           </span>
         </div>
