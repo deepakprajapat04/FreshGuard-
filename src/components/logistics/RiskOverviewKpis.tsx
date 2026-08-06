@@ -84,14 +84,10 @@ function RiskKpiCard({
 export function RiskOverviewKpis({
   shipments,
   buyerAlerts,
-  onOpenAlerts,
-  showAlertsLink = true,
   className,
 }: {
   shipments: Shipment[];
   buyerAlerts: BuyerShipmentAlert[];
-  onOpenAlerts?: () => void;
-  showAlertsLink?: boolean;
   className?: string;
 }) {
   const riskKpis = useMemo(() => {
@@ -125,24 +121,13 @@ export function RiskOverviewKpis({
 
   return (
     <div className={cn('space-y-1.5', className)}>
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 flex-wrap">
-          <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Exposure snapshot
-          </h3>
-          <span className="text-[9px] text-slate-400 hidden sm:inline">
-            Watchlist · vendors · corridors · alerts
-          </span>
-        </div>
-        {showAlertsLink && onOpenAlerts && buyerAlerts.length > 0 && (
-          <button
-            type="button"
-            onClick={onOpenAlerts}
-            className="text-[9px] font-bold uppercase text-sky-700 dark:text-sky-400 hover:underline"
-          >
-            Buyer alerts →
-          </button>
-        )}
+      <div className="flex items-center gap-2 flex-wrap">
+        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+          Exposure snapshot
+        </h3>
+        <span className="text-[9px] text-slate-400 hidden sm:inline">
+          Watchlist · vendors · corridors · alerts
+        </span>
       </div>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
         <RiskKpiCard
@@ -161,10 +146,10 @@ export function RiskOverviewKpis({
         />
         <RiskKpiCard
           value={riskKpis.terminalsAtRisk}
-          label="Hotspot terminals"
+          label="Sites at risk"
           trendPct={riskKpis.terminalTrend}
           barsSeed={riskKpis.terminalsAtRisk + 33}
-          hint="PSA terminals or load points linked to watched lots"
+          hint="Origin sites, load points, or terminals linked to watched lots"
         />
         <RiskKpiCard
           value={riskKpis.highRiskEvents}

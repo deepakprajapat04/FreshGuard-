@@ -29,13 +29,9 @@ import { ContainerPsaPanel } from '../components/logistics/ContainerPsaPanel';
 import { BuyerAlertsDrawer } from '../components/logistics/BuyerAlertsDrawer';
 import { ShipmentCalendar } from '../components/logistics/ShipmentCalendar';
 import { PsaTimelinePanel } from '../components/logistics/PsaEventTimeline';
-import { RiskOverviewKpis } from '../components/logistics/RiskOverviewKpis';
 
 const TrackingMap = lazy(() =>
   import('../components/logistics/TrackingMap').then((m) => ({ default: m.TrackingMap }))
-);
-const GlobalFleetMap = lazy(() =>
-  import('../components/logistics/GlobalFleetMap').then((m) => ({ default: m.GlobalFleetMap }))
 );
 
 const STORAGE_KEY = 'freshguard-active-shipments-v5';
@@ -44,9 +40,6 @@ export default function Logistics() {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<LogisticsTab>('dashboard');
   const [viewMode, setViewMode] = useState<'map' | 'calendar' | 'timeline'>('map');
-  /** lot = one shipment route · fleet = all lots on world map */
-  const [mapScope, setMapScope] = useState<'lot' | 'fleet'>('lot');
-  const [fleetFilter, setFleetFilter] = useState<'all' | 'ocean' | 'air' | 'road'>('all');
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [selectedShipmentId, setSelectedShipmentId] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -673,8 +666,12 @@ export default function Logistics() {
                 searchQuery={searchQuery}
                 isVendor={isVendor}
                 buyerAlerts={buyerAlerts}
+                selectedShipmentId={selectedShipmentId}
+                onSelectShipment={setSelectedShipmentId}
                 onTrack={(id) => { setSelectedShipmentId(id); setActiveTab('transit'); }}
                 onOpenAlerts={() => setShowAlertsPanel(true)}
+                onDismissAlert={(id) => setBuyerAlerts((p) => p.filter((a) => a.id !== id))}
+                onMarkAlertRead={(id) => setBuyerAlerts((p) => p.map((a) => (a.id === id ? { ...a, read: true } : a)))}
               />
             </motion.div>
           )}
@@ -962,14 +959,6 @@ export default function Logistics() {
               </div>
 
               <div className="flex-1 relative flex flex-col overflow-hidden bg-slate-100 dark:bg-slate-950">
-                <div className="shrink-0 px-4 lg:px-5 pt-3 pb-2 border-b border-slate-200/80 dark:border-slate-800 bg-slate-100/90 dark:bg-slate-950/90 z-20">
-                  <RiskOverviewKpis
-                    shipments={transitShipments}
-                    buyerAlerts={buyerAlerts}
-                    onOpenAlerts={() => setShowAlertsPanel(true)}
-                    showAlertsLink={!isVendor}
-                  />
-                </div>
                 <div className="relative flex-1 min-h-0 flex flex-col overflow-hidden">
                 <div className="absolute top-3 right-4 z-20">
                   <div className="flex bg-[#0c1e36] rounded-lg shadow-lg border border-sky-900/60 p-1">
@@ -1166,47 +1155,9 @@ export default function Logistics() {
                       </div>
                     )}
                     <div className="flex-1 px-4 lg:px-5 pb-4 min-h-[420px] flex flex-col gap-2 w-full">
-                      <div className="flex justify-end shrink-0">
-                        <div className="flex bg-[#0c1e36] rounded-lg shadow-md border border-sky-900/60 p-1">
-                          <button
-                            type="button"
-                            onClick={() => setMapScope('fleet')}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase',
-                              mapScope === 'fleet' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white'
-                            )}
-                          >
-                            All lots
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setMapScope('lot')}
-                            className={cn(
-                              'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase',
-                              mapScope === 'lot' ? 'bg-sky-600 text-white' : 'text-slate-300 hover:text-white'
-                            )}
-                          >
-                            One lot
-                          </button>
-                        </div>
-                      </div>
                       <div className="flex-1 min-h-[360px] h-[min(52vh,520px)]">
                         <Suspense fallback={<div className="h-full min-h-[320px] rounded-2xl bg-slate-950 border border-slate-800 flex items-center justify-center text-slate-500 font-mono text-xs gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading PSA map…</div>}>
-                          {mapScope === 'fleet' ? (
-                            <GlobalFleetMap
-                              shipments={filteredTransitShipments}
-                              selectedId={selectedShipmentId}
-                              filter={fleetFilter}
-                              onFilterChange={setFleetFilter}
-                              onSelect={(id) => setSelectedShipmentId(id)}
-                              onOpenLot={(id) => {
-                                setSelectedShipmentId(id);
-                                setMapScope('lot');
-                              }}
-                            />
-                          ) : (
-                            <TrackingMap shipment={selectedShipment} />
-                          )}
+                          <TrackingMap shipment={selectedShipment} />
                         </Suspense>
                       </div>
                       {selectedShipment && (

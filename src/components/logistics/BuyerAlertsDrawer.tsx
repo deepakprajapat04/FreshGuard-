@@ -34,15 +34,15 @@ export function BuyerAlertsDrawer({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[190] bg-slate-950/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[190] bg-slate-950/25"
             onClick={onClose}
           />
           <motion.aside
-            initial={{ x: 420, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: 420, opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 380, damping: 34 }}
-            className="fixed top-0 right-0 h-[100dvh] w-full max-w-md z-[200] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 shadow-2xl flex flex-col"
+            initial={{ opacity: 0, y: 16, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+            className="fixed z-[200] right-4 sm:right-6 top-[max(5.5rem,12vh)] bottom-4 sm:bottom-6 w-[min(100%-2rem,26rem)] rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border border-slate-200 dark:border-slate-700 shadow-2xl flex flex-col overflow-hidden pointer-events-auto"
             role="dialog"
             aria-label="Periodic shipment alerts"
           >
