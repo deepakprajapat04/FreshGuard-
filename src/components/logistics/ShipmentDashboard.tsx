@@ -166,7 +166,7 @@ export function ShipmentDashboard({
         {cards.map((card) => (
           <div
             key={card.label}
-            className="relative overflow-hidden rounded-xl border border-slate-700/80 p-3.5 shadow-md"
+            className="relative overflow-hidden rounded-xl border border-slate-700/80 px-3 py-2.5 shadow-md"
             style={{ backgroundColor: '#0f2744' }}
           >
             <div className="flex items-center justify-between">
@@ -175,7 +175,7 @@ export function ShipmentDashboard({
               </div>
               <span className={cn('h-1 w-6 rounded-full', card.bar)} />
             </div>
-            <div className={cn('text-2xl font-bold mt-1 tracking-tight', card.valueClass)}>
+            <div className={cn('text-xl font-bold mt-1 tracking-tight', card.valueClass)}>
               {card.value}
             </div>
             <div className="text-[10px] text-slate-400 mt-0.5">{card.sub}</div>

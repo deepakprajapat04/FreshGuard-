@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
-import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
+import { PageHeader, StatCard, pageShellClass, statGridClass } from '../components/PageChrome';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
 import type { ContainerCargoLine } from '../lib/shipmentTypes';
 import {
@@ -1584,7 +1584,7 @@ export default function Procurement() {
       </PageHeader>
 
       {/* GLOBAL PIPELINE METRICS (Top of Page) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className={statGridClass}>
         <StatCard
           label={isVendor ? 'Your Active Bids' : 'Active RFQs'}
           value={isVendor ? '3 Active Bids' : '14 Open Pipelines'}
@@ -1646,7 +1646,7 @@ export default function Procurement() {
 
       {/* Tab Content: Bidding View */}
       {activeTab === 'bidding' && (
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 min-h-[650px] items-stretch">
+        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3.5 min-h-[580px] items-stretch">
           
           {/* COLUMN A: Requirements Pipeline (25% Width - lg:col-span-3) */}
           <div

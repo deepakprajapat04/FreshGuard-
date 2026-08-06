@@ -25,7 +25,7 @@ export type BusinessRulesConfig = {
   /** Days of cover below which stock is treated as shortage risk */
   minDaysOfCoverThreshold: number;
   /**
-   * Which disruption alert types are monitored (Natural Events, Pandemic, …).
+   * Which disruption families are monitored (weather, cold-chain, port congestion, …).
    * Used for logistics / buyer risk alerts.
    */
   enabledAlertTypes: AlertRiskType[];
@@ -33,20 +33,42 @@ export type BusinessRulesConfig = {
   customAlerts: CustomBusinessAlert[];
 };
 
-/** Risk / disruption families (same idea as enterprise alert type picker). */
+/** Disruption families FreshGuard monitors across lanes, ports, and suppliers. */
 export const ALERT_TYPE_OPTIONS = [
-  'Natural Events',
-  'Socio Political',
-  'Supply Chain',
-  'Geo Political',
-  'Commodity Specific',
-  'Pandemic',
-  'Weather / Climate',
-  'Port / Terminal',
-  'Transport Mode Mismatch',
+  'Weather & climate disruption',
+  'Port / terminal congestion',
+  'Cold-chain breach',
+  'Supply network delay',
+  'Route / corridor block',
+  'Labor & strike action',
+  'Commodity shortage',
+  'Carrier mode mismatch',
+  'Regulatory / customs hold',
+  'Origin quality recall',
 ] as const;
 
 export type AlertRiskType = (typeof ALERT_TYPE_OPTIONS)[number];
+
+/** Map legacy alert labels saved in older builds to the current family names. */
+const LEGACY_ALERT_TYPE_MAP: Record<string, AlertRiskType> = {
+  'Natural Events': 'Weather & climate disruption',
+  'Socio Political': 'Labor & strike action',
+  'Supply Chain': 'Supply network delay',
+  'Geo Political': 'Route / corridor block',
+  'Commodity Specific': 'Commodity shortage',
+  Pandemic: 'Regulatory / customs hold',
+  'Weather / Climate': 'Weather & climate disruption',
+  'Port / Terminal': 'Port / terminal congestion',
+  'Transport Mode Mismatch': 'Carrier mode mismatch',
+};
+
+export function normalizeAlertTypes(types: string[] | undefined): AlertRiskType[] {
+  if (!types?.length) return [];
+  const mapped = types
+    .map((t) => LEGACY_ALERT_TYPE_MAP[t] ?? (ALERT_TYPE_OPTIONS.includes(t as AlertRiskType) ? (t as AlertRiskType) : null))
+    .filter(Boolean) as AlertRiskType[];
+  return Array.from(new Set(mapped));
+}
 
 export type AlertEventMode = 'global' | 'vessel';
 
@@ -68,23 +90,23 @@ export type CustomBusinessAlert = {
 };
 
 export const ALERT_CATEGORY_OPTIONS = [
-  'Delay / ETA',
-  'Cold chain',
-  'Corridor disruption',
-  'Shelf / stock risk',
-  'Customs / docs',
-  'Other',
+  'Transit delay',
+  'Temperature integrity',
+  'Lane disruption',
+  'Shelf exposure',
+  'Import clearance',
+  'General',
 ] as const;
 
 export const ALERT_EVENT_TYPE_OPTIONS = [
-  'Flood / storm',
-  'Strike / unrest',
-  'Port congestion',
-  'Border closure',
-  'Disease outbreak',
-  'Commodity shortage',
-  'Route blockage',
-  'Other',
+  'Storm / flooding',
+  'Labor unrest',
+  'Terminal backlog',
+  'Border restriction',
+  'Health advisory',
+  'Ingredient shortfall',
+  'Highway closure',
+  'Unclassified',
 ] as const;
 
 export const COUNTRY_OPTIONS = [
@@ -180,21 +202,21 @@ export const DEFAULT_BUSINESS_RULES: BusinessRulesConfig = {
   requireStockShortageForProposal: true,
   minDaysOfCoverThreshold: 2,
   enabledAlertTypes: [
-    'Natural Events',
-    'Supply Chain',
-    'Weather / Climate',
-    'Port / Terminal',
-    'Transport Mode Mismatch',
+    'Weather & climate disruption',
+    'Supply network delay',
+    'Port / terminal congestion',
+    'Carrier mode mismatch',
+    'Cold-chain breach',
   ],
   customAlerts: [
     {
       id: 'ALERT-DEMO-FLOOD',
-      name: 'Midwest corridor flood watch',
+      name: 'Gulf Coast lane storm watch',
       eventMode: 'global',
       riskScore: 'High',
-      alertTypes: ['Natural Events', 'Weather / Climate'],
-      alertCategory: 'Corridor disruption',
-      eventType: 'Flood / storm',
+      alertTypes: ['Weather & climate disruption', 'Route / corridor block'],
+      alertCategory: 'Lane disruption',
+      eventType: 'Storm / flooding',
       country: 'United States',
       endDate: '',
       enabled: true,
@@ -203,9 +225,63 @@ export const DEFAULT_BUSINESS_RULES: BusinessRulesConfig = {
   ],
 };
 
-const RULES_KEY = 'freshguard-business-rules-v3';
-/** v3: delayed + cancelled proposal test cases */
+const RULES_KEY = 'freshguard-business-rules-v4';
+/** v4: renamed disruption families + refreshed alert modal fields */
 const PROPOSALS_KEY = 'freshguard-auto-proposals-v3';
+
+function hydrateBusinessRules(parsed: Partial<BusinessRulesConfig>): BusinessRulesConfig {
+  return {
+    ...DEFAULT_BUSINESS_RULES,
+    ...parsed,
+    enabledAlertTypes: normalizeAlertTypes(parsed.enabledAlertTypes).length
+      ? normalizeAlertTypes(parsed.enabledAlertTypes)
+      : DEFAULT_BUSINESS_RULES.enabledAlertTypes,
+    customAlerts: Array.isArray(parsed.customAlerts)
+      ? parsed.customAlerts.map((alert) => ({
+          ...alert,
+          alertTypes: normalizeAlertTypes(alert.alertTypes).length
+            ? normalizeAlertTypes(alert.alertTypes)
+            : DEFAULT_BUSINESS_RULES.customAlerts[0]?.alertTypes ?? [],
+          alertCategory:
+            alert.alertCategory === 'Corridor disruption'
+              ? 'Lane disruption'
+              : alert.alertCategory === 'Delay / ETA'
+                ? 'Transit delay'
+                : alert.alertCategory === 'Cold chain'
+                  ? 'Temperature integrity'
+                  : alert.alertCategory === 'Shelf / stock risk'
+                    ? 'Shelf exposure'
+                    : alert.alertCategory === 'Customs / docs'
+                      ? 'Import clearance'
+                      : alert.alertCategory === 'Other'
+                        ? 'General'
+                        : alert.alertCategory || 'General',
+          eventType:
+            alert.eventType === 'Flood / storm'
+              ? 'Storm / flooding'
+              : alert.eventType === 'Strike / unrest'
+                ? 'Labor unrest'
+                : alert.eventType === 'Port congestion'
+                  ? 'Terminal backlog'
+                  : alert.eventType === 'Border closure'
+                    ? 'Border restriction'
+                    : alert.eventType === 'Disease outbreak'
+                      ? 'Health advisory'
+                      : alert.eventType === 'Commodity shortage'
+                        ? 'Ingredient shortfall'
+                        : alert.eventType === 'Route blockage'
+                          ? 'Highway closure'
+                          : alert.eventType === 'Other'
+                            ? 'Unclassified'
+                            : alert.eventType || 'Unclassified',
+        }))
+      : [...DEFAULT_BUSINESS_RULES.customAlerts],
+    buyerOwnerByCategory: {
+      ...DEFAULT_BUYER_OWNERS,
+      ...(parsed.buyerOwnerByCategory || {}),
+    },
+  };
+}
 
 /**
  * Estimate whether delayed inbound will cause a shelf / store shortage.
@@ -248,38 +324,18 @@ export function loadBusinessRules(): BusinessRulesConfig {
   try {
     const raw = localStorage.getItem(RULES_KEY);
     if (!raw) {
-      // migrate from v2 if present
-      const legacy = localStorage.getItem('freshguard-business-rules-v2');
-      if (legacy) {
-        const parsed = JSON.parse(legacy) as Partial<BusinessRulesConfig>;
-        return {
-          ...DEFAULT_BUSINESS_RULES,
-          ...parsed,
-          enabledAlertTypes: parsed.enabledAlertTypes?.length
-            ? parsed.enabledAlertTypes
-            : DEFAULT_BUSINESS_RULES.enabledAlertTypes,
-          customAlerts: parsed.customAlerts?.length
-            ? parsed.customAlerts
-            : DEFAULT_BUSINESS_RULES.customAlerts,
-        };
+      const legacyKeys = ['freshguard-business-rules-v3', 'freshguard-business-rules-v2'];
+      for (const key of legacyKeys) {
+        const legacy = localStorage.getItem(key);
+        if (legacy) {
+          const parsed = JSON.parse(legacy) as Partial<BusinessRulesConfig>;
+          return hydrateBusinessRules(parsed);
+        }
       }
       return { ...DEFAULT_BUSINESS_RULES, customAlerts: [...DEFAULT_BUSINESS_RULES.customAlerts] };
     }
     const parsed = JSON.parse(raw) as Partial<BusinessRulesConfig>;
-    return {
-      ...DEFAULT_BUSINESS_RULES,
-      ...parsed,
-      enabledAlertTypes: parsed.enabledAlertTypes?.length
-        ? parsed.enabledAlertTypes
-        : DEFAULT_BUSINESS_RULES.enabledAlertTypes,
-      customAlerts: Array.isArray(parsed.customAlerts)
-        ? parsed.customAlerts
-        : [...DEFAULT_BUSINESS_RULES.customAlerts],
-      buyerOwnerByCategory: {
-        ...DEFAULT_BUYER_OWNERS,
-        ...(parsed.buyerOwnerByCategory || {}),
-      },
-    };
+    return hydrateBusinessRules(parsed);
   } catch {
     return { ...DEFAULT_BUSINESS_RULES, customAlerts: [...DEFAULT_BUSINESS_RULES.customAlerts] };
   }

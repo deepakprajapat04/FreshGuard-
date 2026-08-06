@@ -351,7 +351,7 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -15 }}
           transition={{ duration: 0.25 }}
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3"
         >
           {isVendor ? (
             <>
@@ -428,17 +428,17 @@ export default function Dashboard() {
       </AnimatePresence>
 
       {/* Main Charts & Disruption Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         
         {/* Main Chart Column (Buyer: Category Shrinkage, Vendor: Dispatched Volume Trends) */}
-        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden flex flex-col justify-between">
-          <div className="px-5 py-3 bg-[#0c1e36] text-white">
+        <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md overflow-hidden flex flex-col justify-between">
+          <div className="px-4 py-2 bg-[#0c1e36] text-white">
             <span className="text-[9px] font-extrabold text-sky-300 font-mono uppercase tracking-widest block">Analytics</span>
-            <h3 className="text-sm font-black uppercase tracking-tight mt-0.5">
+            <h3 className="text-xs font-black uppercase tracking-tight mt-0.5">
               {isVendor ? 'Dispatched Volume Trends' : 'Shrinkage by Category'}
             </h3>
           </div>
-          <div className="p-6 flex flex-col justify-between flex-1">
+          <div className="p-4 flex flex-col justify-between flex-1">
           <AnimatePresence mode="wait">
             {!isVendor ? (
               <motion.div 
@@ -545,7 +545,7 @@ export default function Dashboard() {
         </div>
 
         {/* AI Disruption Intelligence Sidebar Panel with interactive newly appended alert */}
-        <div className="bg-gradient-to-br from-[#0c1e36] via-[#123556] to-[#0a4d68] border border-sky-900/50 rounded-2xl p-6 text-white relative flex flex-col justify-between shadow-lg overflow-hidden min-h-[350px]">
+        <div className="bg-gradient-to-br from-[#0c1e36] via-[#123556] to-[#0a4d68] border border-sky-900/50 rounded-xl p-4 text-white relative flex flex-col justify-between shadow-lg overflow-hidden min-h-[280px]">
           <div className="absolute top-0 right-0 -mt-6 -mr-6 w-32 h-32 bg-sky-500 rounded-full blur-[90px] opacity-20"></div>
           
           <div className="space-y-4">
@@ -605,7 +605,7 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ duration: 0.25 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+            className="grid grid-cols-1 lg:grid-cols-2 gap-4"
           >
             {/* Vendor Performance Index (Bar Graph) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden flex flex-col justify-between">
@@ -741,17 +741,17 @@ function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="relative overflow-hidden rounded-2xl p-5 shadow-lg border border-slate-700/80 group"
+      className="relative overflow-hidden rounded-xl px-3 py-2.5 shadow-md border border-slate-700/80 group"
       style={{ backgroundColor: '#0f2744' }}
     >
       <div className={cn('absolute inset-0 bg-gradient-to-br to-transparent', accent)} />
       <div className="relative">
-        <div className="flex justify-between items-start mb-4">
-          <div className="p-2.5 rounded-xl bg-white/5 text-slate-200 border border-white/10">
-            <Icon className="w-4.5 h-4.5 shrink-0" />
+        <div className="flex justify-between items-start mb-2">
+          <div className="p-1.5 rounded-lg bg-white/5 text-slate-200 border border-white/10">
+            <Icon className="w-3.5 h-3.5 shrink-0" />
           </div>
           
-          <div className={cn("flex items-center text-[10px] font-bold font-mono uppercase px-2 py-0.5 rounded-full border",
+          <div className={cn("flex items-center text-[9px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-full border",
             isPositive 
               ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-300" 
               : "bg-rose-500/15 border-rose-500/40 text-rose-300"
@@ -763,10 +763,10 @@ function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
 
         <div>
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-slate-400 text-[10px] font-bold font-mono uppercase tracking-wider">{title}</h4>
-            <span className={cn('h-1.5 w-8 rounded-full', barTone)} />
+            <h4 className="text-slate-400 text-[9px] font-bold font-mono uppercase tracking-wider">{title}</h4>
+            <span className={cn('h-1 w-6 rounded-full', barTone)} />
           </div>
-          <div className={cn('text-2xl font-black mt-1.5 tracking-tight', valueTone)}>{value}</div>
+          <div className={cn('text-xl font-black mt-0.5 tracking-tight', valueTone)}>{value}</div>
         </div>
       </div>
     </motion.div>

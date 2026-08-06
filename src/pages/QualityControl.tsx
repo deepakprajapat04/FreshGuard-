@@ -502,10 +502,10 @@ export default function QualityControl() {
         </div>
       </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
         
         {/* Left Column: Optical Laser Spectrograph Scanning Window */}
-        <div className="lg:col-span-2 space-y-5">
+        <div className="lg:col-span-2 space-y-3.5">
           <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl shadow-md overflow-hidden relative">
             <div className="px-4 py-3 bg-[#0c1e36] text-white flex items-center justify-between">
               <span className="text-xs font-black font-mono uppercase tracking-wider">Inspection terminal</span>
@@ -665,7 +665,7 @@ export default function QualityControl() {
         </div>
 
         {/* Right Column: AI Analysis Results Insights panel */}
-        <div className="space-y-5">
+        <div className="space-y-3.5">
           <AnimatePresence mode="popLayout">
             {scanState === 'results' ? (
               <motion.div 

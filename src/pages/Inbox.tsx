@@ -101,14 +101,14 @@ export default function Inbox() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <StatCard label="Awaiting approval" value={String(pending.length)} tone="amber" />
         <StatCard label="Alt POs issued" value={String(issued.length)} tone="emerald" />
         <StatCard label="Rejected" value={String(rejected.length)} tone="rose" />
       </div>
 
-      <section className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
-        <div className="px-5 py-3.5 bg-[#0c1e36] text-white flex flex-wrap items-center justify-between gap-2">
+      <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
+        <div className="px-4 py-2 bg-[#0c1e36] text-white flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <InboxIcon className="w-4 h-4 text-sky-300 shrink-0" />
             <div>

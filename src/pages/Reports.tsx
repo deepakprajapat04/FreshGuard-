@@ -46,7 +46,7 @@ export default function Reports() {
         </button>
       </PageHeader>
 
-      <div className={cn('grid grid-cols-1 gap-4', isVendor ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
+      <div className={cn('grid grid-cols-1 gap-3', isVendor ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
         <StatCard
           label={isVendor ? 'My Shrinkage Impact' : 'Total Shrinkage Value'}
           value={isVendor ? '$14,200' : '$218,000'}
@@ -82,9 +82,9 @@ export default function Reports() {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
         <Panel title="Shrinkage vs Markdowns Trend" subtitle="Trailing six-month performance">
-          <div className="p-5 h-80 w-full">
+          <div className="p-3.5 h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={shrinkageTrends} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
@@ -103,7 +103,7 @@ export default function Reports() {
         </Panel>
 
         <Panel title="Loss by Category" subtitle="Share of total shrinkage">
-          <div className="p-5 h-80 w-full min-h-[250px]">
+          <div className="p-3.5 h-72 w-full min-h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={categoryData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value">

@@ -128,10 +128,10 @@ export function RiskOverviewKpis({
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 flex-wrap">
           <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-            Risk overview
+            Exposure snapshot
           </h3>
           <span className="text-[9px] text-slate-400 hidden sm:inline">
-            Delayed lots · alerts · Business Rules
+            Watchlist · vendors · corridors · alerts
           </span>
         </div>
         {showAlertsLink && onOpenAlerts && buyerAlerts.length > 0 && (
@@ -147,32 +147,32 @@ export function RiskOverviewKpis({
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-2">
         <RiskKpiCard
           value={riskKpis.shipmentsAtRisk}
-          label="Shipments at risk"
+          label="Lots under watch"
           trendPct={riskKpis.shipTrend}
           barsSeed={riskKpis.shipmentsAtRisk + 11}
-          hint="Delayed, anomaly, or expected-delay lots still in transit"
+          hint="In-transit lots with delay, anomaly, or expected slippage"
         />
         <RiskKpiCard
           value={riskKpis.suppliersAtRisk}
-          label="Suppliers at risk"
+          label="Vendors flagged"
           trendPct={riskKpis.supplierTrend}
           barsSeed={riskKpis.suppliersAtRisk + 22}
-          hint="Suppliers with at least one at-risk shipment"
+          hint="Suppliers tied to at least one watched lot"
         />
         <RiskKpiCard
           value={riskKpis.terminalsAtRisk}
-          label="Terminals / origins at risk"
+          label="Hotspot terminals"
           trendPct={riskKpis.terminalTrend}
           barsSeed={riskKpis.terminalsAtRisk + 33}
-          hint="PSA terminals or load points linked to at-risk lots"
+          hint="PSA terminals or load points linked to watched lots"
         />
         <RiskKpiCard
           value={riskKpis.highRiskEvents}
-          label="High risk events"
+          label="Priority alerts"
           trendPct={riskKpis.eventsTrend}
           barsSeed={riskKpis.highRiskEvents + 44}
           barTone="rose"
-          hint="Urgent buyer alerts + High/Critical custom alerts + watched alert types"
+          hint="Urgent buyer alerts, high/critical custom rules, and active alert types"
         />
       </div>
     </div>

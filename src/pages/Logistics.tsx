@@ -45,7 +45,7 @@ export default function Logistics() {
   const [activeTab, setActiveTab] = useState<LogisticsTab>('dashboard');
   const [viewMode, setViewMode] = useState<'map' | 'calendar' | 'timeline'>('map');
   /** lot = one shipment route · fleet = all lots on world map */
-  const [mapScope, setMapScope] = useState<'lot' | 'fleet'>('fleet');
+  const [mapScope, setMapScope] = useState<'lot' | 'fleet'>('lot');
   const [fleetFilter, setFleetFilter] = useState<'all' | 'ocean' | 'air' | 'road'>('all');
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [selectedShipmentId, setSelectedShipmentId] = useState('');
