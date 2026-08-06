@@ -384,6 +384,8 @@ export function seedDefaultShipments(): Shipment[] {
     psaSyncStatus: 'synced',
     psaLastSyncAt: now,
     transportMode: 'ocean',
+    shippingMethod: 'Ocean freight',
+    incoterms: 'CIF Miami',
     originLat: 25.7781,
     originLng: -80.1797,
     destLat,

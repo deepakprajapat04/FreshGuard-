@@ -106,6 +106,56 @@ function normalizeExpectedTransport(transportMode?: string): TransportCategory {
   return 'unknown';
 }
 
+/**
+ * Map Incoterms to the transport corridor they usually imply.
+ * Maritime: FAS / FOB / CFR / CIF
+ * Delivery-to-door (often land last-mile / inland): DAP / DPU / DDP
+ * Any mode / multimodal: FCA / CPT / CIP / EXW
+ */
+export function inferExpectedTransportFromIncoterms(incoterms?: string): {
+  category: TransportCategory;
+  code: string | null;
+} {
+  if (!incoterms?.trim()) return { category: 'unknown', code: null };
+  const raw = incoterms.toUpperCase();
+  const match = raw.match(/\b(FAS|FOB|CFR|CIF|FCA|CPT|CIP|DAP|DPU|DDP|EXW|DES|DEQ|DAF|DDU)\b/);
+  const code = match?.[1] || null;
+  if (!code) return { category: 'unknown', code: null };
+
+  if (['FAS', 'FOB', 'CFR', 'CIF', 'DES', 'DEQ'].includes(code)) {
+    return { category: 'water', code };
+  }
+  if (['DAP', 'DPU', 'DDP', 'DAF', 'DDU'].includes(code)) {
+    return { category: 'land', code };
+  }
+  if (['FCA', 'CPT', 'CIP', 'EXW'].includes(code)) {
+    return { category: 'multimodal', code };
+  }
+  return { category: 'unknown', code };
+}
+
+function modeLabel(category: TransportCategory): string {
+  if (category === 'water') return 'sea';
+  if (category === 'land') return 'road';
+  if (category === 'air') return 'air';
+  if (category === 'multimodal') return 'multimodal';
+  return 'unknown';
+}
+
+function modeDisplayLabel(category: TransportCategory): string {
+  if (category === 'water') return 'Sea';
+  if (category === 'land') return 'Road';
+  if (category === 'air') return 'Air';
+  if (category === 'multimodal') return 'Multimodal';
+  return 'Unknown';
+}
+
+function categoriesCompatible(expected: TransportCategory, actual: TransportCategory): boolean {
+  if (expected === 'unknown' || actual === 'unknown') return true;
+  if (expected === 'multimodal' || actual === 'multimodal') return true;
+  return expected === actual;
+}
+
 function inferActualTransportFromEvents(psaEvents?: PsaEvent[]): TransportCategory {
   const events = psaEvents || [];
   if (!events.length) return 'unknown';
@@ -160,50 +210,100 @@ function inferActualTransportFromEvents(psaEvents?: PsaEvent[]): TransportCatego
 export function getTransportModeMismatch(input: {
   transportMode?: string;
   psaEvents?: PsaEvent[];
+  /** Incoterms from ASN / booking (e.g. CIF Singapore, FOB Shanghai) */
+  incoterms?: string;
 }): {
   isMismatch: boolean;
   expected: TransportCategory;
   actual: TransportCategory;
+  expectedFromMode: TransportCategory;
+  expectedFromIncoterms: TransportCategory;
+  incotermCode: string | null;
   confidence: 'low' | 'medium' | 'high';
+  /** Short UI line, e.g. "Expected sea · seeing road" */
+  summary: string;
   hint: string;
 } {
-  const expected = normalizeExpectedTransport(input.transportMode);
+  const expectedFromMode = normalizeExpectedTransport(input.transportMode);
+  const { category: expectedFromIncoterms, code: incotermCode } =
+    inferExpectedTransportFromIncoterms(input.incoterms);
   const actual = inferActualTransportFromEvents(input.psaEvents);
+
+  // Prefer declared transport mode; fall back to Incoterms when mode is missing.
+  let expected: TransportCategory = expectedFromMode;
+  if (expected === 'unknown') expected = expectedFromIncoterms;
+  // If mode and Incoterms both declare a concrete (non-multimodal) mode and differ,
+  // keep mode as primary expected but still surface Incoterms in the hint.
+  if (
+    expectedFromMode !== 'unknown' &&
+    expectedFromIncoterms !== 'unknown' &&
+    expectedFromMode !== 'multimodal' &&
+    expectedFromIncoterms !== 'multimodal' &&
+    expectedFromMode !== expectedFromIncoterms
+  ) {
+    expected = expectedFromMode;
+  }
 
   if (expected === 'unknown' || actual === 'unknown') {
     return {
       isMismatch: false,
       expected,
       actual,
+      expectedFromMode,
+      expectedFromIncoterms,
+      incotermCode,
       confidence: 'low',
+      summary: 'Not enough PSA data to verify transit mode.',
       hint: 'PSA event data insufficient for transport leg classification.',
     };
   }
 
-  // Multimodal is an OK state for both water and land expectations.
-  const ok =
-    expected === 'multimodal' ||
-    actual === 'multimodal' ||
-    expected === actual;
+  const modeOk = categoriesCompatible(expectedFromMode, actual);
+  const incotermsOk = categoriesCompatible(expectedFromIncoterms, actual);
+  const modeVsIncotermsConflict =
+    expectedFromMode !== 'unknown' &&
+    expectedFromIncoterms !== 'unknown' &&
+    expectedFromMode !== 'multimodal' &&
+    expectedFromIncoterms !== 'multimodal' &&
+    expectedFromMode !== expectedFromIncoterms;
 
-  if (ok) {
+  // Mismatch when PSA legs disagree with declared mode and/or Incoterms.
+  const disagreeWithMode = expectedFromMode !== 'unknown' && !modeOk;
+  const disagreeWithIncoterms = expectedFromIncoterms !== 'unknown' && !incotermsOk;
+  const isMismatch = disagreeWithMode || disagreeWithIncoterms || modeVsIncotermsConflict;
+
+  if (!isMismatch) {
     return {
       isMismatch: false,
       expected,
       actual,
+      expectedFromMode,
+      expectedFromIncoterms,
+      incotermCode,
       confidence: 'high',
-      hint: 'Transport leg matches expected corridor mode.',
+      summary: `Transit matches ${modeDisplayLabel(expected).toLowerCase()}.`,
+      hint: 'Transport leg matches expected corridor mode and Incoterms.',
     };
   }
 
-  const confidence: 'low' | 'medium' | 'high' = 'medium';
+  const summary = incotermCode
+    ? `${incotermCode} expects ${modeDisplayLabel(expected)} · PSA shows ${modeDisplayLabel(actual)}`
+    : `Expected ${modeDisplayLabel(expected)} · PSA shows ${modeDisplayLabel(actual)}`;
+
+  const hint = incotermCode
+    ? `${incotermCode} bookings are ${modeLabel(expected)} moves, but live tracking is on ${modeLabel(actual)}. Confirm carrier handoff.`
+    : `Booking is ${modeLabel(expected)}, but live tracking is on ${modeLabel(actual)}. Confirm carrier handoff.`;
 
   return {
     isMismatch: true,
     expected,
     actual,
-    confidence,
-    hint: `Expected ${expected}, but PSA events indicate ${actual}. Validate shipping method + corridor handoff.`,
+    expectedFromMode,
+    expectedFromIncoterms,
+    incotermCode,
+    confidence: disagreeWithIncoterms && disagreeWithMode ? 'high' : 'medium',
+    summary,
+    hint,
   };
 }
 
@@ -230,6 +330,7 @@ export function buildShipmentNextActions(shipment: {
   containerNumber?: string;
   psaEvents?: PsaEvent[];
   expectedDelay?: boolean;
+  incoterms?: string;
 }): ShipmentNextAction[] {
   if (shipment.status === 'delivered' || shipment.stage === 'delivered') {
     return [
@@ -261,6 +362,7 @@ export function buildShipmentNextActions(shipment: {
   const mismatch = getTransportModeMismatch({
     transportMode: shipment.transportMode,
     psaEvents: shipment.psaEvents,
+    incoterms: shipment.incoterms,
   });
   const customs = mismatch.actual === 'water' || mismatch.actual === 'multimodal';
 
@@ -296,15 +398,54 @@ export function buildShipmentNextActions(shipment: {
   ];
 
   if (mismatch.isMismatch) {
-    actions.unshift({
-      id: `${shipment.id}-transport-mismatch`,
-      title: 'Validate transport mode mismatch',
-      detail: mismatch.hint,
-      owner: 'Carrier',
-      priority: 'urgent',
-      dueHint: 'Immediately · before next leg movement',
-      status: 'todo',
-    });
+    const expectedLabel =
+      mismatch.expected === 'water' ? 'sea' : mismatch.expected === 'land' ? 'road' : mismatch.expected;
+    const actualLabel =
+      mismatch.actual === 'water' ? 'sea' : mismatch.actual === 'land' ? 'road' : mismatch.actual;
+    const code = mismatch.incotermCode;
+
+    actions.unshift(
+      {
+        id: `${shipment.id}-mismatch-carrier`,
+        title: 'Ask carrier to confirm active leg',
+        detail: code
+          ? `${code} expects ${expectedLabel}, but PSA shows ${actualLabel}. Get written confirmation of the live corridor.`
+          : `Booking expects ${expectedLabel}, but PSA shows ${actualLabel}. Confirm with carrier before next handoff.`,
+        owner: 'Carrier',
+        priority: 'urgent',
+        dueHint: 'Now · before next leg',
+        status: 'todo',
+      },
+      {
+        id: `${shipment.id}-mismatch-buyer`,
+        title: 'Escalate mismatch to category buyer',
+        detail: 'Buyer decides: accept current road tracking, force sea booking correction, or raise an Inbox fill-in if delay risk grows.',
+        owner: 'Buyer',
+        priority: 'urgent',
+        dueHint: 'Within 1 hour',
+        status: 'todo',
+      },
+      {
+        id: `${shipment.id}-mismatch-hold`,
+        title: 'Hold dock / last-mile until mode confirmed',
+        detail: 'Pause final door booking so warehouse does not prep for the wrong arrival mode.',
+        owner: 'Warehouse',
+        priority: 'soon',
+        dueHint: 'Until carrier confirms',
+        status: 'todo',
+      },
+      {
+        id: `${shipment.id}-mismatch-docs`,
+        title: code
+          ? `Reconcile ${code} docs vs PSA tracking`
+          : 'Reconcile Incoterms docs vs PSA tracking',
+        detail: 'Check BOL / booking Incoterms against live PSA events and correct the booking record if needed.',
+        owner: 'Customs',
+        priority: 'soon',
+        dueHint: 'Same day',
+        status: 'todo',
+      }
+    );
   }
 
   if (customs) {
@@ -372,11 +513,38 @@ export function buildPeriodicBuyerAlerts(input: {
   psaEvents?: PsaEvent[];
   temp?: string;
   vesselName?: string;
+  transportMode?: string;
+  incoterms?: string;
 }): BuyerShipmentAlert | null {
   const container = input.containerNumber || 'Pending';
   const product = input.product || input.item || 'Cargo';
   const latest = input.psaEvents?.[input.psaEvents.length - 1];
   const tick = Math.floor(Date.now() / 45000) % 4;
+
+  const mismatch = getTransportModeMismatch({
+    transportMode: input.transportMode,
+    psaEvents: input.psaEvents,
+    incoterms: input.incoterms,
+  });
+
+  // Prefer Incoterms / mode mismatch alerts over routine heartbeats.
+  if (mismatch.isMismatch && input.status !== 'delivered') {
+    const code = mismatch.incotermCode;
+    return {
+      id: `alert-${input.id}-mode-mismatch-${tick}`,
+      shipmentId: input.id,
+      containerNumber: container,
+      title: code
+        ? `Incoterms ${code}: transit mode mismatch`
+        : 'Transport mode mismatch',
+      message: `${product} (${container}): ${mismatch.summary}`,
+      severity: 'warning',
+      category: 'Urgent',
+      timestamp: new Date().toISOString(),
+      read: false,
+      source: 'FreshGuard',
+    };
+  }
 
   if (input.status === 'delivered') {
     if (tick !== 0) return null;

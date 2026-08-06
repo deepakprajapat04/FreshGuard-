@@ -17,7 +17,7 @@ import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
 import {
-  createPsaEvent, buildPeriodicBuyerAlerts, formatSyncAge,
+  createPsaEvent, buildPeriodicBuyerAlerts, formatSyncAge, getTransportModeMismatch,
   type BuyerShipmentAlert, type ContainerUpdatePayload,
 } from '../lib/psa';
 import { seedDefaultShipments, enrichWithPsaDefaults } from '../lib/shipmentSeeds';
@@ -35,6 +35,27 @@ const TrackingMap = lazy(() =>
 );
 
 const STORAGE_KEY = 'freshguard-active-shipments-v5';
+
+function getShipmentModeMismatch(shipment: Shipment) {
+  return getTransportModeMismatch({
+    transportMode: shipment.transportMode,
+    psaEvents: shipment.psaEvents,
+    incoterms: shipment.incoterms,
+  });
+}
+
+function isShipmentModeMismatch(shipment: Shipment) {
+  if (shipment.status === 'delivered') return false;
+  return getShipmentModeMismatch(shipment).isMismatch;
+}
+
+function isShipmentCritical(shipment: Shipment) {
+  return (
+    shipment.status === 'delayed' ||
+    !!shipment.hasAnomaly ||
+    isShipmentModeMismatch(shipment)
+  );
+}
 
 export default function Logistics() {
   const navigate = useNavigate();
@@ -56,7 +77,7 @@ export default function Logistics() {
   const [buyerAlerts, setBuyerAlerts] = useState<BuyerShipmentAlert[]>([]);
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   const [savingContainer, setSavingContainer] = useState(false);
-  const [transitStatusFilter, setTransitStatusFilter] = useState<'all' | 'on-time' | 'delayed' | 'delivered'>('delayed');
+  const [transitStatusFilter, setTransitStatusFilter] = useState<'all' | 'on-time' | 'delayed' | 'mismatched' | 'delivered'>('delayed');
   const [transitModeFilter, setTransitModeFilter] = useState<'all' | 'ocean' | 'air' | 'road'>('all');
   const [transitSupplierFilter, setTransitSupplierFilter] = useState('all');
   const [transitFiltersOpen, setTransitFiltersOpen] = useState(true);
@@ -104,6 +125,8 @@ export default function Logistics() {
             destLat: p.destLat ?? seed.destLat,
             destLng: p.destLng ?? seed.destLng,
             transportMode: p.transportMode || seed.transportMode,
+            incoterms: p.incoterms || seed.incoterms,
+            shippingMethod: p.shippingMethod || seed.shippingMethod,
             etaDate: p.etaDate || seed.etaDate,
             cargoLines: p.cargoLines?.length ? p.cargoLines : seed.cargoLines,
             storeOnHandCases: p.storeOnHandCases ?? seed.storeOnHandCases,
@@ -333,11 +356,49 @@ export default function Logistics() {
     (aiAlerts[selectedShipment.id]?.hasAnomaly ||
       selectedShipment.status === 'delayed' ||
       selectedShipment.hasAnomaly ||
-      selectedShipment.expectedDelay)
+      selectedShipment.expectedDelay ||
+      isShipmentModeMismatch(selectedShipment))
       ? (() => {
           const existing = aiAlerts[selectedShipment.id];
           if (existing) return existing;
           const rules = loadBusinessRules();
+          const mismatch = getShipmentModeMismatch(selectedShipment);
+          const isMismatchOnly =
+            mismatch.isMismatch &&
+            selectedShipment.status !== 'delayed' &&
+            !selectedShipment.hasAnomaly &&
+            !selectedShipment.expectedDelay;
+
+          if (isMismatchOnly) {
+            const expectedLabel =
+              mismatch.expected === 'water' ? 'Sea' : mismatch.expected === 'land' ? 'Road' : mismatch.expected;
+            const actualLabel =
+              mismatch.actual === 'water' ? 'Sea' : mismatch.actual === 'land' ? 'Road' : mismatch.actual;
+            return {
+              hasAnomaly: true,
+              kind: 'mismatch' as const,
+              routeId: mismatch.incotermCode
+                ? `Incoterms ${mismatch.incotermCode}`
+                : 'Transport mode check',
+              threatVector: mismatch.summary,
+              delayText: `${expectedLabel} expected · ${actualLabel} showing on PSA. Confirm the active leg with the carrier.`,
+              mitigationText: 'Validate Incoterms vs live transit mode before the next handoff.',
+              mitigationSummary: 'Mode mismatch',
+              alternativeRouteName: '—',
+              shelfImpact: 'Mode mismatch can add dwell time and cut usable shelf life if the wrong corridor is followed.',
+              shelfLifeBefore: selectedShipment.shelfLifeDays || 14,
+              shelfLifeAfter: selectedShipment.shelfLifeDaysAtRisk || 10,
+              willShortage: false,
+              storeOnHandCases: selectedShipment.storeOnHandCases ?? 120,
+              dailyDemandCases: selectedShipment.dailyDemandCases ?? 80,
+              daysOfCover: Math.round(((selectedShipment.storeOnHandCases ?? 120) / Math.max(1, selectedShipment.dailyDemandCases ?? 80)) * 10) / 10,
+              stockoutInDays: Math.floor((selectedShipment.storeOnHandCases ?? 120) / Math.max(1, selectedShipment.dailyDemandCases ?? 80)),
+              shortageCases: 0,
+              shortageImpact: 'No shelf shortage projected from mode mismatch alone — still confirm corridor with carrier.',
+              suggestedAction: 'Open Live Tracking actions and ask carrier to confirm sea vs road leg against Incoterms.',
+            };
+          }
+
           const delayDays =
             selectedShipment.status === 'delayed'
               ? Math.max(rules.urgentDelayDays + 1, 2)
@@ -351,6 +412,7 @@ export default function Logistics() {
           });
           return {
             hasAnomaly: true,
+            kind: 'delay' as const,
             routeId: selectedShipment.logisticsRouteAndProvider || 'Transit corridor',
             threatVector:
               selectedShipment.status === 'delayed' ? 'Active delay on corridor' : 'Expected delay ahead',
@@ -529,6 +591,10 @@ export default function Logistics() {
     return transitShipments.filter((s) => {
       if (transitStatusFilter === 'delayed') {
         if (!(s.status === 'delayed' || s.hasAnomaly)) return false;
+      } else if (transitStatusFilter === 'mismatched') {
+        if (!isShipmentModeMismatch(s)) return false;
+      } else if (transitStatusFilter === 'on-time') {
+        if (s.status !== 'on-time' || isShipmentModeMismatch(s)) return false;
       } else if (transitStatusFilter !== 'all' && s.status !== transitStatusFilter) {
         return false;
       }
@@ -544,8 +610,8 @@ export default function Logistics() {
     (transitSupplierFilter !== 'all' ? 1 : 0);
 
   const groupedTransit = useMemo(() => ({
-    critical: filteredTransitShipments.filter((s) => (s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered'),
-    onTrack: filteredTransitShipments.filter((s) => !((s.status === 'delayed' || s.hasAnomaly) && s.status !== 'delivered')),
+    critical: filteredTransitShipments.filter((s) => isShipmentCritical(s) && s.status !== 'delivered'),
+    onTrack: filteredTransitShipments.filter((s) => !(isShipmentCritical(s) && s.status !== 'delivered')),
   }), [filteredTransitShipments]);
 
   // Keep selection inside the filtered Live Tracking list only —
@@ -825,6 +891,7 @@ export default function Logistics() {
                           ['all', 'All'],
                           ['on-time', 'On-time'],
                           ['delayed', 'Delayed'],
+                          ['mismatched', 'Mismatched'],
                           ['delivered', 'Delivered'],
                         ] as const
                       ).map(([value, label]) => (
@@ -835,7 +902,7 @@ export default function Logistics() {
                           className={cn(
                             'px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors',
                             transitStatusFilter === value
-                              ? value === 'delayed'
+                              ? value === 'delayed' || value === 'mismatched'
                                 ? 'bg-rose-600 border-rose-500 text-white'
                                 : value === 'delivered'
                                   ? 'bg-sky-600 border-sky-500 text-white'
@@ -993,7 +1060,7 @@ export default function Logistics() {
                         <div
                           className={cn(
                             'rounded-xl p-3 border space-y-2',
-                            selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
+                            selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly || ('kind' in activeDisruption && activeDisruption.kind === 'mismatch')
                               ? 'bg-red-50/95 dark:bg-rose-950/20 border-l-4 border-rose-500 border-rose-200/50'
                               : 'bg-amber-50/95 dark:bg-amber-950/20 border-l-4 border-amber-500 border-amber-200/50'
                           )}
@@ -1002,7 +1069,7 @@ export default function Logistics() {
                             <ShieldAlert
                               className={cn(
                                 'w-5 h-5 shrink-0',
-                                selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
+                                selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly || ('kind' in activeDisruption && activeDisruption.kind === 'mismatch')
                                   ? 'text-rose-600'
                                   : 'text-amber-600'
                               )}
@@ -1011,7 +1078,7 @@ export default function Logistics() {
                               <h4
                                 className={cn(
                                   'text-sm font-black uppercase font-mono',
-                                  selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly
+                                  selectedShipment.status === 'delayed' || selectedShipment.hasAnomaly || ('kind' in activeDisruption && activeDisruption.kind === 'mismatch')
                                     ? 'text-rose-900 dark:text-rose-200'
                                     : 'text-amber-900 dark:text-amber-200'
                                 )}
@@ -1027,6 +1094,20 @@ export default function Logistics() {
                               </p>
                               {!isVendor && alertDetailsOpen && (
                                 <div className="mt-2 space-y-2">
+                                  {'kind' in activeDisruption && activeDisruption.kind === 'mismatch' ? (
+                                    <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/50 border border-rose-200/60 dark:border-rose-800/40 space-y-1.5">
+                                      <div className="text-[10px] font-bold uppercase tracking-wide text-rose-800 dark:text-rose-300">
+                                        Take action
+                                      </div>
+                                      <p className="text-xs text-slate-700 dark:text-slate-300">
+                                        {activeDisruption.suggestedAction}
+                                      </p>
+                                      <p className="text-[11px] text-slate-500">
+                                        {activeDisruption.mitigationText}
+                                      </p>
+                                    </div>
+                                  ) : (
+                                    <>
                                   <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/50 border border-amber-200/60 dark:border-amber-800/40 space-y-1.5">
                                     <div className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
                                       Shelf life impact
@@ -1084,6 +1165,8 @@ export default function Logistics() {
                                       )}
                                     </div>
                                   </div>
+                                    </>
+                                  )}
                                 </div>
                               )}
                               {isVendor && (
@@ -1110,9 +1193,32 @@ export default function Logistics() {
                                 ) : (
                                   <ChevronDown className="w-3.5 h-3.5" />
                                 )}
-                                {alertDetailsOpen ? 'Hide impact' : 'Show shelf impact'}
+                                {alertDetailsOpen
+                                  ? 'Hide actions'
+                                  : ('kind' in activeDisruption && activeDisruption.kind === 'mismatch'
+                                      ? 'Take actions'
+                                      : 'Show shelf impact')}
                               </button>
                               <div className="flex flex-wrap gap-2">
+                                {'kind' in activeDisruption && activeDisruption.kind === 'mismatch' ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => setViewMode('timeline')}
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                    >
+                                      Review PSA timeline
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowAlertsPanel(true)}
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                    >
+                                      Open buyer alerts
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
                                 <button
                                   type="button"
                                   onClick={() => navigate('/inbox')}
@@ -1128,6 +1234,8 @@ export default function Logistics() {
                                   <ShoppingCart className="w-3.5 h-3.5" />
                                   Ask alternative suppliers
                                 </button>
+                                  </>
+                                )}
                               </div>
                             </div>
                           )}
@@ -1150,7 +1258,12 @@ export default function Logistics() {
                           <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
-                          <span className="text-[10px] font-mono text-amber-300">Delay alert active · Sync {formatSyncAge(selectedShipment.psaLastSyncAt)}</span>
+                          <span className="text-[10px] font-mono text-amber-300">
+                            {'kind' in activeDisruption && activeDisruption.kind === 'mismatch'
+                              ? 'Mode mismatch alert active'
+                              : 'Delay alert active'}
+                            {' · '}Sync {formatSyncAge(selectedShipment.psaLastSyncAt)}
+                          </span>
                         </div>
                       </div>
                     )}
@@ -1197,7 +1310,51 @@ export default function Logistics() {
 
                 {viewMode === 'timeline' && (
                   <div className="absolute inset-0 overflow-y-auto p-4 lg:p-5 pt-20">
-                    <PsaTimelinePanel shipment={selectedShipment} />
+                    <PsaTimelinePanel
+                      shipment={selectedShipment}
+                      onNotifyCarrier={() => {
+                        if (!selectedShipment) return;
+                        setFeedbackMsg(
+                          `Carrier notified for ${selectedShipment.containerNumber || selectedShipment.id}: confirm ${selectedShipment.incoterms || 'booking'} mode vs live PSA leg.`
+                        );
+                        setTimeout(() => setFeedbackMsg(null), 4500);
+                        upsertMany([
+                          {
+                            id: `n-mismatch-carrier-${selectedShipment.id}-${Date.now()}`,
+                            title: 'Carrier notified — mode mismatch',
+                            message: `${selectedShipment.id}: confirm active transit leg against ${selectedShipment.incoterms || 'Incoterms'}.`,
+                            severity: 'warning',
+                            category: 'Urgent',
+                            timestamp: new Date().toISOString(),
+                            read: false,
+                            module: 'Logistics',
+                            href: '/logistics',
+                          },
+                        ]);
+                      }}
+                      onEscalateBuyer={() => {
+                        if (!selectedShipment) return;
+                        setFeedbackMsg(
+                          `Mismatch escalated to category buyer for ${selectedShipment.product || selectedShipment.item}.`
+                        );
+                        setTimeout(() => setFeedbackMsg(null), 4500);
+                        upsertMany([
+                          {
+                            id: `n-mismatch-buyer-${selectedShipment.id}-${Date.now()}`,
+                            title: 'Mode mismatch escalated to buyer',
+                            message: `${selectedShipment.id}: ${selectedShipment.incoterms || 'Incoterms'} expects sea/road differently than PSA tracking.`,
+                            severity: 'warning',
+                            category: 'Urgent',
+                            timestamp: new Date().toISOString(),
+                            read: false,
+                            module: 'Logistics',
+                            href: '/inbox',
+                          },
+                        ]);
+                        navigate('/inbox');
+                      }}
+                      onOpenAlerts={() => setShowAlertsPanel(true)}
+                    />
                   </div>
                 )}
 
@@ -1273,6 +1430,8 @@ function ShipmentListItem({
   onClick: () => void;
 }) {
   const isDelayed = shipment.status === 'delayed' || !!shipment.hasAnomaly;
+  const isMismatch = !isDelayed && isShipmentModeMismatch(shipment);
+  const isAlert = isDelayed || isMismatch;
   const isDelivered = shipment.status === 'delivered';
   return (
     <div onClick={onClick} className={cn(
@@ -1280,10 +1439,10 @@ function ShipmentListItem({
       isDelivered && (active
         ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50 dark:bg-emerald-950/20'
         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'),
-      isDelayed && !isDelivered && (active
+      isAlert && !isDelivered && (active
         ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-100 dark:bg-rose-950/40'
         : 'border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/25'),
-      !isDelayed && !isDelivered && (active
+      !isAlert && !isDelivered && (active
         ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40'
         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900')
     )}>
@@ -1296,17 +1455,19 @@ function ShipmentListItem({
           <span className="bg-emerald-600 text-white font-mono text-[8.5px] font-black uppercase px-2 py-0.5 rounded">Delivered</span>
         ) : isDelayed ? (
           <span className="bg-rose-200/80 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-700 px-2 py-0.5 rounded text-[8.5px] font-black uppercase text-rose-700 dark:text-rose-300 font-mono flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Delayed</span>
+        ) : isMismatch ? (
+          <span className="bg-rose-200/80 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-700 px-2 py-0.5 rounded text-[8.5px] font-black uppercase text-rose-700 dark:text-rose-300 font-mono flex items-center gap-1"><AlertTriangle className="w-3 h-3" /> Mismatched</span>
         ) : (
           <span className="bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded text-[8.5px] font-black uppercase text-emerald-600 font-mono">On track</span>
         )}
       </div>
-      <div className={cn('border-t pt-2 flex justify-between text-[11px] text-slate-500', isDelayed && !isDelivered ? 'border-rose-200/80 dark:border-rose-800/50' : 'border-slate-100 dark:border-slate-800')}>
+      <div className={cn('border-t pt-2 flex justify-between text-[11px] text-slate-500', isAlert && !isDelivered ? 'border-rose-200/80 dark:border-rose-800/50' : 'border-slate-100 dark:border-slate-800')}>
         <span className="truncate">From: <strong className="text-slate-700 dark:text-slate-300">{shipment.origin}</strong></span>
         <ArrowRight className="w-3.5 h-3.5 mx-1 shrink-0" />
         <span className="truncate text-right">To: <strong className="text-slate-700 dark:text-slate-300">{shipment.destination}</strong></span>
       </div>
       <div className="flex justify-between text-[11px] font-mono">
-        <span className="flex items-center gap-1"><Thermometer className={cn('w-3.5 h-3.5', isDelayed ? 'text-rose-500' : 'text-emerald-500')} />{isDelivered ? 'Received @ DC' : shipment.temp}</span>
+        <span className="flex items-center gap-1"><Thermometer className={cn('w-3.5 h-3.5', isAlert ? 'text-rose-500' : 'text-emerald-500')} />{isDelivered ? 'Received @ DC' : shipment.temp}</span>
         <span className="flex items-center gap-1 text-slate-500"><Clock className="w-3.5 h-3.5 text-emerald-500" />ETA: {isDelivered ? 'Closed' : shipment.eta}</span>
       </div>
     </div>
@@ -1316,9 +1477,17 @@ function ShipmentListItem({
 function BuyerShipmentListItem({ shipment, active, onClick }: { shipment: Shipment; active: boolean; onClick: () => void }) {
   const isDelivered = shipment.status === 'delivered';
   const isDelayed = shipment.status === 'delayed' || !!shipment.hasAnomaly;
+  const isMismatch = !isDelayed && isShipmentModeMismatch(shipment);
+  const isAlert = isDelayed || isMismatch;
+  const mismatch = isMismatch ? getShipmentModeMismatch(shipment) : null;
   let status = 'In transit · PSA synced';
   if (isDelivered) status = 'Delivered';
   else if (isDelayed) status = 'Delayed · PSA update';
+  else if (isMismatch) {
+    status = mismatch?.incotermCode
+      ? `Mismatched · ${mismatch.incotermCode} expects ${mismatch.expected === 'water' ? 'sea' : mismatch.expected}`
+      : 'Mismatched · transit mode';
+  }
   else if (shipment.rerouted) status = 'Approaching DC';
   else if (shipment.expectedDelay) status = 'Expected delay ahead';
   let eta = shipment.eta;
@@ -1333,17 +1502,17 @@ function BuyerShipmentListItem({ shipment, active, onClick }: { shipment: Shipme
       isDelivered && (active
         ? 'border-emerald-500 ring-1 ring-emerald-500 bg-emerald-50/50'
         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900'),
-      isDelayed && !isDelivered && (active
+      isAlert && !isDelivered && (active
         ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-100 dark:bg-rose-950/40'
         : 'border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/25'),
-      !isDelayed && !isDelivered && (active
+      !isAlert && !isDelivered && (active
         ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40'
         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900')
     )}>
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-xs font-black font-mono">
           {shipment.id}:{' '}
-          <span className={cn('font-sans font-extrabold', isDelayed ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400')}>
+          <span className={cn('font-sans font-extrabold', isAlert ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400')}>
             {shipment.product || shipment.item}
           </span>
         </h4>
@@ -1352,12 +1521,17 @@ function BuyerShipmentListItem({ shipment, active, onClick }: { shipment: Shipme
             <AlertTriangle className="w-2.5 h-2.5" /> Delayed
           </span>
         )}
+        {isMismatch && !isDelivered && (
+          <span className="shrink-0 bg-rose-200/80 dark:bg-rose-900/50 border border-rose-300 dark:border-rose-700 px-1.5 py-0.5 rounded text-[8px] font-black uppercase text-rose-700 dark:text-rose-300 flex items-center gap-0.5">
+            <AlertTriangle className="w-2.5 h-2.5" /> Mismatched
+          </span>
+        )}
       </div>
       <div className="text-[10px] font-mono text-slate-500">{shipment.containerNumber} · {shipment.vesselName}</div>
       <div className="text-[11px] mt-1">
         <div className="font-semibold text-slate-600">
           Status:{' '}
-          <span className={cn('font-bold', isDelayed ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400')}>
+          <span className={cn('font-bold', isAlert ? 'text-rose-700 dark:text-rose-300' : 'text-emerald-700 dark:text-emerald-400')}>
             {status}
           </span>
         </div>

@@ -95,10 +95,16 @@ export function PsaEventTimeline({
   shipment,
   title = 'PSA event timeline',
   syncedLabel = 'Completely synced',
+  onNotifyCarrier,
+  onEscalateBuyer,
+  onOpenAlerts,
 }: {
   shipment: Shipment;
   title?: string;
   syncedLabel?: string;
+  onNotifyCarrier?: () => void;
+  onEscalateBuyer?: () => void;
+  onOpenAlerts?: () => void;
 }) {
   const events = [...(shipment.psaEvents || [])].sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
@@ -107,9 +113,30 @@ export function PsaEventTimeline({
   const transportMismatch = getTransportModeMismatch({
     transportMode: shipment.transportMode,
     psaEvents: shipment.psaEvents,
+    incoterms: shipment.incoterms,
   });
   const alertCount = events.filter((e) => getPsaEventKind(e.code) === 'alert').length;
   const moveCount = events.filter((e) => getPsaEventKind(e.code) === 'movement').length;
+
+  const expectedLabel =
+    transportMismatch.expected === 'water'
+      ? 'Sea'
+      : transportMismatch.expected === 'land'
+        ? 'Road'
+        : transportMismatch.expected === 'air'
+          ? 'Air'
+          : transportMismatch.expected;
+  const actualLabel =
+    transportMismatch.actual === 'water'
+      ? 'Sea'
+      : transportMismatch.actual === 'land'
+        ? 'Road'
+        : transportMismatch.actual === 'air'
+          ? 'Air'
+          : transportMismatch.actual;
+
+  const mismatchActions = nextActions.filter((a) => a.id.includes('-mismatch-'));
+  const otherActions = nextActions.filter((a) => !a.id.includes('-mismatch-'));
 
   return (
     <div className="space-y-4">
@@ -180,41 +207,109 @@ export function PsaEventTimeline({
             <div>
               <h3 className="text-sm font-black font-mono uppercase tracking-wider">Next actions</h3>
               <p className="text-[10px] text-slate-400 mt-0.5">
-                Prep for arrival · {shipment.containerNumber || shipment.id} · ETA {shipment.eta || 'TBD'}
+                {transportMismatch.isMismatch
+                  ? `Mismatch proceedings · ${shipment.containerNumber || shipment.id}`
+                  : `Prep for arrival · ${shipment.containerNumber || shipment.id} · ETA ${shipment.eta || 'TBD'}`}
               </p>
             </div>
           </div>
           <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-sky-500/20 text-sky-200 border border-sky-400/30">
-            {nextActions.filter((a) => a.status !== 'done').length} open
+            {(transportMismatch.isMismatch ? mismatchActions : nextActions).filter((a) => a.status !== 'done').length} open
           </span>
         </div>
 
         {transportMismatch.isMismatch && (
-          <div className="px-5 pt-4 pb-0">
-            <div className="flex items-start gap-2 rounded-xl border border-rose-200 bg-rose-50/60 dark:border-rose-900/40 dark:bg-rose-950/20 p-3">
-              <AlertTriangle className="w-4 h-4 text-rose-600 dark:text-rose-300 shrink-0 mt-0.5" />
-              <div className="min-w-0">
-                <div className="text-[10px] font-black uppercase tracking-wider text-rose-800 dark:text-rose-200">
-                  Transport mode mismatch detected
+          <div className="px-4 pt-3 pb-0 space-y-3">
+            <div className="rounded-xl border border-rose-300/80 bg-gradient-to-r from-rose-50 to-amber-50/80 dark:from-rose-950/30 dark:to-amber-950/20 dark:border-rose-800/50 px-3.5 py-3">
+              <div className="flex items-start gap-2.5">
+                <div className="mt-0.5 p-1.5 rounded-lg bg-rose-100 dark:bg-rose-900/40 shrink-0">
+                  <AlertTriangle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-300" />
                 </div>
-                <div className="text-[11px] text-slate-700 dark:text-slate-300">
-                  Expected <span className="font-bold">{transportMismatch.expected}</span>, but observed{' '}
-                  <span className="font-bold">{transportMismatch.actual}</span>.
-                </div>
-                <div className="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1">
-                  {transportMismatch.hint}
+                <div className="min-w-0 flex-1 space-y-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-rose-800 dark:text-rose-200">
+                      Mode mismatch — take action
+                    </span>
+                    {transportMismatch.incotermCode && (
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-200 border border-rose-200/60 dark:border-rose-800/50">
+                        {transportMismatch.incotermCode}
+                      </span>
+                    )}
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300">
+                      Expected {expectedLabel}
+                    </span>
+                    <span className="text-[9px] text-slate-400">→</span>
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300">
+                      Seeing {actualLabel}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-300 leading-snug">
+                    {transportMismatch.summary}
+                    {shipment.incoterms ? (
+                      <span className="text-slate-400"> · {shipment.incoterms}</span>
+                    ) : null}
+                  </p>
+                  <div className="flex flex-wrap gap-2 pt-0.5">
+                    <button
+                      type="button"
+                      onClick={onNotifyCarrier}
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase"
+                    >
+                      Notify carrier
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onEscalateBuyer}
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black uppercase"
+                    >
+                      Escalate to buyer
+                    </button>
+                    {onOpenAlerts && (
+                      <button
+                        type="button"
+                        onClick={onOpenAlerts}
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[10px] font-black uppercase"
+                      >
+                        Open alerts
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
+
+            {mismatchActions.length > 0 && (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 mb-2 px-0.5">
+                  Mismatch proceedings ({mismatchActions.length})
+                </div>
+                <div className="grid sm:grid-cols-2 gap-2.5">
+                  {mismatchActions.map((a) => (
+                    <Fragment key={a.id}>
+                      <ActionCard action={a} />
+                    </Fragment>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
-        <div className="p-4 grid sm:grid-cols-2 gap-3">
-          {nextActions.map((a) => (
-            <Fragment key={a.id}>
-              <ActionCard action={a} />
-            </Fragment>
-          ))}
+        <div className="p-4 space-y-2">
+          {!transportMismatch.isMismatch && otherActions.length > 0 && (
+            <>
+              <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 px-0.5">
+                Arrival prep
+              </div>
+              <div className="grid sm:grid-cols-2 gap-3">
+                {otherActions.map((a) => (
+                  <Fragment key={a.id}>
+                    <ActionCard action={a} />
+                  </Fragment>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -298,8 +393,14 @@ function TimelineEventRow({
 /** Compact empty-state friendly wrapper for transit timeline tab */
 export function PsaTimelinePanel({
   shipment,
+  onNotifyCarrier,
+  onEscalateBuyer,
+  onOpenAlerts,
 }: {
   shipment: Shipment | undefined;
+  onNotifyCarrier?: () => void;
+  onEscalateBuyer?: () => void;
+  onOpenAlerts?: () => void;
 }) {
   if (!shipment) {
     return (
@@ -313,6 +414,9 @@ export function PsaTimelinePanel({
       shipment={shipment}
       title="PSA Portnet event stream"
       syncedLabel={`Synced · ${shipment.containerNumber || shipment.id}`}
+      onNotifyCarrier={onNotifyCarrier}
+      onEscalateBuyer={onEscalateBuyer}
+      onOpenAlerts={onOpenAlerts}
     />
   );
 }
