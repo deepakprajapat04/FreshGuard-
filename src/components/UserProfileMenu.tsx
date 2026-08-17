@@ -13,28 +13,66 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
+import type { FreshGuardPersona } from '../lib/trackingFlow';
+import { PERSONA_LABELS } from '../lib/trackingFlow';
 import { useTheme } from '../context/ThemeContext';
 
-const PROFILES = {
-  admin: {
+const PROFILES: Record<
+  FreshGuardPersona,
+  {
+    name: string;
+    role: string;
+    title: string;
+    email: string;
+    org: string;
+    location: string;
+    id: string;
+  }
+> = {
+  dc_purchasing: {
     name: 'Sarah Mitchell',
-    role: 'Supply Admin',
+    role: 'DC Purchasing Lead',
     title: 'Enterprise Operations',
     email: 'sarah.mitchell@freshguard.retail',
     org: 'FreshGuard Retail HQ',
     location: 'HQ DC — Chicago',
-    id: 'USR-BUY-014',
+    id: 'USR-DCP-014',
   },
-  vendor: {
+  supplier: {
     name: 'Marcus Chen',
-    role: 'Global Farms Rep',
-    title: 'Vendor Access',
-    email: 'marcus.chen@globalfarms.suppliers',
-    org: 'Global Farms Suppliers',
-    location: 'Miami Export Yard',
-    id: 'USR-VEN-088',
+    role: 'Berry Farms Co-op',
+    title: 'Supplier ASN Portal',
+    email: 'marcus.chen@berryfarms.suppliers',
+    org: 'Berry Farms Co-op',
+    location: 'Valparaíso Export Yard',
+    id: 'USR-SUP-088',
   },
-} as const;
+  transport: {
+    name: 'James Ortiz',
+    role: 'Transport Coordinator',
+    title: 'Fleet & Drayage',
+    email: 'james.ortiz@freshguard.retail',
+    org: 'FreshGuard Logistics',
+    location: 'Chicago Yard',
+    id: 'USR-TRN-022',
+  },
+  receiving: {
+    name: 'Priya Nair',
+    role: 'Receiving Supervisor',
+    title: 'DC Dock Operations',
+    email: 'priya.nair@freshguard.retail',
+    org: 'FreshGuard Retail HQ',
+    location: 'HQ DC — Chicago',
+    id: 'USR-RCV-031',
+  },
+};
+
+const ALL_PERSONAS: FreshGuardPersona[] = [
+  'dc_purchasing',
+  'supplier',
+  'transport',
+  'receiving',
+];
 
 export function UserProfileMenu({
   open,
@@ -49,7 +87,7 @@ export function UserProfileMenu({
 }) {
   const { persona, setPersona } = usePersona();
   const { theme, toggleTheme } = useTheme();
-  const profile = PROFILES[persona === 'vendor' ? 'vendor' : 'admin'];
+  const profile = PROFILES[persona];
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [coords, setCoords] = useState({ bottom: 72, left: 16 });
@@ -108,14 +146,14 @@ export function UserProfileMenu({
         title="Open profile"
         aria-expanded={open}
       >
-        <div className="w-10 h-10 rounded-full bg-sky-500/20 flex items-center justify-center border border-sky-400/40 shrink-0">
-          <UserCircle className="w-6 h-6 text-sky-200" />
+        <div className="w-10 h-10 rounded-full bg-slate-600/40 flex items-center justify-center border border-slate-500/40 shrink-0">
+          <UserCircle className="w-6 h-6 text-slate-200" />
         </div>
         {!collapsed && (
           <>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-medium text-white truncate">{profile.role}</div>
-              <div className="text-xs text-sky-300/80 truncate">{profile.title}</div>
+              <div className="text-xs text-slate-400 truncate">{profile.title}</div>
             </div>
             <ChevronUp
               className={cn('w-4 h-4 text-slate-400 shrink-0 transition-transform', !open && 'rotate-180')}
@@ -140,7 +178,7 @@ export function UserProfileMenu({
               >
                 <div className="px-4 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
                   <div className="text-sm font-bold">{profile.name}</div>
-                  <div className="text-[11px] text-sky-300 mt-0.5">{profile.role}</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">{profile.role}</div>
                 </div>
                 <div className="p-3 space-y-2 text-xs text-slate-600 dark:text-slate-300">
                   <div className="flex items-center gap-2">
@@ -165,7 +203,7 @@ export function UserProfileMenu({
                   <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 px-1 mb-1">
                     Active persona
                   </div>
-                  {(['admin', 'vendor'] as const).map((p) => (
+                  {ALL_PERSONAS.map((p) => (
                     <button
                       key={p}
                       type="button"
@@ -173,11 +211,11 @@ export function UserProfileMenu({
                       className={cn(
                         'w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-medium transition-colors',
                         persona === p
-                          ? 'bg-sky-50 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+                          ? 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-white'
                           : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300'
                       )}
                     >
-                      <span>{p === 'admin' ? 'Buyer / Supply Admin' : 'Vendor representative'}</span>
+                      <span>{PERSONA_LABELS[p]}</span>
                       {persona === p && <Check className="w-3.5 h-3.5" />}
                     </button>
                   ))}

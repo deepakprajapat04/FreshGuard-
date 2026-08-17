@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
-/** Shared full-bleed page shell — light Mall Media canvas */
+/** Shared full-bleed page shell — neutral enterprise canvas */
 export const pageShellClass =
-  'p-3 sm:p-4 w-full mx-auto space-y-3.5 bg-[#F0F3F8] dark:bg-slate-950 min-h-full text-slate-900 dark:text-slate-100';
+  'p-3 sm:p-4 w-full mx-auto space-y-3.5 bg-[#eef1f5] dark:bg-slate-950 min-h-full text-slate-900 dark:text-slate-100';
 
 /** Standard compact grid for KPI / stat cards */
 export const statGridClass =
@@ -31,7 +31,7 @@ export function PageHeader({
     >
       <div className="min-w-0">
         {eyebrow && (
-          <span className="text-[10px] font-semibold text-sky-600 dark:text-sky-400 tracking-wide uppercase block">
+          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase block">
             {eyebrow}
           </span>
         )}
@@ -82,15 +82,15 @@ export function Panel({
           {action}
         </div>
       )}
-      <div className={bodyClassName}>{children}</div>
+      <div className={cn('p-4', bodyClassName)}>{children}</div>
     </div>
   );
 }
 
-type StatTone = 'sky' | 'emerald' | 'amber' | 'rose' | 'cyan';
+type StatTone = 'slate' | 'emerald' | 'amber' | 'rose' | 'cyan';
 
 const STAT_TONES: Record<StatTone, { value: string; bar: string; accent: string }> = {
-  sky: { value: 'text-sky-600 dark:text-sky-300', bar: 'bg-sky-500', accent: 'from-sky-500/10' },
+  slate: { value: 'text-slate-700 dark:text-slate-200', bar: 'bg-[#2d4a6f]', accent: 'from-slate-500/10' },
   emerald: { value: 'text-emerald-600 dark:text-emerald-300', bar: 'bg-emerald-500', accent: 'from-emerald-500/10' },
   amber: { value: 'text-amber-600 dark:text-amber-300', bar: 'bg-amber-500', accent: 'from-amber-500/10' },
   rose: { value: 'text-rose-600 dark:text-rose-300', bar: 'bg-rose-500', accent: 'from-rose-500/10' },
@@ -101,7 +101,7 @@ export function StatCard({
   label,
   value,
   sub,
-  tone = 'sky',
+  tone = 'slate',
   className,
 }: {
   label: string;

@@ -1,0 +1,204 @@
+/**
+ * Blueberry & Strawberry demo shipments for logistics tracking.
+ */
+import { addDays, subDays } from 'date-fns';
+import { createPsaEvent } from './psa';
+import { enrichWithPsaDefaults } from './shipmentSeeds';
+import type { Shipment } from './shipmentTypes';
+
+const SUPPLIER = 'Berry Farms Co-op';
+const DEST_LAT = 41.8781;
+const DEST_LNG = -87.6298;
+
+function dayIso(offset: number) {
+  return addDays(new Date(), offset).toISOString();
+}
+
+export function seedBerryDemoShipments(): Shipment[] {
+  const now = new Date().toISOString();
+  const list: Shipment[] = [
+    {
+      id: 'PO-4500012345',
+      vendor: SUPPLIER,
+      item: 'Blueberries + Strawberries (multi-PO)',
+      product: 'Blueberries',
+      quantity: 4200,
+      unit: 'Cases',
+      fleetSpecification: 'Ocean Reefer 40ft',
+      logisticsRouteAndProvider: 'PSA LatAm · Maersk Reefer',
+      status: 'delayed',
+      eta: '3 Days (+2 delay)',
+      origin: 'Valparaíso, Chile',
+      destination: 'Chicago DC',
+      temp: '1°C [Stable]',
+      route: 'Valparaíso → LA → Chicago DC',
+      date: subDays(new Date(), 5).toISOString(),
+      etaDate: dayIso(3),
+      expectedDelay: true,
+      shelfLifeDays: 12,
+      shelfLifeDaysAtRisk: 2,
+      storeOnHandCases: 285,
+      dailyDemandCases: 106,
+      stage: 'delivering',
+      packingProgress: 100,
+      preCoolingTarget: 'Pre-Cooling Target: 1°C (Currently: 1.1°C)',
+      containerNumber: 'TRHU8820144',
+      vesselName: 'MV Andes Fresh',
+      voyageNumber: 'AF-118W',
+      bookingNumber: 'BB-TRHU-8820',
+      asnNumber: 'ASN-2026-BB-0801',
+      psaTerminal: 'PSA LatAm Partner Gate',
+      psaSyncStatus: 'synced',
+      psaLastSyncAt: now,
+      transportMode: 'ocean',
+      originLat: -33.0472,
+      originLng: -71.6127,
+      destLat: DEST_LAT,
+      destLng: DEST_LNG,
+      currentLat: 32.7,
+      currentLng: -118.2,
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012345',
+          product: 'Blueberries',
+          item: '2,400 Cases Blueberries',
+          quantity: 2400,
+          unit: 'Cases',
+          sku: 'SKU-BB-2345',
+          buyerRef: 'HQ DC Chicago',
+          lineStatus: 'shipped',
+        },
+        {
+          poNumber: 'PO-4500012346',
+          product: 'Strawberries',
+          item: '1,800 Cases Strawberries',
+          quantity: 1800,
+          unit: 'Cases',
+          sku: 'SKU-ST-2346',
+          buyerRef: 'HQ DC Chicago',
+          lineStatus: 'shipped',
+        },
+      ],
+      psaEvents: [
+        createPsaEvent('BOOKING_CONFIRMED', 'Valparaíso Export', {
+          timestamp: subDays(new Date(), 8).toISOString(),
+        }),
+        createPsaEvent('GATE_IN', 'PSA LatAm Partner Gate', {
+          timestamp: subDays(new Date(), 6).toISOString(),
+        }),
+        createPsaEvent('IN_TRANSIT_SEA', 'Pacific corridor', {
+          timestamp: subDays(new Date(), 2).toISOString(),
+        }),
+        createPsaEvent('WEATHER_ALERT', 'Pacific corridor — storm cell', {
+          timestamp: subDays(new Date(), 1).toISOString(),
+          severity: 'warning',
+        }),
+      ],
+    },
+    {
+      id: 'PO-4500012388',
+      vendor: SUPPLIER,
+      item: '1,200 Cases Blueberries',
+      product: 'Blueberries',
+      quantity: 1200,
+      unit: 'Cases',
+      fleetSpecification: 'Road Reefer 53ft',
+      logisticsRouteAndProvider: 'FreshGuard Haulage',
+      status: 'on-time',
+      eta: '1 Day (early)',
+      origin: 'San Pedro, CA',
+      destination: 'Chicago DC',
+      temp: '2°C [Stable]',
+      route: 'San Pedro → Chicago DC',
+      date: subDays(new Date(), 1).toISOString(),
+      etaDate: dayIso(1),
+      stage: 'delivering',
+      packingProgress: 100,
+      preCoolingTarget: 'Pre-Cooling Target: 2°C (Currently: 2.0°C)',
+      containerNumber: 'MSCU7710092',
+      asnNumber: 'ASN-2026-ST-0802',
+      psaSyncStatus: 'synced',
+      psaLastSyncAt: now,
+      transportMode: 'road',
+      originLat: 33.7378,
+      originLng: -118.2843,
+      destLat: DEST_LAT,
+      destLng: DEST_LNG,
+      currentLat: 39.8,
+      currentLng: -95.5,
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012388',
+          product: 'Blueberries',
+          item: '1,200 Cases Blueberries',
+          quantity: 1200,
+          unit: 'Cases',
+          sku: 'SKU-BB-2388',
+          buyerRef: 'HQ DC Chicago',
+          lineStatus: 'shipped',
+        },
+      ],
+      psaEvents: [
+        createPsaEvent('BOOKING_CONFIRMED', 'San Pedro Yard', {
+          timestamp: subDays(new Date(), 3).toISOString(),
+        }),
+        createPsaEvent('INLAND_TRANSIT', 'I-80 corridor', {
+          timestamp: new Date().toISOString(),
+        }),
+      ],
+    },
+    {
+      id: 'PO-4500012345-P2',
+      vendor: SUPPLIER,
+      item: '800 Cases Blueberries (partial)',
+      product: 'Blueberries',
+      quantity: 800,
+      unit: 'Cases',
+      fleetSpecification: 'Road Reefer 53ft',
+      logisticsRouteAndProvider: 'FreshGuard Haulage',
+      status: 'on-time',
+      eta: '2 Days',
+      origin: 'Miami Reefer Yard',
+      destination: 'Chicago DC',
+      temp: '1°C [Stable]',
+      route: 'Miami → Chicago DC',
+      date: subDays(new Date(), 1).toISOString(),
+      etaDate: dayIso(2),
+      stage: 'delivering',
+      packingProgress: 100,
+      containerNumber: 'FGRU9900331',
+      asnNumber: 'ASN-2026-BB-0803',
+      psaSyncStatus: 'synced',
+      psaLastSyncAt: now,
+      transportMode: 'road',
+      originLat: 25.7781,
+      originLng: -80.1797,
+      destLat: DEST_LAT,
+      destLng: DEST_LNG,
+      currentLat: 34.2,
+      currentLng: -87.1,
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012345',
+          product: 'Blueberries',
+          item: '800 Cases Blueberries',
+          quantity: 800,
+          unit: 'Cases',
+          sku: 'SKU-BB-2345B',
+          buyerRef: 'HQ DC Chicago',
+          lineStatus: 'shipped',
+        },
+      ],
+      psaEvents: [
+        createPsaEvent('BOOKING_CONFIRMED', 'Miami Reefer Yard', {
+          timestamp: subDays(new Date(), 2).toISOString(),
+        }),
+        createPsaEvent('INLAND_TRANSIT', 'I-75 → I-65 corridor', {
+          timestamp: new Date().toISOString(),
+        }),
+      ],
+    },
+  ];
+
+  return list.map((s) => enrichWithPsaDefaults(s));
+}

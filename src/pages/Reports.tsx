@@ -1,6 +1,6 @@
 import { TrendingDown, TrendingUp, AlertTriangle } from 'lucide-react';
 import { LineChart, Line, PieChart, Pie, Cell, Legend, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { usePersona } from '../context/PersonaContext';
+import { usePersona, isSupplierPersona } from '../context/PersonaContext';
 import { PageHeader, Panel, StatCard, pageShellClass } from '../components/PageChrome';
 import { cn } from '../lib/utils';
 
@@ -23,7 +23,7 @@ const COLORS = ['#10b981', '#f43f5e', '#38bdf8', '#f59e0b'];
 
 export default function Reports() {
   const { persona } = usePersona();
-  const isVendor = persona === 'vendor';
+  const isVendor = isSupplierPersona(persona);
 
   return (
     <div className={pageShellClass}>

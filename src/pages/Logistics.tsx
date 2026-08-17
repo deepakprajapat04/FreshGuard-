@@ -14,13 +14,13 @@ import {
   ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { usePersona } from '../context/PersonaContext';
+import { usePersona, isSupplierPersona } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
 import {
   createPsaEvent, buildPeriodicBuyerAlerts, formatSyncAge, getTransportModeMismatch,
   type BuyerShipmentAlert, type ContainerUpdatePayload,
 } from '../lib/psa';
-import { seedDefaultShipments, enrichWithPsaDefaults } from '../lib/shipmentSeeds';
+import { seedBerryDemoShipments } from '../lib/berryShipmentSeeds';
 import type { Shipment, AIAlert, LogisticsTab } from '../lib/shipmentTypes';
 import { getShipmentCargoLines } from '../lib/shipmentTypes';
 import { evaluateDelayAlertLevel, estimateShelfShortage, loadBusinessRules } from '../lib/businessRules';
@@ -34,7 +34,7 @@ const TrackingMap = lazy(() =>
   import('../components/logistics/TrackingMap').then((m) => ({ default: m.TrackingMap }))
 );
 
-const STORAGE_KEY = 'freshguard-active-shipments-v5';
+const STORAGE_KEY = 'freshguard-active-shipments-v6';
 
 function getShipmentModeMismatch(shipment: Shipment) {
   return getTransportModeMismatch({
@@ -89,7 +89,7 @@ export default function Logistics() {
   });
 
   const { persona } = usePersona();
-  const isVendor = persona === 'vendor';
+  const isVendor = isSupplierPersona(persona);
   const { upsertMany } = useNotifications();
 
   const saveShipments = (list: Shipment[]) => {
@@ -100,7 +100,7 @@ export default function Logistics() {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       const parsed: Shipment[] = stored ? JSON.parse(stored) : [];
-      const defaults = seedDefaultShipments();
+      const defaults = seedBerryDemoShipments();
       const combined = [
         ...parsed.map((p) => {
           const seed = defaults.find((d) => d.id === p.id);
@@ -153,23 +153,20 @@ export default function Logistics() {
             preCoolingTarget: s.preCoolingTarget || `Pre-Cooling Target: 3°C (Currently: ${s.temp || '3.2°C'})`,
           };
         }
-        return enrichWithPsaDefaults(next);
+        return next;
       });
       setShipments(mapped);
       saveShipments(mapped);
       setSelectedShipmentId((prev) => {
         if (prev && mapped.some((s) => s.id === prev)) return prev;
-        const delayed = mapped.find((s) => s.id === 'PO-2026-DELAY1');
-        const expected = mapped.find((s) => s.id === 'PO-2026-EXPECT1');
+        const delayed = mapped.find((s) => s.status === 'delayed');
         const active = mapped.filter((s) => s.stage === 'delivering');
-        return delayed?.id || expected?.id || active[0]?.id || mapped[0]?.id || '';
+        return delayed?.id || active[0]?.id || mapped[0]?.id || '';
       });
     } catch {
-      const defs = seedDefaultShipments();
+      const defs = seedBerryDemoShipments();
       setShipments(defs);
-      setSelectedShipmentId(
-        defs.find((s) => s.id === 'PO-2026-DELAY1')?.id || defs[0].id
-      );
+      setSelectedShipmentId(defs.find((s) => s.status === 'delayed')?.id || defs[0].id);
     }
   };
 
@@ -181,7 +178,7 @@ export default function Logistics() {
   }, []);
 
   useEffect(() => {
-    setActiveTab(persona === 'vendor' ? 'packing' : 'dashboard');
+    setActiveTab(isSupplierPersona(persona) ? 'packing' : 'dashboard');
   }, [persona]);
 
   const selectedShipment = useMemo(

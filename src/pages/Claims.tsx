@@ -23,7 +23,7 @@ import {
   FileSpreadsheet
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { usePersona } from '../context/PersonaContext';
+import { usePersona, isSupplierPersona } from '../context/PersonaContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
 import { DataTable, type DataTableColumn } from '../components/DataTable';
@@ -129,7 +129,7 @@ export default function Claims() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const { persona } = usePersona();
-  const isVendor = persona === 'vendor';
+  const isVendor = isSupplierPersona(persona);
 
   // Load persistence logic
   useEffect(() => {

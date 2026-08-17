@@ -1,6 +1,7 @@
 import { ReactNode, useRef, useState } from 'react';
 import { NavLink } from 'react-router';
-import { usePersona } from '../context/PersonaContext';
+import { usePersona, isSupplierPersona } from '../context/PersonaContext';
+import { PERSONA_LABELS, type FreshGuardPersona } from '../lib/trackingFlow';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
 import {
@@ -20,23 +21,30 @@ import {
   Sun,
   Moon,
   Settings2,
-  Inbox,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { NotificationsPanel } from './NotificationsPanel';
 import { UserProfileMenu } from './UserProfileMenu';
 
+const ALL_PERSONAS: FreshGuardPersona[] = [
+  'dc_purchasing',
+  'supplier',
+  'transport',
+  'receiving',
+];
+
 const navItems = [
-  { name: 'Overview & Analytics', path: '/', icon: LayoutDashboard },
-  { name: 'Procurement & Bidding', path: '/procurement', icon: ShoppingCart },
-  { name: 'Logistics Tracking', path: '/logistics', icon: Map },
-  { name: 'Inbox', path: '/inbox', icon: Inbox, buyerOnly: true },
-  { name: 'Business Rules', path: '/business-rules', icon: Settings2, buyerOnly: true },
-  { name: 'AI Quality Control', path: '/qc', icon: ScanLine },
-  { name: 'Store Receiving', path: '/store', icon: Store },
-  { name: 'Claims & Wastage', path: '/claims', icon: AlertTriangle },
-  { name: 'Shrinkage Reports', path: '/reports', icon: BarChart3 },
+  { name: 'Track → Risk → Act', path: '/', icon: LayoutDashboard, personas: ALL_PERSONAS },
+  { name: 'SAP Purchase Orders', path: '/orders', icon: ShoppingCart, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
+  { name: 'Logistics Tracking', path: '/logistics', icon: Map, personas: ALL_PERSONAS },
+  { name: 'Risk Actions', path: '/actions', icon: ClipboardCheck, personas: ['dc_purchasing', 'transport', 'receiving'] as FreshGuardPersona[] },
+  { name: 'Business Rules', path: '/business-rules', icon: Settings2, personas: ['dc_purchasing'] as FreshGuardPersona[] },
+  { name: 'AI Quality Control', path: '/qc', icon: ScanLine, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
+  { name: 'Store Receiving', path: '/store', icon: Store, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
+  { name: 'Claims & Wastage', path: '/claims', icon: AlertTriangle, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
+  { name: 'Shrinkage Reports', path: '/reports', icon: BarChart3, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -49,16 +57,10 @@ export function Layout({ children }: { children: ReactNode }) {
   const { theme, toggleTheme } = useTheme();
   const { unreadCount } = useNotifications();
 
-  const filteredNavItems = navItems.filter((item) => {
-    if (persona === 'vendor') {
-      if ((item as { buyerOnly?: boolean }).buyerOnly) return false;
-      return ['/', '/procurement', '/logistics', '/claims', '/reports'].includes(item.path);
-    }
-    return true;
-  });
+  const filteredNavItems = navItems.filter((item) => item.personas.includes(persona));
 
   return (
-    <div className="min-h-screen bg-[#F0F3F8] dark:bg-[#0d1a2a] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-[#eef1f5] dark:bg-[#111820] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
@@ -74,15 +76,15 @@ export function Layout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           'fixed inset-y-0 left-0 z-50 text-white transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col group overflow-visible',
-          'bg-gradient-to-b from-[#16324f] via-[#132a44] to-[#0f2338]',
-          'border-r border-sky-500/20 shadow-[4px_0_24px_rgba(15,35,56,0.25)]',
+          'bg-[#1a2332]',
+          'border-r border-slate-700/50 shadow-[4px_0_24px_rgba(0,0,0,0.2)]',
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
           sidebarCollapsed ? 'w-20' : 'w-72'
         )}
       >
         <div
           className={cn(
-            'flex items-center border-b border-white/10 bg-white/[0.04]',
+            'flex items-center border-b border-white/10 bg-black/10',
             sidebarCollapsed
               ? 'flex-col justify-center gap-1.5 px-2 py-3'
               : 'h-16 justify-between px-4'
@@ -105,7 +107,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => setMobileMenuOpen(false)}
             className={cn(
-              'lg:hidden text-sky-300 hover:text-white shrink-0',
+              'lg:hidden text-slate-400 hover:text-white shrink-0',
               !sidebarCollapsed && 'ml-2'
             )}
           >
@@ -113,7 +115,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden lg:flex p-1 rounded-md hover:bg-white/10 text-sky-300/80 hover:text-white shrink-0"
+            className="hidden lg:flex p-1 rounded-md hover:bg-white/10 text-slate-400 hover:text-white shrink-0"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-5 h-5" />}
@@ -122,8 +124,8 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <div className="flex-1 overflow-y-auto py-5 px-3 space-y-1 overflow-x-hidden">
           {!sidebarCollapsed && (
-            <div className="text-[10px] font-semibold text-sky-300/80 uppercase tracking-wide mb-3 px-3 whitespace-nowrap">
-              {persona === 'admin' ? 'Platform Modules' : 'Vendor Portal'}
+            <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide mb-3 px-3 whitespace-nowrap">
+              {isSupplierPersona(persona) ? 'Supplier portal' : 'Operations console'}
             </div>
           )}
           {filteredNavItems.map((item) => (
@@ -135,7 +137,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group/link text-sm font-medium',
                   isActive
-                    ? 'bg-sky-500 text-white shadow-md shadow-sky-900/25'
+                    ? 'bg-[#2d4a6f] text-white shadow-sm'
                     : 'text-slate-300/90 hover:bg-white/8 hover:text-white',
                   sidebarCollapsed ? 'justify-center px-0' : ''
                 )
@@ -162,7 +164,7 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-14 bg-[#0c1e36] border-b border-sky-900/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0">
+        <header className="h-14 bg-[#1a2332] border-b border-slate-700/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0">
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -170,43 +172,30 @@ export function Layout({ children }: { children: ReactNode }) {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="hidden sm:flex items-center gap-2 text-slate-300 border border-sky-900/80 rounded-full px-3 py-1.5 bg-[#0a1829] w-64 focus-within:ring-2 focus-within:ring-sky-500 focus-within:border-sky-500 transition-all">
+            <div className="hidden sm:flex items-center gap-2 text-slate-300 border border-slate-600/80 rounded-full px-3 py-1.5 bg-[#141c28] w-64 focus-within:ring-2 focus-within:ring-[#2d4a6f] focus-within:border-[#2d4a6f] transition-all">
               <Search className="w-4 h-4 text-slate-500" />
               <input
                 type="text"
-                placeholder="Search POs, vendors, lots..."
+                placeholder="Search POs, containers, lots..."
                 className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-500 text-slate-100 placeholder:select-none"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
-            <div className="hidden sm:flex items-center gap-2 mr-1">
-              <span className="text-xs font-medium text-slate-400">View as:</span>
-              <div className="bg-[#0a1829] p-1 rounded-lg flex gap-1 border border-sky-900/80">
-                <button
-                  onClick={() => setPersona('admin')}
-                  className={cn(
-                    'px-3 py-1 text-xs font-medium rounded-md transition-all duration-200',
-                    persona === 'admin'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  )}
-                >
-                  Buyer
-                </button>
-                <button
-                  onClick={() => setPersona('vendor')}
-                  className={cn(
-                    'px-3 py-1 text-xs font-medium rounded-md transition-all duration-200',
-                    persona === 'vendor'
-                      ? 'bg-sky-600 text-white shadow-sm'
-                      : 'text-slate-400 hover:text-white'
-                  )}
-                >
-                  Vendor
-                </button>
-              </div>
+            <div className="hidden md:flex items-center gap-2 mr-1">
+              <span className="text-xs font-medium text-slate-400">Persona:</span>
+              <select
+                value={persona}
+                onChange={(e) => setPersona(e.target.value as FreshGuardPersona)}
+                className="bg-[#141c28] border border-slate-600/80 text-slate-200 text-xs font-medium rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-[#2d4a6f]"
+              >
+                {ALL_PERSONAS.map((p) => (
+                  <option key={p} value={p}>
+                    {PERSONA_LABELS[p]}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <button
@@ -244,7 +233,7 @@ export function Layout({ children }: { children: ReactNode }) {
                 className={cn(
                   'relative p-2 rounded-lg transition-colors',
                   alertsOpen
-                    ? 'bg-sky-600 text-white'
+                    ? 'bg-[#2d4a6f] text-white'
                     : 'text-slate-300 hover:text-white hover:bg-white/10'
                 )}
                 title="Alerts"
@@ -253,7 +242,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#0c1e36]">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#1a2332]">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -265,16 +254,14 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             </div>
 
-            <div className="h-8 w-px bg-sky-900/80 hidden sm:block" />
+            <div className="h-8 w-px bg-slate-600/80 hidden sm:block" />
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-200">
-                HQ DC - Chicago
-              </span>
+              <span className="text-sm font-medium text-slate-200">HQ DC — Chicago</span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#F0F3F8] dark:bg-[#0d1a2a] transition-colors duration-300">
+        <main className="flex-1 overflow-auto bg-[#eef1f5] dark:bg-[#111820] transition-colors duration-300">
           {children}
         </main>
       </div>
