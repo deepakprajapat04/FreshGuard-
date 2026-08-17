@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
 
-/** Shared full-bleed page shell — neutral enterprise canvas */
+/** Shared full-bleed page shell — SAP Fiori canvas */
 export const pageShellClass =
-  'p-3 sm:p-4 w-full mx-auto space-y-3.5 bg-[#eef1f5] dark:bg-slate-950 min-h-full text-slate-900 dark:text-slate-100';
+  'p-3 sm:p-4 w-full mx-auto space-y-3.5 bg-[#f5f6f7] dark:bg-slate-950 min-h-full text-slate-900 dark:text-slate-100';
 
 /** Standard compact grid for KPI / stat cards */
 export const statGridClass =
@@ -87,10 +87,10 @@ export function Panel({
   );
 }
 
-type StatTone = 'slate' | 'emerald' | 'amber' | 'rose' | 'cyan';
+type StatTone = 'sap' | 'emerald' | 'amber' | 'rose' | 'cyan';
 
 const STAT_TONES: Record<StatTone, { value: string; bar: string; accent: string }> = {
-  slate: { value: 'text-slate-700 dark:text-slate-200', bar: 'bg-[#2d4a6f]', accent: 'from-slate-500/10' },
+  sap: { value: 'text-[#074E8C] dark:text-blue-300', bar: 'bg-[#0A6ED1]', accent: 'from-[#0A6ED1]/10' },
   emerald: { value: 'text-emerald-600 dark:text-emerald-300', bar: 'bg-emerald-500', accent: 'from-emerald-500/10' },
   amber: { value: 'text-amber-600 dark:text-amber-300', bar: 'bg-amber-500', accent: 'from-amber-500/10' },
   rose: { value: 'text-rose-600 dark:text-rose-300', bar: 'bg-rose-500', accent: 'from-rose-500/10' },
@@ -101,7 +101,7 @@ export function StatCard({
   label,
   value,
   sub,
-  tone = 'slate',
+  tone = 'sap',
   className,
 }: {
   label: string;

@@ -7,6 +7,7 @@ import { cn } from '../lib/utils';
 import { PageHeader, pageShellClass } from '../components/PageChrome';
 import { usePersona, canApproveActions } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
+import { SAP } from '../lib/sapTheme';
 import {
   approveRiskAction,
   rejectRiskAction,
@@ -156,7 +157,8 @@ export default function Actions() {
                   <button
                     type="button"
                     onClick={() => onApprove(a.id)}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#1e3a5f] text-white text-xs font-bold uppercase"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-bold uppercase"
+                    style={{ backgroundColor: SAP.blue }}
                   >
                     <Check className="w-3.5 h-3.5" />
                     Approve & notify

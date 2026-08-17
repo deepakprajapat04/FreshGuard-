@@ -2,10 +2,11 @@
 
 @theme {
   --font-sans: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-  /* Most of the app used font-mono for UI chrome; map it to the same readable face.
-     Use font-code for true monospace IDs / codes. */
   --font-mono: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-code: "IBM Plex Mono", "Consolas", ui-monospace, monospace;
+  --color-sap-blue: #0A6ED1;
+  --color-sap-blue-dark: #074E8C;
+  --color-sap-blue-light: #E5F0FA;
 }
 
 @variant dark (&:where(.dark, .dark *));

@@ -21,6 +21,59 @@ export type RiskCategory =
 
 export type ActionStatus = 'pending_approval' | 'approved' | 'rejected' | 'notified';
 
+export type SapPoItemDetail = {
+  materialNumber: string;
+  description: string;
+  sku: string;
+  orderedQty: number;
+  confirmedQty: number;
+  unit: string;
+  unitPrice: number;
+  currency: string;
+  shelfLifeDays: number;
+  storageTemp: string;
+  plant: string;
+  storageLocation: string;
+  netWeightKg: number;
+  countryOfOrigin: string;
+};
+
+export type SapPoShipmentLine = {
+  poNumber: string;
+  item: string;
+  quantity: number;
+  unit: string;
+  lotNumber: string;
+  harvestDate: string;
+  bestBefore: string;
+  palletCount: number;
+  grossWeightKg: number;
+};
+
+export type SapPoShipmentDetail = {
+  asnNumber?: string;
+  containerNumber?: string;
+  shipDate?: string;
+  eta?: string;
+  originalEta?: string;
+  origin: string;
+  portOfLoading?: string;
+  portOfDischarge?: string;
+  destination: string;
+  transportMode: 'ocean' | 'road' | 'air';
+  carrier?: string;
+  vesselName?: string;
+  voyageNumber?: string;
+  bookingNumber?: string;
+  sealNumber?: string;
+  billOfLading?: string;
+  incoterms: string;
+  customsStatus?: string;
+  tempRange: string;
+  freightForwarder?: string;
+  cargoLines: SapPoShipmentLine[];
+};
+
 export type SapPurchaseOrder = {
   po: string;
   item: 'Blueberries' | 'Strawberries';
@@ -30,6 +83,13 @@ export type SapPurchaseOrder = {
   deliveryDate: string;
   status: 'Open' | 'Acknowledged' | 'ASN Submitted' | 'In Transit' | 'Received';
   destination: string;
+  companyCode: string;
+  purchasingOrg: string;
+  buyer: string;
+  createdDate: string;
+  paymentTerms: string;
+  itemDetail: SapPoItemDetail;
+  shipmentDetail?: SapPoShipmentDetail;
 };
 
 export type TrackShipment = {
@@ -59,6 +119,22 @@ export type StoreDemand = {
   pendingOrders: number;
   daysCover: number;
   stockoutRiskDays: number | null;
+  /** ISO date — first day store is projected out of stock */
+  oosStartDate?: string | null;
+  /** ISO date — stock restored when inbound batch arrives */
+  oosEndDate?: string | null;
+  item: string;
+};
+
+export type PromotionRisk = {
+  id: string;
+  name: string;
+  item: string;
+  startDate: string;
+  endDate: string;
+  stores: string[];
+  dependsOnPo: string;
+  atRisk: boolean;
 };
 
 export type RiskAction = {
@@ -88,6 +164,62 @@ export const DEMO_POS: SapPurchaseOrder[] = [
     deliveryDate: '2026-08-20',
     status: 'Acknowledged',
     destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-10',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-BB-4401',
+      description: 'Fresh Blueberries — Premium Grade A',
+      sku: 'SKU-BB-2345',
+      orderedQty: 2400,
+      confirmedQty: 2400,
+      unit: 'Cases',
+      unitPrice: 28.5,
+      currency: 'USD',
+      shelfLifeDays: 14,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-A',
+      netWeightKg: 4800,
+      countryOfOrigin: 'Chile',
+    },
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-BB-0801',
+      containerNumber: 'TRHU8820144',
+      shipDate: '2026-08-12',
+      eta: 'Aug 23, 2026 (+2 days delay)',
+      originalEta: 'Aug 21, 2026',
+      origin: 'Valparaíso, Chile',
+      portOfLoading: 'Valparaíso',
+      portOfDischarge: 'Los Angeles',
+      destination: 'Chicago DC',
+      transportMode: 'ocean',
+      carrier: 'Maersk Reefer',
+      vesselName: 'MV Andes Fresh',
+      voyageNumber: 'AF-118W',
+      bookingNumber: 'BB-TRHU-8820',
+      sealNumber: 'SL-8820144',
+      billOfLading: 'BOL-2026-8801',
+      incoterms: 'FOB Valparaíso',
+      customsStatus: 'Pending clearance',
+      tempRange: '0–2°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012345',
+          item: 'Blueberries',
+          quantity: 2400,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0812-A',
+          harvestDate: '2026-08-08',
+          bestBefore: '2026-08-22',
+          palletCount: 48,
+          grossWeightKg: 5280,
+        },
+      ],
+    },
   },
   {
     po: 'PO-4500012346',
@@ -98,6 +230,62 @@ export const DEMO_POS: SapPurchaseOrder[] = [
     deliveryDate: '2026-08-20',
     status: 'Acknowledged',
     destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-10',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-ST-2201',
+      description: 'Fresh Strawberries — Driscoll Select',
+      sku: 'SKU-ST-2346',
+      orderedQty: 1800,
+      confirmedQty: 1800,
+      unit: 'Cases',
+      unitPrice: 32.0,
+      currency: 'USD',
+      shelfLifeDays: 7,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-B',
+      netWeightKg: 2700,
+      countryOfOrigin: 'Chile',
+    },
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-BB-0801',
+      containerNumber: 'TRHU8820144',
+      shipDate: '2026-08-12',
+      eta: 'Aug 23, 2026 (+2 days delay)',
+      originalEta: 'Aug 21, 2026',
+      origin: 'Valparaíso, Chile',
+      portOfLoading: 'Valparaíso',
+      portOfDischarge: 'Los Angeles',
+      destination: 'Chicago DC',
+      transportMode: 'ocean',
+      carrier: 'Maersk Reefer',
+      vesselName: 'MV Andes Fresh',
+      voyageNumber: 'AF-118W',
+      bookingNumber: 'BB-TRHU-8820',
+      sealNumber: 'SL-8820144',
+      billOfLading: 'BOL-2026-8801',
+      incoterms: 'FOB Valparaíso',
+      customsStatus: 'Pending clearance',
+      tempRange: '0–4°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012346',
+          item: 'Strawberries',
+          quantity: 1800,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0812-A',
+          harvestDate: '2026-08-09',
+          bestBefore: '2026-08-16',
+          palletCount: 36,
+          grossWeightKg: 2970,
+        },
+      ],
+    },
   },
   {
     po: 'PO-4500012388',
@@ -108,6 +296,27 @@ export const DEMO_POS: SapPurchaseOrder[] = [
     deliveryDate: '2026-08-22',
     status: 'Open',
     destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-14',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-BB-4401',
+      description: 'Fresh Blueberries — Premium Grade A',
+      sku: 'SKU-BB-2388',
+      orderedQty: 1200,
+      confirmedQty: 0,
+      unit: 'Cases',
+      unitPrice: 28.5,
+      currency: 'USD',
+      shelfLifeDays: 14,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-A',
+      netWeightKg: 2400,
+      countryOfOrigin: 'USA',
+    },
   },
 ];
 
@@ -169,22 +378,87 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
 ];
 
 export const STORE_DEMAND: StoreDemand[] = [
-  { storeId: 'ST-101', name: 'Loop Market', onHand: 42, dailyDemand: 38, pendingOrders: 120, daysCover: 1.1, stockoutRiskDays: 2 },
-  { storeId: 'ST-204', name: 'Lincoln Park', onHand: 88, dailyDemand: 22, pendingOrders: 80, daysCover: 4.0, stockoutRiskDays: null },
-  { storeId: 'ST-318', name: 'Oak Park', onHand: 55, dailyDemand: 28, pendingOrders: 95, daysCover: 2.0, stockoutRiskDays: 3 },
-  { storeId: 'ST-422', name: 'Evanston', onHand: 120, dailyDemand: 18, pendingOrders: 60, daysCover: 6.7, stockoutRiskDays: null },
+  {
+    storeId: 'ST-101',
+    name: 'Loop Market',
+    onHand: 42,
+    dailyDemand: 38,
+    pendingOrders: 120,
+    daysCover: 1.1,
+    stockoutRiskDays: 2,
+    oosStartDate: '2026-08-19',
+    oosEndDate: '2026-08-23',
+    item: 'Blueberries',
+  },
+  {
+    storeId: 'ST-204',
+    name: 'Lincoln Park',
+    onHand: 88,
+    dailyDemand: 22,
+    pendingOrders: 80,
+    daysCover: 4.0,
+    stockoutRiskDays: null,
+    oosStartDate: null,
+    oosEndDate: null,
+    item: 'Strawberries',
+  },
+  {
+    storeId: 'ST-318',
+    name: 'Oak Park',
+    onHand: 55,
+    dailyDemand: 28,
+    pendingOrders: 95,
+    daysCover: 2.0,
+    stockoutRiskDays: 3,
+    oosStartDate: '2026-08-20',
+    oosEndDate: '2026-08-23',
+    item: 'Blueberries',
+  },
+  {
+    storeId: 'ST-422',
+    name: 'Evanston',
+    onHand: 120,
+    dailyDemand: 18,
+    pendingOrders: 60,
+    daysCover: 6.7,
+    stockoutRiskDays: null,
+    oosStartDate: null,
+    oosEndDate: null,
+    item: 'Blueberries',
+  },
 ];
 
-export const PROMOTIONS = [
+export const PROMOTIONS: PromotionRisk[] = [
   {
     id: 'PROMO-882',
     name: 'Berry Weekend 2-for-1',
     item: 'Strawberries',
     startDate: '2026-08-22',
+    endDate: '2026-08-24',
     stores: ['ST-101', 'ST-318'],
     dependsOnPo: 'PO-4500012346',
+    atRisk: true,
   },
 ];
+
+/** Demo anchor date for calendar windows */
+export const DEMO_TODAY = '2026-08-17';
+
+export function getStoreStockoutsForShipment(shipment: TrackShipment): StoreDemand[] {
+  if (shipment.eventStatus !== 'delayed') return [];
+  return STORE_DEMAND.filter((s) => s.stockoutRiskDays != null);
+}
+
+export function getPromotionsForShipment(shipment: TrackShipment): PromotionRisk[] {
+  if (shipment.eventStatus !== 'delayed') return [];
+  return PROMOTIONS.filter((p) => shipment.linkedPos.includes(p.dependsOnPo));
+}
+
+export function getShipmentDelayDays(shipment: TrackShipment): number {
+  if (shipment.eventStatus === 'delayed') return 2;
+  if (shipment.eventStatus === 'early') return -1;
+  return 0;
+}
 
 const ACTIONS_KEY = 'freshguard-risk-actions-v1';
 

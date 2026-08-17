@@ -2,6 +2,7 @@ import { ReactNode, useRef, useState } from 'react';
 import { NavLink } from 'react-router';
 import { usePersona, isSupplierPersona } from '../context/PersonaContext';
 import { PERSONA_LABELS, type FreshGuardPersona } from '../lib/trackingFlow';
+import { SAP } from '../lib/sapTheme';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
 import {
@@ -10,7 +11,6 @@ import {
   Map,
   ScanLine,
   AlertTriangle,
-  Store,
   BarChart3,
   Menu,
   X,
@@ -42,7 +42,6 @@ const navItems = [
   { name: 'Risk Actions', path: '/actions', icon: ClipboardCheck, personas: ['dc_purchasing', 'transport', 'receiving'] as FreshGuardPersona[] },
   { name: 'Business Rules', path: '/business-rules', icon: Settings2, personas: ['dc_purchasing'] as FreshGuardPersona[] },
   { name: 'AI Quality Control', path: '/qc', icon: ScanLine, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
-  { name: 'Store Receiving', path: '/store', icon: Store, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
   { name: 'Claims & Wastage', path: '/claims', icon: AlertTriangle, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
   { name: 'Shrinkage Reports', path: '/reports', icon: BarChart3, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
 ];
@@ -60,7 +59,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const filteredNavItems = navItems.filter((item) => item.personas.includes(persona));
 
   return (
-    <div className="min-h-screen bg-[#eef1f5] dark:bg-[#111820] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className="min-h-screen bg-[#f5f6f7] dark:bg-[#1d2d3e] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
@@ -76,11 +75,11 @@ export function Layout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           'fixed inset-y-0 left-0 z-50 text-white transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col group overflow-visible',
-          'bg-[#1a2332]',
-          'border-r border-slate-700/50 shadow-[4px_0_24px_rgba(0,0,0,0.2)]',
+          'border-r border-[#074E8C]/40 shadow-[4px_0_24px_rgba(10,110,209,0.15)]',
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
           sidebarCollapsed ? 'w-20' : 'w-72'
         )}
+        style={{ background: SAP.shellGradient }}
       >
         <div
           className={cn(
@@ -137,8 +136,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group/link text-sm font-medium',
                   isActive
-                    ? 'bg-[#2d4a6f] text-white shadow-sm'
-                    : 'text-slate-300/90 hover:bg-white/8 hover:text-white',
+                    ? 'bg-[#074E8C] text-white shadow-sm ring-1 ring-white/20'
+                    : 'text-blue-100/90 hover:bg-white/12 hover:text-white',
                   sidebarCollapsed ? 'justify-center px-0' : ''
                 )
               }
@@ -164,7 +163,10 @@ export function Layout({ children }: { children: ReactNode }) {
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
-        <header className="h-14 bg-[#1a2332] border-b border-slate-700/50 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0">
+        <header
+          className="h-14 border-b border-[#074E8C]/40 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0 text-white"
+          style={{ backgroundColor: SAP.headerBg }}
+        >
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
@@ -172,23 +174,23 @@ export function Layout({ children }: { children: ReactNode }) {
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="hidden sm:flex items-center gap-2 text-slate-300 border border-slate-600/80 rounded-full px-3 py-1.5 bg-[#141c28] w-64 focus-within:ring-2 focus-within:ring-[#2d4a6f] focus-within:border-[#2d4a6f] transition-all">
-              <Search className="w-4 h-4 text-slate-500" />
+            <div className="hidden sm:flex items-center gap-2 text-blue-100 border border-white/20 rounded-full px-3 py-1.5 bg-[#074E8C]/60 w-64 focus-within:ring-2 focus-within:ring-white/30 transition-all">
+              <Search className="w-4 h-4 text-blue-200/70" />
               <input
                 type="text"
                 placeholder="Search POs, containers, lots..."
-                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-slate-500 text-slate-100 placeholder:select-none"
+                className="bg-transparent border-none outline-none text-sm w-full placeholder:text-blue-200/60 text-white placeholder:select-none"
               />
             </div>
           </div>
 
           <div className="flex items-center gap-3 sm:gap-4">
             <div className="hidden md:flex items-center gap-2 mr-1">
-              <span className="text-xs font-medium text-slate-400">Persona:</span>
+              <span className="text-xs font-medium text-blue-100/80">Persona:</span>
               <select
                 value={persona}
                 onChange={(e) => setPersona(e.target.value as FreshGuardPersona)}
-                className="bg-[#141c28] border border-slate-600/80 text-slate-200 text-xs font-medium rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-[#2d4a6f]"
+                className="bg-[#074E8C]/80 border border-white/20 text-white text-xs font-medium rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-white/30"
               >
                 {ALL_PERSONAS.map((p) => (
                   <option key={p} value={p}>
@@ -233,8 +235,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 className={cn(
                   'relative p-2 rounded-lg transition-colors',
                   alertsOpen
-                    ? 'bg-[#2d4a6f] text-white'
-                    : 'text-slate-300 hover:text-white hover:bg-white/10'
+                    ? 'bg-white/20 text-white'
+                    : 'text-blue-100 hover:text-white hover:bg-white/10'
                 )}
                 title="Alerts"
                 aria-label="Open alerts"
@@ -242,7 +244,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#1a2332]">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#0854A0]">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -254,14 +256,14 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             </div>
 
-            <div className="h-8 w-px bg-slate-600/80 hidden sm:block" />
+            <div className="h-8 w-px bg-white/20 hidden sm:block" />
             <div className="hidden sm:flex items-center gap-2">
-              <span className="text-sm font-medium text-slate-200">HQ DC — Chicago</span>
+              <span className="text-sm font-medium text-blue-50">HQ DC — Chicago</span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#eef1f5] dark:bg-[#111820] transition-colors duration-300">
+        <main className="flex-1 overflow-auto bg-[#f5f6f7] dark:bg-[#1d2d3e] transition-colors duration-300">
           {children}
         </main>
       </div>
