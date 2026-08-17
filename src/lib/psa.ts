@@ -18,7 +18,9 @@ export type PsaEventCode =
   | 'DC_ARRIVAL'
   | 'SUPPLIER_UPDATE'
   | 'ETA_REVISED'
-  | 'TEMP_ALERT';
+  | 'TEMP_ALERT'
+  | 'WEATHER_ALERT'
+  | 'PORT_CONGESTION';
 
 export interface PsaEvent {
   id: string;
@@ -75,14 +77,16 @@ export const PSA_EVENT_LABELS: Record<PsaEventCode, string> = {
   SUPPLIER_UPDATE: 'Supplier shipment details updated',
   ETA_REVISED: 'ETA revised via PSA sync',
   TEMP_ALERT: 'Reefer temperature alert',
+  WEATHER_ALERT: 'Weather & climate disruption',
+  PORT_CONGESTION: 'Port / terminal congestion',
 };
 
 /** Visual / semantic bucket for timeline styling */
 export type PsaEventKind = 'movement' | 'alert' | 'warning' | 'milestone';
 
 export function getPsaEventKind(code: PsaEventCode): PsaEventKind {
-  if (code === 'TEMP_ALERT') return 'alert';
-  if (code === 'ETA_REVISED') return 'warning';
+  if (code === 'TEMP_ALERT' || code === 'WEATHER_ALERT') return 'alert';
+  if (code === 'ETA_REVISED' || code === 'PORT_CONGESTION') return 'warning';
   if (
     code === 'BOOKING_CONFIRMED' ||
     code === 'VESSEL_ARRIVAL' ||
@@ -519,6 +523,11 @@ export function buildPeriodicBuyerAlerts(input: {
   const container = input.containerNumber || 'Pending';
   const product = input.product || input.item || 'Cargo';
   const latest = input.psaEvents?.[input.psaEvents.length - 1];
+  const disruption = [...(input.psaEvents || [])]
+    .reverse()
+    .find((event) =>
+      ['WEATHER_ALERT', 'PORT_CONGESTION', 'TEMP_ALERT'].includes(event.code)
+    );
   const tick = Math.floor(Date.now() / 45000) % 4;
 
   const mismatch = getTransportModeMismatch({
@@ -562,14 +571,24 @@ export function buildPeriodicBuyerAlerts(input: {
     };
   }
 
-  if (input.status === 'delayed' || latest?.code === 'TEMP_ALERT') {
+  if (input.status === 'delayed' || disruption) {
+    const isWeather = disruption?.code === 'WEATHER_ALERT';
+    const isPort = disruption?.code === 'PORT_CONGESTION';
     return {
       id: `alert-${input.id}-delay-${tick}`,
       shipmentId: input.id,
       containerNumber: container,
-      title: tick % 2 === 0 ? 'Shipment attention needed' : 'PSA corridor update',
+      title: isWeather
+        ? 'Natural weather / climate disruption'
+        : isPort
+          ? 'Port / terminal congestion'
+          : tick % 2 === 0
+            ? 'Shipment attention needed'
+            : 'PSA corridor update',
       message:
-        tick % 2 === 0
+        disruption
+          ? `${product} (${container}) aboard ${input.vesselName || 'vessel'}: ${disruption.label} at ${disruption.location}. ${disruption.details || `Revised ETA ${input.eta || 'TBD'}.`}`
+          : tick % 2 === 0
           ? `${container} reports a delay. Latest ETA: ${input.eta || 'TBD'}. Track live on the shipment dashboard.`
           : `PSA Portnet pushed a status change for ${container} aboard ${input.vesselName || 'vessel'}: ${latest?.label || 'In transit'}.`,
       severity: 'warning',

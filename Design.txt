@@ -1,0 +1,23 @@
+Design thinking flow for shipment tracking:
+1. Event happened
+2. What are the touchpoints of the event
+3. Business risks identified
+4. Action to be address risks
+5. Who needs to act and workflow
+Shipment delay:
+1. Stock risk
+   1. DC reallocate available stock more strategically
+2. Promotion risk
+   1. Review promotion workflow
+3. Revised product shelf life as per the revised arrival date
+   1. Markdown
+4. Reschedule receiving:
+   1.
+Shipment early:
+1. Possible Over stock
+   1. Confirm storage capacity - ifYes, then BAU, If No, then adjust store replenishment notify store to clear existing stock or arrange additional space
+   2. Storage cost or shelf-life consequences
+2. Reschedule the receiving actions
+3. Distribution to store consideration
+
+AI rule based guidance on markdown/ clearance based on batch (from DC to store considering shel-life)
