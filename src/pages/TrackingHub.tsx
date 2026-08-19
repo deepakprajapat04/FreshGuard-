@@ -16,6 +16,8 @@ import {
   TrendingUp,
   Truck,
   Route,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
@@ -95,6 +97,16 @@ export default function TrackingHub() {
   const [search, setSearch] = useState('');
   const [detailStep, setDetailStep] = useState<DetailStep>('event');
   const [riskSubStep, setRiskSubStep] = useState<RiskSubStep>('stock');
+  const [detailExpanded, setDetailExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!detailExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailExpanded]);
 
   useEffect(() => {
     setActions(loadRiskActions());
@@ -248,18 +260,20 @@ export default function TrackingHub() {
 
   return (
     <div className={pageShellClass}>
-      <PageHeader
-        eyebrow="FreshGuard · Shipment intelligence"
-        title="Track → Risk → Act"
-      >
-        <Link
-          to="/logistics"
-          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-semibold hover:bg-white dark:hover:bg-slate-800"
+      {!detailExpanded && (
+        <PageHeader
+          eyebrow="FreshGuard · Shipment intelligence"
+          title="Track → Risk → Act"
         >
-          <Truck className="w-4 h-4" />
-          Full logistics map
-        </Link>
-      </PageHeader>
+          <Link
+            to="/logistics"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-semibold hover:bg-white dark:hover:bg-slate-800"
+          >
+            <Truck className="w-4 h-4" />
+            Full logistics map
+          </Link>
+        </PageHeader>
+      )}
 
       {flash && (
         <div className="rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-900 px-4 py-3 text-sm">
@@ -267,28 +281,40 @@ export default function TrackingHub() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatCard label="Active lots" value={String(DEMO_SHIPMENTS.length)} tone="sap" />
-        <StatCard
-          label="Delayed"
-          value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'delayed').length)}
-          tone="amber"
-        />
-        <StatCard
-          label="Early"
-          value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'early').length)}
-          tone="cyan"
-        />
-        <StatCard label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
-      </div>
+      {!detailExpanded && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <StatCard label="Active lots" value={String(DEMO_SHIPMENTS.length)} tone="sap" />
+          <StatCard
+            label="Delayed"
+            value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'delayed').length)}
+            tone="amber"
+          />
+          <StatCard
+            label="Early"
+            value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'early').length)}
+            tone="cyan"
+          />
+          <StatCard label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
+        </div>
+      )}
 
-      <div className="grid lg:grid-cols-[minmax(280px,340px)_1fr] gap-3 items-start">
+      <div
+        className={cn(
+          'grid gap-3 items-start',
+          detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(280px,340px)_1fr]'
+        )}
+      >
         {/* Master — container list (whole panel sticks with list) */}
-        <section className="sticky top-0 self-start z-20 flex flex-col max-h-[calc(100vh-3.5rem)] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+        <section
+          className={cn(
+            'sticky top-0 self-start z-20 flex flex-col max-h-[calc(100vh-3.5rem)] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm',
+            detailExpanded && 'hidden'
+          )}
+        >
           <div className="shrink-0 px-4 py-3 text-[#4A7394] border-b border-slate-200/80 dark:border-slate-700" style={{ background: SAP.shellGradient }}>
             <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5">
               <Filter className="w-3.5 h-3.5" />
-              Events · containers
+              Containers
             </h2>
           </div>
 
@@ -356,7 +382,12 @@ export default function TrackingHub() {
         </section>
 
         {/* Detail — step wizard */}
-        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm min-h-[480px]">
+        <section
+          className={cn(
+            'rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm',
+            detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[480px]'
+          )}
+        >
           {/* Sticky chrome — sticks when page scrolls past header/stats */}
           <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200/80 dark:border-slate-700">
             <div
@@ -368,9 +399,24 @@ export default function TrackingHub() {
                 <p className="font-code text-sm font-bold mt-0.5">{selected.containerNumber}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{selected.item} · {selected.supplier}</p>
               </div>
-              <span className={cn('text-[10px] font-bold uppercase px-2 py-1 rounded border shrink-0', EVENT_COLORS[selected.eventStatus])}>
-                {EVENT_LABELS[selected.eventStatus]}
-              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className={cn('text-[10px] font-bold uppercase px-2 py-1 rounded border', EVENT_COLORS[selected.eventStatus])}>
+                  {EVENT_LABELS[selected.eventStatus]}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setDetailExpanded((v) => !v)}
+                  className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#4A7394] hover:border-[#6A9EC8]/50 transition-colors"
+                  title={detailExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
+                  aria-label={detailExpanded ? 'Exit full screen' : 'Expand to full screen'}
+                >
+                  {detailExpanded ? (
+                    <Minimize2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
+              </div>
             </div>
 
             <div className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto bg-white dark:bg-slate-900">
