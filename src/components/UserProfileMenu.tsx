@@ -65,6 +65,15 @@ const PROFILES: Record<
     location: 'HQ DC — Chicago',
     id: 'USR-RCV-031',
   },
+  category_manager: {
+    name: 'Alex Rivera',
+    role: 'Fresh Produce Category Manager',
+    title: 'Merchandising & Promotions',
+    email: 'alex.rivera@freshguard.retail',
+    org: 'FreshGuard Retail HQ',
+    location: 'HQ — Chicago',
+    id: 'USR-CAT-007',
+  },
 };
 
 const ALL_PERSONAS: FreshGuardPersona[] = [
@@ -72,6 +81,7 @@ const ALL_PERSONAS: FreshGuardPersona[] = [
   'supplier',
   'transport',
   'receiving',
+  'category_manager',
 ];
 
 export function UserProfileMenu({
@@ -139,21 +149,21 @@ export function UserProfileMenu({
         type="button"
         onClick={onToggle}
         className={cn(
-          'w-full flex items-center rounded-xl p-1.5 transition-colors hover:bg-white/10 text-left',
-          open && 'bg-white/10',
+          'w-full flex items-center rounded-xl p-1.5 transition-colors hover:bg-white/60 text-left',
+          open && 'bg-white/60',
           collapsed ? 'justify-center' : 'gap-3'
         )}
         title="Open profile"
         aria-expanded={open}
       >
-        <div className="w-10 h-10 rounded-full bg-slate-600/40 flex items-center justify-center border border-slate-500/40 shrink-0">
-          <UserCircle className="w-6 h-6 text-slate-200" />
+        <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center border border-[#B8CFE0] shrink-0">
+          <UserCircle className="w-6 h-6 text-[#6A9EC8]" />
         </div>
         {!collapsed && (
           <>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-white truncate">{profile.role}</div>
-              <div className="text-xs text-slate-400 truncate">{profile.title}</div>
+              <div className="text-sm font-medium text-[#4A7394] truncate">{profile.role}</div>
+              <div className="text-xs text-slate-500 truncate">{profile.title}</div>
             </div>
             <ChevronUp
               className={cn('w-4 h-4 text-slate-400 shrink-0 transition-transform', !open && 'rotate-180')}

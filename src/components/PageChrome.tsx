@@ -90,7 +90,7 @@ export function Panel({
 type StatTone = 'sap' | 'emerald' | 'amber' | 'rose' | 'cyan';
 
 const STAT_TONES: Record<StatTone, { value: string; bar: string; accent: string }> = {
-  sap: { value: 'text-[#074E8C] dark:text-blue-300', bar: 'bg-[#0A6ED1]', accent: 'from-[#0A6ED1]/10' },
+  sap: { value: 'text-[#4A7394] dark:text-blue-300', bar: 'bg-[#6A9EC8]', accent: 'from-[#6A9EC8]/10' },
   emerald: { value: 'text-emerald-600 dark:text-emerald-300', bar: 'bg-emerald-500', accent: 'from-emerald-500/10' },
   amber: { value: 'text-amber-600 dark:text-amber-300', bar: 'bg-amber-500', accent: 'from-amber-500/10' },
   rose: { value: 'text-rose-600 dark:text-rose-300', bar: 'bg-rose-500', accent: 'from-rose-500/10' },

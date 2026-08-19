@@ -35,7 +35,12 @@ export function isInternalPersona(persona: Persona) {
   return persona !== 'supplier';
 }
 
-/** Can approve risk-action proposals. */
+/** Can approve risk-action proposals (DC Purchasing — step 1). */
 export function canApproveActions(persona: Persona) {
   return persona === 'dc_purchasing';
+}
+
+/** Can approve promotion proposals (Category Manager — step 2). */
+export function canApproveCategoryActions(persona: Persona) {
+  return persona === 'category_manager';
 }
