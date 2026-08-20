@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, StatCard, pageShellClass, statGridClass } from '../components/PageChrome';
+import { btnGhostClass, btnPrimaryLgClass, btnSecondaryClass } from '../lib/sapTheme';
 import {
   ALERT_CATEGORY_OPTIONS,
   ALERT_EVENT_TYPE_OPTIONS,
@@ -211,24 +212,16 @@ export default function BusinessRules() {
 
   return (
     <div className={pageShellClass}>
-      <PageHeader
-        eyebrow="Governance"
-        title="Business Rules"
-        subtitle="Set delay alerts, risk alert types, and auto fill-in proposals. Approvals live in Inbox."
-      >
+      <PageHeader title="Business Rules">
         <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={openAddAlert}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-sky-300 dark:border-sky-700 text-sky-800 dark:text-sky-200 text-sm font-semibold hover:bg-sky-50 dark:hover:bg-sky-950/40"
-          >
+          <button type="button" onClick={openAddAlert} className={btnGhostClass}>
             <Plus className="w-4 h-4" />
             Create watch rule
           </button>
           <button
             type="button"
             onClick={() => navigate('/inbox')}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-200 text-sm font-semibold hover:bg-slate-50 dark:hover:bg-slate-800"
+            className={btnSecondaryClass}
           >
             <Inbox className="w-4 h-4" />
             Open Inbox
@@ -238,11 +231,7 @@ export default function BusinessRules() {
               </span>
             )}
           </button>
-          <button
-            type="button"
-            onClick={persistRules}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold shadow-sm"
-          >
+          <button type="button" onClick={persistRules} className={btnPrimaryLgClass}>
             <Save className="w-4 h-4" />
             Save rules
           </button>
@@ -295,7 +284,7 @@ export default function BusinessRules() {
                 type="checkbox"
                 checked={rules.urgentAlertEnabled}
                 onChange={(e) => setRules((r) => ({ ...r, urgentAlertEnabled: e.target.checked }))}
-                className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                className="w-4 h-4 rounded border-slate-300 text-[#4684AD] focus:ring-[#4684AD]"
               />
             </label>
             <label className="flex items-center justify-between gap-3 text-sm">
@@ -331,7 +320,7 @@ export default function BusinessRules() {
                 type="checkbox"
                 checked={rules.warningAlertEnabled}
                 onChange={(e) => setRules((r) => ({ ...r, warningAlertEnabled: e.target.checked }))}
-                className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                className="w-4 h-4 rounded border-slate-300 text-[#4684AD] focus:ring-[#4684AD]"
               />
             </label>
             <label className="flex items-center justify-between gap-3 text-sm">
@@ -357,7 +346,7 @@ export default function BusinessRules() {
 
         <section className="xl:col-span-4 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
           <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-sky-600 dark:text-sky-300" />
+            <Sparkles className="w-4 h-4 text-[#4684AD] dark:text-[#C0D5E5]" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">3. Auto-generate proposal</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">Scope for fill-in proposals → Inbox</p>
@@ -370,7 +359,7 @@ export default function BusinessRules() {
                 type="checkbox"
                 checked={rules.autoProposalEnabled}
                 onChange={(e) => setRules((r) => ({ ...r, autoProposalEnabled: e.target.checked }))}
-                className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                className="w-4 h-4 rounded border-slate-300 text-[#4684AD] focus:ring-[#4684AD]"
               />
             </label>
             <label className="flex items-center justify-between gap-3 text-sm">
@@ -413,7 +402,7 @@ export default function BusinessRules() {
                 onChange={(e) =>
                   setRules((r) => ({ ...r, requireStockShortageForProposal: e.target.checked }))
                 }
-                className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 shrink-0"
+                className="w-4 h-4 rounded border-slate-300 text-[#4684AD] focus:ring-[#4684AD] shrink-0"
               />
             </label>
             <p className="text-[11px] text-slate-500 leading-relaxed">
@@ -439,7 +428,7 @@ export default function BusinessRules() {
           <button
             type="button"
             onClick={openAddAlert}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-[11px] font-bold"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#4684AD] hover:bg-[#3B7398] text-white text-[11px] font-bold"
           >
             <Plus className="w-3.5 h-3.5" />
             Create watch rule
@@ -458,7 +447,7 @@ export default function BusinessRules() {
                   className={cn(
                     'flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-sm cursor-pointer transition-colors',
                     on
-                      ? 'border-sky-400 bg-sky-50 dark:bg-sky-950/30 dark:border-sky-700'
+                      ? 'border-[#4684AD] bg-[#C0D5E5]/30 dark:bg-sky-950/30 dark:border-sky-700'
                       : 'border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/40'
                   )}
                 >
@@ -466,7 +455,7 @@ export default function BusinessRules() {
                     type="checkbox"
                     checked={on}
                     onChange={() => toggleAlertType(t)}
-                    className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    className="w-4 h-4 rounded border-slate-300 text-[#4684AD] focus:ring-[#4684AD]"
                   />
                   <span className="font-medium text-slate-800 dark:text-slate-100">{t}</span>
                 </label>
@@ -498,7 +487,7 @@ export default function BusinessRules() {
                               : a.riskScore === 'High'
                                 ? 'bg-amber-500 text-white'
                                 : a.riskScore === 'Medium'
-                                  ? 'bg-sky-100 text-sky-800'
+                                  ? 'bg-[#C0D5E5]/40 text-[#2F5472]'
                                   : 'bg-slate-100 text-slate-600'
                           )}
                         >
@@ -520,7 +509,7 @@ export default function BusinessRules() {
                       <button
                         type="button"
                         onClick={() => toggleCustomAlert(a.id)}
-                        className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-300"
+                        className="text-[10px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5]"
                       >
                         {a.enabled ? 'Disable' : 'Enable'}
                       </button>
@@ -558,7 +547,7 @@ export default function BusinessRules() {
                   className={cn(
                     'px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors',
                     on
-                      ? 'bg-sky-600 text-white border-sky-500'
+                      ? 'bg-[#4684AD] text-white border-[#4684AD]'
                       : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700'
                   )}
                 >
@@ -591,7 +580,7 @@ export default function BusinessRules() {
               <button
                 type="button"
                 onClick={addItem}
-                className="px-3 py-2 rounded-lg bg-sky-600 text-white text-xs font-bold inline-flex items-center gap-1"
+                className="px-3 py-2 rounded-lg bg-[#4684AD] text-white text-xs font-bold inline-flex items-center gap-1"
               >
                 <Plus className="w-3.5 h-3.5" />
                 Add
@@ -692,10 +681,10 @@ export default function BusinessRules() {
               className="rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950/40 p-3 space-y-2"
             >
               <div className="flex items-center gap-2">
-                <span className="w-6 h-6 rounded-full bg-sky-600 text-white text-[11px] font-bold flex items-center justify-center">
+                <span className="w-6 h-6 rounded-full bg-[#4684AD] text-white text-[11px] font-bold flex items-center justify-center">
                   {step.n}
                 </span>
-                <step.icon className="w-3.5 h-3.5 text-sky-600" />
+                <step.icon className="w-3.5 h-3.5 text-[#4684AD]" />
               </div>
               <div className="font-bold text-slate-800 dark:text-slate-100">{step.title}</div>
               <p className="text-slate-500 leading-relaxed">{step.body}</p>
@@ -752,7 +741,7 @@ export default function BusinessRules() {
                         name="eventMode"
                         checked={alertForm.eventMode === id}
                         onChange={() => setAlertForm((f) => ({ ...f, eventMode: id }))}
-                        className="text-sky-500 focus:ring-sky-500"
+                        className="text-[#4684AD] focus:ring-[#4684AD]"
                       />
                       {label}
                     </label>
@@ -782,7 +771,7 @@ export default function BusinessRules() {
                           type="checkbox"
                           checked={alertForm.alertTypes.includes(t)}
                           onChange={() => toggleFormAlertType(t)}
-                          className="w-4 h-4 rounded border-slate-500 text-sky-500 focus:ring-sky-500"
+                          className="w-4 h-4 rounded border-slate-500 text-[#4684AD] focus:ring-[#4684AD]"
                         />
                         {t}
                       </label>
@@ -885,7 +874,7 @@ export default function BusinessRules() {
               <button
                 type="button"
                 onClick={saveCustomAlert}
-                className="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-sm font-semibold"
+                className="px-4 py-2 rounded-lg bg-[#4684AD] hover:bg-[#3B7398] text-white text-sm font-semibold"
               >
                 Save rule
               </button>

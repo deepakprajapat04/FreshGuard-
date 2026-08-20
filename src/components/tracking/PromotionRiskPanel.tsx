@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { SAP } from '../../lib/sapTheme';
+import { SAP, btnPrimaryClass, btnSecondaryClass, btnVioletClass } from '../../lib/sapTheme';
 import { PromotionStoreMixDrawer } from './PromotionStoreMixDrawer';
 import {
   rejectRiskAction,
@@ -71,7 +71,7 @@ function ChangeSummaryCard({
       <div className={cn('px-4 py-3 border-b border-slate-100 dark:border-slate-800', accentClass)}>
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-md bg-white/80 dark:bg-slate-900/80 shadow-sm">
-            <Icon className="w-4 h-4 text-[#4A7394]" />
+            <Icon className="w-4 h-4 text-[#2F5472]" />
           </div>
           <h5 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h5>
         </div>
@@ -84,7 +84,7 @@ function ChangeSummaryCard({
         <button
           type="button"
           onClick={onViewDetails}
-          className="w-full flex items-center justify-between gap-2 py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-[#4A7394] hover:border-[#6A9EC8]/50 hover:bg-[#EDF3F9]/50 dark:hover:bg-slate-800 transition-colors"
+          className="w-full flex items-center justify-between gap-2 py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-[#2F5472] hover:border-[#4684AD]/50 hover:bg-[#C0D5E5]/50 dark:hover:bg-slate-800 transition-colors"
         >
           <span>View details ({count})</span>
           <ChevronRight className="w-4 h-4 shrink-0" />
@@ -252,7 +252,7 @@ export function PromotionRiskPanel({
           <button
             type="button"
             onClick={() => openDrawer('remove')}
-            className="text-[11px] font-semibold text-[#4A7394] hover:underline"
+            className="text-[11px] font-semibold text-[#2F5472] hover:underline"
           >
             All store changes ({proposal.storeChanges.length})
           </button>
@@ -272,11 +272,11 @@ export function PromotionRiskPanel({
               {formatShortDate(proposal.reschedule.originalEnd)}
             </span>
             <ArrowRight className="w-3.5 h-3.5 text-slate-300" />
-            <span className="tabular-nums font-bold text-[#4A7394]">
+            <span className="tabular-nums font-bold text-[#2F5472]">
               {formatShortDate(proposal.reschedule.proposedStart)} →{' '}
               {formatShortDate(proposal.reschedule.proposedEnd)}
             </span>
-            <span className="text-[10px] font-semibold text-[#4A7394] bg-[#EDF3F9] px-1.5 py-0.5 rounded">
+            <span className="text-[10px] font-semibold text-[#2F5472] bg-[#C0D5E5] px-1.5 py-0.5 rounded">
               +{shiftDays}d
             </span>
           </div>
@@ -365,20 +365,11 @@ export function PromotionRiskPanel({
 
             {canAct && persona === 'dc_purchasing' && (
               <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-semibold"
-                  style={{ backgroundColor: SAP.blue }}
-                >
+                <button type="button" onClick={handleApprove} className={btnPrimaryClass}>
                   <Check className="w-3.5 h-3.5" />
                   Approve & send to Category Manager
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReject}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold"
-                >
+                <button type="button" onClick={handleReject} className={btnSecondaryClass}>
                   <X className="w-3.5 h-3.5" />
                   Reject
                 </button>
@@ -387,19 +378,11 @@ export function PromotionRiskPanel({
 
             {canAct && persona === 'category_manager' && (
               <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-semibold bg-violet-700 hover:bg-violet-800"
-                >
+                <button type="button" onClick={handleApprove} className={btnVioletClass}>
                   <Check className="w-3.5 h-3.5" />
                   Approve promo changes
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReject}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold"
-                >
+                <button type="button" onClick={handleReject} className={btnSecondaryClass}>
                   <X className="w-3.5 h-3.5" />
                   Reject
                 </button>
@@ -429,7 +412,7 @@ export function PromotionRiskPanel({
 
             <Link
               to="/actions"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#6A9EC8] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#4684AD] hover:underline"
             >
               View full actions queue
             </Link>

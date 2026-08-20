@@ -26,8 +26,8 @@ const KIND_META: Record<
 > = {
   movement: {
     label: 'Movement',
-    dot: 'bg-sky-500',
-    badge: 'bg-sky-100 text-sky-800 border-sky-200 dark:bg-sky-950/50 dark:text-sky-300 dark:border-sky-800',
+    dot: 'bg-[#C0D5E5]/300',
+    badge: 'bg-[#C0D5E5]/40 text-[#2F5472] border-[#86A8C2]/50 dark:bg-sky-950/50 dark:text-[#C0D5E5] dark:border-sky-800',
     icon: Navigation,
   },
   alert: {
@@ -81,7 +81,7 @@ function ActionCard({ action }: { action: ShipmentNextAction }) {
           {action.owner}
         </span>
         {action.status === 'in_progress' && (
-          <span className="text-[9px] font-bold uppercase text-sky-700 dark:text-sky-300">In progress</span>
+          <span className="text-[9px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5]">In progress</span>
         )}
       </div>
       <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{action.title}</div>
@@ -156,7 +156,7 @@ export function PsaEventTimeline({
 
         <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[10px]">
           <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wide text-slate-500">
-            <ArrowDown className="w-3.5 h-3.5 text-sky-600" />
+            <ArrowDown className="w-3.5 h-3.5 text-[#4684AD]" />
             Flow: Latest → Origin
           </span>
           <span className="w-px h-3 bg-slate-200 dark:bg-slate-700" />
@@ -203,7 +203,7 @@ export function PsaEventTimeline({
       <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
         <div className="px-5 py-3.5 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <ClipboardList className="w-4 h-4 text-sky-600 dark:text-sky-300 shrink-0" />
+            <ClipboardList className="w-4 h-4 text-[#4684AD] dark:text-[#C0D5E5] shrink-0" />
             <div>
               <h3 className="text-sm font-black font-mono uppercase tracking-wider">Next actions</h3>
               <p className="text-[10px] text-slate-400 mt-0.5">
@@ -213,7 +213,7 @@ export function PsaEventTimeline({
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-sky-500/20 text-sky-200 border border-sky-400/30">
+          <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#C0D5E5]/300/20 text-[#C0D5E5] border border-[#4684AD]/30">
             {(transportMismatch.isMismatch ? mismatchActions : nextActions).filter((a) => a.status !== 'done').length} open
           </span>
         </div>
@@ -235,7 +235,7 @@ export function PsaEventTimeline({
                         {transportMismatch.incotermCode}
                       </span>
                     )}
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 dark:bg-sky-950/50 dark:text-sky-300">
+                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/50 dark:text-[#C0D5E5]">
                       Expected {expectedLabel}
                     </span>
                     <span className="text-[9px] text-slate-400">→</span>
@@ -268,7 +268,7 @@ export function PsaEventTimeline({
                       <button
                         type="button"
                         onClick={onOpenAlerts}
-                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[10px] font-black uppercase"
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#4684AD] hover:bg-[#4684AD] text-white text-[10px] font-black uppercase"
                       >
                         Open alerts
                       </button>
@@ -350,7 +350,7 @@ function TimelineEventRow({
       >
         <div className="flex flex-wrap items-center gap-1.5 mb-1">
           {isLatest && (
-            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-600 text-white">
+            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#4684AD] text-white">
               Latest
             </span>
           )}

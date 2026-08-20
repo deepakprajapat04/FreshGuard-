@@ -135,7 +135,7 @@ export function ContainerPsaPanel({
       <div className="lg:col-span-4 space-y-3">
         <div className="rounded-xl bg-white dark:bg-slate-900 px-4 py-3 text-slate-900 dark:text-white space-y-2.5 border border-slate-200 dark:border-slate-800">
           <div className="flex items-center justify-between gap-2">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-sky-200">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#C0D5E5]">
               {isVendor ? 'Select lot to update' : 'PSA container ledger'}
             </h3>
             <span className="text-[10px] text-slate-400 shrink-0">
@@ -150,7 +150,7 @@ export function ContainerPsaPanel({
               value={localSearch}
               onChange={(e) => setLocalSearch(e.target.value)}
               placeholder="Search PO, container, item…"
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-[11px] text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
             />
           </div>
 
@@ -161,7 +161,7 @@ export function ContainerPsaPanel({
               className={cn(
                 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
                 filtersOpen || filterCount > 0
-                  ? 'bg-sky-600 border-sky-500 text-white'
+                  ? 'bg-[#4684AD] border-[#4684AD] text-white'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'
               )}
             >
@@ -266,15 +266,15 @@ export function ContainerPsaPanel({
                   className={cn(
                     'w-full text-left p-3.5 rounded-xl border transition-all shadow-sm',
                     selectedShipmentId === s.id
-                      ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50 dark:bg-sky-950/30'
-                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-sky-300'
+                      ? 'border-[#4684AD] ring-1 ring-[#4684AD] bg-[#C0D5E5]/30 dark:bg-sky-950/30'
+                      : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 hover:border-[#86A8C2]'
                   )}
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                       {s.containerNumber}
                     </span>
-                    <span className="text-[9px] font-mono uppercase text-sky-700 dark:text-sky-400">
+                    <span className="text-[9px] font-mono uppercase text-[#2F5472] dark:text-blue-300">
                       {s.psaSyncStatus}
                     </span>
                   </div>
@@ -293,7 +293,7 @@ export function ContainerPsaPanel({
                         s.status === 'delayed'
                           ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
                           : s.status === 'delivered'
-                            ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'
+                            ? 'bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/40 dark:text-[#C0D5E5]'
                             : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
                       )}
                     >
@@ -342,7 +342,7 @@ export function ContainerPsaPanel({
                         <input
                           value={containerForm[key]}
                           onChange={(e) => onFormChange({ ...containerForm, [key]: e.target.value })}
-                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                          className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                         />
                       </label>
                     ))}
@@ -354,7 +354,7 @@ export function ContainerPsaPanel({
                         value={containerForm.notes}
                         onChange={(e) => onFormChange({ ...containerForm, notes: e.target.value })}
                         rows={2}
-                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                         placeholder="Optional note for PSA event ledger…"
                       />
                     </label>
@@ -362,7 +362,7 @@ export function ContainerPsaPanel({
                   <button
                     onClick={onSave}
                     disabled={savingContainer}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white rounded-lg text-xs font-black uppercase tracking-wider font-mono"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#4684AD] hover:bg-[#4684AD] disabled:opacity-50 text-white rounded-lg text-xs font-black uppercase tracking-wider font-mono"
                   >
                     {savingContainer ? (
                       <Loader2 className="w-4 h-4 animate-spin" />
@@ -413,7 +413,7 @@ export function ContainerPsaPanel({
               <div className="px-5 py-3.5 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white flex items-center gap-2">
-                    <Package className="w-4 h-4 text-sky-600 dark:text-sky-300" />
+                    <Package className="w-4 h-4 text-[#4684AD] dark:text-[#C0D5E5]" />
                     Shipped POs &amp; items
                   </h3>
                   <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
@@ -447,7 +447,7 @@ export function ContainerPsaPanel({
                       value={poQuery}
                       onChange={(e) => setPoQuery(e.target.value)}
                       placeholder="Filter by PO, product, SKU, buyer…"
-                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full pl-8 pr-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 text-[11px] focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                     />
                   </div>
 
@@ -474,7 +474,7 @@ export function ContainerPsaPanel({
                           filteredCargo.map((line) => (
                             <tr
                               key={`${line.poNumber}-${line.sku || line.product}`}
-                              className="hover:bg-sky-50/50 dark:hover:bg-sky-950/20"
+                              className="hover:bg-[#C0D5E5]/50 dark:hover:bg-sky-950/20"
                             >
                               <td className="px-3 py-2.5 font-mono font-bold text-slate-800 dark:text-slate-100">
                                 {line.poNumber}

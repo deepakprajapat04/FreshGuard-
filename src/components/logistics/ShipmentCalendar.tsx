@@ -34,7 +34,7 @@ interface Props {
 const STATUS_BAR: Record<Shipment['status'], string> = {
   'on-time': 'bg-emerald-500 hover:bg-emerald-400 border-emerald-600/40',
   delayed: 'bg-rose-500 hover:bg-rose-400 border-rose-600/40',
-  delivered: 'bg-sky-500 hover:bg-sky-400 border-sky-600/40',
+  delivered: 'bg-[#C0D5E5]/300 hover:bg-sky-400 border-sky-600/40',
 };
 
 const STATUS_LABEL: Record<Shipment['status'], string> = {
@@ -130,7 +130,7 @@ export function ShipmentCalendar({
                   onClick={() => setScale(id)}
                   className={cn(
                     'px-2.5 py-1 rounded-md text-[11px] font-semibold transition-colors',
-                    scale === id ? 'bg-sky-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                    scale === id ? 'bg-[#4684AD] text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                   )}
                 >
                   {label}
@@ -173,7 +173,7 @@ export function ShipmentCalendar({
               className={cn(
                 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border',
                 filtersOpen
-                  ? 'bg-sky-600 border-sky-500 text-white'
+                  ? 'bg-[#4684AD] border-[#4684AD] text-white'
                   : 'bg-slate-50 border-slate-200 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:hover:bg-white/10'
               )}
             >
@@ -395,7 +395,7 @@ export function ShipmentCalendar({
               <div className="flex justify-between"><span>Total lots</span><strong>{summary.total}</strong></div>
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400"><span>On-time</span><strong>{summary['on-time']}</strong></div>
               <div className="flex justify-between text-rose-600"><span>Delayed</span><strong>{summary.delayed}</strong></div>
-              <div className="flex justify-between text-sky-600"><span>Delivered</span><strong>{summary.delivered}</strong></div>
+              <div className="flex justify-between text-[#4684AD]"><span>Delivered</span><strong>{summary.delivered}</strong></div>
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
               <div className="text-[10px] font-semibold uppercase text-slate-400">Transport</div>
@@ -407,7 +407,7 @@ export function ShipmentCalendar({
               <div className="space-y-1.5 text-[10px]">
                 <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-emerald-500" /> On-time</div>
                 <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-rose-500" /> Delayed</div>
-                <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-sky-500" /> Delivered</div>
+                <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-[#C0D5E5]/300" /> Delivered</div>
               </div>
             </div>
           </div>

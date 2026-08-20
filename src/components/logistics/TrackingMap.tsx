@@ -303,14 +303,14 @@ export function TrackingMap({ shipment }: { shipment: MapShipment | undefined })
             <span className="w-4 h-1 rounded-full bg-orange-600" /> Expected delay ahead
           </div>
           <div className="flex items-center gap-2">
-            <span className="w-4 h-1 rounded-full bg-sky-600" /> Remaining (on-time)
+            <span className="w-4 h-1 rounded-full bg-[#4684AD]" /> Remaining (on-time)
           </div>
           <div className="border-t border-slate-200 pt-1 mt-1 space-y-1">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-indigo-500" /> Origin
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-sky-500" /> Live asset
+              <span className="w-2 h-2 rounded-full bg-[#C0D5E5]/300" /> Live asset
             </div>
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-600" /> Destination

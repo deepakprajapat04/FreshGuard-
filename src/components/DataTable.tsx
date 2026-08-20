@@ -214,7 +214,7 @@ export function DataTable<T>({
               <h3 className="text-sm font-bold tracking-tight text-slate-900 dark:text-white">{title}</h3>
             )}
             {subtitle && <p className="text-[12px] text-slate-500 dark:text-slate-400 mt-0.5 normal-case tracking-normal">{subtitle}</p>}
-            <p className="text-[11px] text-sky-600 dark:text-sky-300 mt-1">
+            <p className="text-[11px] text-[#4684AD] dark:text-blue-300 mt-1">
               Showing {processed.length} of {data.length} rows
               {activeFilterCount > 0 ? ` · ${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active` : ''}
             </p>
@@ -228,7 +228,7 @@ export function DataTable<T>({
                 value={globalQuery}
                 onChange={(e) => setGlobalQuery(e.target.value)}
                 placeholder="Search all columns…"
-                className="pl-8 pr-3 py-1.5 w-44 sm:w-56 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                className="pl-8 pr-3 py-1.5 w-44 sm:w-56 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#4684AD]/40"
               />
             </div>
 
@@ -238,7 +238,7 @@ export function DataTable<T>({
               className={cn(
                 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold tracking-wide uppercase border transition-colors',
                 filterBarOpen
-                  ? 'bg-sky-600 border-sky-500 text-white'
+                  ? 'bg-[#4684AD] border-[#4684AD] text-white'
                   : 'bg-slate-50 dark:bg-white/5 border-slate-200 dark:border-white/15 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-white/10'
               )}
               title={filterBarOpen ? 'Hide filters for more space' : 'Show column filters'}
@@ -324,7 +324,7 @@ export function DataTable<T>({
                       onChange={(e) =>
                         setColFilters((prev) => ({ ...prev, [col.key]: e.target.value }))
                       }
-                      className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-[#4684AD]/40"
                     >
                       <option value="">All</option>
                       {(selectOptions[col.key] || []).map((opt) => (
@@ -340,7 +340,7 @@ export function DataTable<T>({
                         setColFilters((prev) => ({ ...prev, [col.key]: e.target.value }))
                       }
                       placeholder={`Filter ${col.label.toLowerCase()}…`}
-                      className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-sky-500"
+                      className="w-full rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-2.5 py-1.5 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 focus:outline-none focus:ring-1 focus:ring-[#4684AD]/40"
                     />
                   )}
                 </div>
@@ -371,13 +371,13 @@ export function DataTable<T>({
                       <button
                         type="button"
                         onClick={() => toggleSort(col.key)}
-                        className="inline-flex items-center gap-1 hover:text-sky-700 dark:hover:text-sky-600 dark:text-sky-300"
+                        className="inline-flex items-center gap-1 hover:text-[#2F5472] dark:hover:text-[#4684AD] dark:text-blue-300"
                       >
                         {col.label}
                         {active && sortDir === 'asc' ? (
-                          <ArrowUp className="w-3.5 h-3.5 text-sky-600" />
+                          <ArrowUp className="w-3.5 h-3.5 text-[#4684AD]" />
                         ) : active && sortDir === 'desc' ? (
-                          <ArrowDown className="w-3.5 h-3.5 text-sky-600" />
+                          <ArrowDown className="w-3.5 h-3.5 text-[#4684AD]" />
                         ) : (
                           <ArrowUpDown className="w-3.5 h-3.5 opacity-40" />
                         )}
@@ -404,7 +404,7 @@ export function DataTable<T>({
               processed.map((row, index) => (
                 <tr
                   key={rowKey(row, index)}
-                  className="hover:bg-sky-50/50 dark:hover:bg-slate-800/40 transition-colors"
+                  className="hover:bg-[#C0D5E5]/20 dark:hover:bg-slate-800/40 transition-colors"
                 >
                   {visibleColumns.map((col) => (
                     <td

@@ -78,7 +78,7 @@ export function BuyerAlertsDrawer({
                       alert.category === 'Urgent'
                         ? 'border-rose-200 bg-rose-50/50 dark:border-rose-900/40 dark:bg-rose-950/20'
                         : alert.category === 'Regular'
-                          ? 'border-sky-200 bg-sky-50/40 dark:border-sky-900/40 dark:bg-sky-950/20'
+                          ? 'border-[#86A8C2]/50 bg-[#C0D5E5]/40 dark:border-sky-900/40 dark:bg-sky-950/20'
                           : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40',
                       !alert.read && 'ring-1 ring-emerald-500/40'
                     )}
@@ -95,7 +95,7 @@ export function BuyerAlertsDrawer({
                             alert.category === 'Urgent'
                               ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                               : alert.category === 'Regular'
-                                ? 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300'
+                                ? 'bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/50 dark:text-[#C0D5E5]'
                                 : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
                           )}
                         >

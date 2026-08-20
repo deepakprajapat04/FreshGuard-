@@ -293,7 +293,7 @@ export default function Dashboard() {
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-tight transition-all cursor-pointer",
                 !isVendor 
-                  ? "bg-sky-600 text-white shadow-sm font-extrabold"
+                  ? "bg-[#4684AD] text-white shadow-sm font-extrabold"
                   : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               )}
             >
@@ -304,7 +304,7 @@ export default function Dashboard() {
               className={cn(
                 "px-3.5 py-1.5 rounded-lg text-xs font-bold font-mono uppercase tracking-tight transition-all cursor-pointer",
                 isVendor 
-                  ? "bg-sky-600 text-white shadow-sm font-extrabold"
+                  ? "bg-[#4684AD] text-white shadow-sm font-extrabold"
                   : "text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               )}
             >
@@ -317,7 +317,7 @@ export default function Dashboard() {
               <button 
                 onClick={handleTriggerAiAnalysis}
                 disabled={isScanning}
-                className="px-4 py-2.5 bg-sky-600 hover:bg-sky-500 disabled:bg-sky-500/60 text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm cursor-pointer"
+                className="px-4 py-2.5 bg-[#4684AD] hover:bg-[#3B7398] disabled:bg-[#C0D5E5]/300/60 text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wider transition-all flex items-center gap-2 shadow-sm cursor-pointer"
               >
                 {isScanning ? (
                   <>
@@ -433,7 +433,7 @@ export default function Dashboard() {
         {/* Main Chart Column (Buyer: Category Shrinkage, Vendor: Dispatched Volume Trends) */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md overflow-hidden flex flex-col justify-between">
           <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
-            <span className="text-[9px] font-extrabold text-sky-600 dark:text-sky-300 font-mono uppercase tracking-widest block">Analytics</span>
+            <span className="text-[9px] font-extrabold text-[#4684AD] dark:text-[#C0D5E5] font-mono uppercase tracking-widest block">Analytics</span>
             <h3 className="text-xs font-black uppercase tracking-tight mt-0.5">
               {isVendor ? 'Dispatched Volume Trends' : 'Shrinkage by Category'}
             </h3>
@@ -577,7 +577,7 @@ export default function Dashboard() {
                       </div>
                       <div>
                         <div className="text-xs font-bold text-slate-800 dark:text-slate-100">{alert.title}</div>
-                        <div className="text-[10.5px] text-slate-500 dark:text-sky-200 mt-1 leading-normal font-sans">{alert.description}</div>
+                        <div className="text-[10.5px] text-slate-500 dark:text-[#C0D5E5] mt-1 leading-normal font-sans">{alert.description}</div>
                       </div>
                     </div>
                   </motion.div>
@@ -587,7 +587,7 @@ export default function Dashboard() {
           </div>
 
           <div className="pt-4 border-t border-slate-100 dark:border-white/10 mt-4 relative">
-            <button className="w-full py-2.5 bg-sky-50 hover:bg-sky-100 border border-sky-200 text-sky-700 dark:bg-sky-500/20 dark:hover:bg-sky-500/35 dark:border-sky-400/25 dark:text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wide transition-colors flex items-center justify-center gap-1.5">
+            <button className="w-full py-2.5 bg-[#C0D5E5]/30 hover:bg-[#C0D5E5]/40 border border-[#86A8C2]/50 text-[#2F5472] dark:bg-[#C0D5E5]/300/20 dark:hover:bg-[#3B7398]/35 dark:border-[#4684AD]/25 dark:text-white rounded-xl text-xs font-bold font-mono uppercase tracking-wide transition-colors flex items-center justify-center gap-1.5">
               <span>View All Active Gate Alarms</span>
               <ArrowUpRight className="w-3.5 h-3.5" />
             </button>
@@ -610,7 +610,7 @@ export default function Dashboard() {
             {/* Vendor Performance Index (Bar Graph) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden flex flex-col justify-between">
               <div className="px-5 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
-                <h3 className="text-xs font-black font-mono uppercase tracking-wider text-sky-600 dark:text-sky-200">Performance board</h3>
+                <h3 className="text-xs font-black font-mono uppercase tracking-wider text-[#4684AD] dark:text-[#C0D5E5]">Performance board</h3>
               </div>
               <div className="p-6 flex flex-col justify-between flex-1">
               <div>
@@ -662,7 +662,7 @@ export default function Dashboard() {
             {/* Your Pending Bids & Active SLA Checkpoints (Vendor Actionable Section) */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
               <div className="px-5 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
-                <h3 className="text-xs font-black font-mono uppercase tracking-wider text-sky-200">Vendor SLA & bids</h3>
+                <h3 className="text-xs font-black font-mono uppercase tracking-wider text-[#C0D5E5]">Vendor SLA & bids</h3>
               </div>
               <div className="p-6 border-b border-slate-150 dark:border-slate-805 bg-slate-50/50 dark:bg-slate-950/20 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                 <div>
@@ -727,11 +727,11 @@ function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
   const valueTone =
     color === 'emerald' ? 'text-emerald-600' :
     color === 'rose' ? 'text-rose-600' :
-    'text-sky-600';
+    'text-[#4684AD]';
   const barTone =
     color === 'emerald' ? 'bg-emerald-500' :
     color === 'rose' ? 'bg-rose-500' :
-    'bg-sky-500';
+    'bg-[#C0D5E5]/300';
   const accent =
     color === 'emerald' ? 'from-emerald-500/10' :
     color === 'rose' ? 'from-rose-500/10' :

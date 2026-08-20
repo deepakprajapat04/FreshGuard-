@@ -363,15 +363,7 @@ export default function Claims() {
         )}
       </AnimatePresence>
 
-      <PageHeader
-        eyebrow="Dispute Settlement Network"
-        title={isVendor ? 'Claims Against Us' : 'Claims & Wastage Management'}
-        subtitle={
-          isVendor
-            ? 'Review and manage claims filed against your deliveries.'
-            : 'Manage vendor claims, track spoilage, and resolve financial disputes.'
-        }
-      >
+      <PageHeader title={isVendor ? 'Claims Against Us' : 'Claims & Wastage Management'}>
         {!isVendor && (
           <button
             id="file-new-claim-btn"
@@ -428,7 +420,7 @@ export default function Claims() {
                   className={cn(
                     'px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-tight transition-all cursor-pointer',
                     activeTab === tab
-                      ? 'bg-sky-600 text-white shadow-sm'
+                      ? 'bg-[#4684AD] text-white shadow-sm'
                       : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                   )}
                 >

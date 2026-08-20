@@ -64,7 +64,7 @@ export function ShipmentDashboard({
   const syncPct = shipments.length ? Math.round((synced / shipments.length) * 100) : 100;
 
   const cards = [
-    { label: 'Active', value: active, sub: 'In transit', valueClass: 'text-sky-600', bar: 'bg-sky-500' },
+    { label: 'Active', value: active, sub: 'In transit', valueClass: 'text-[#4684AD]', bar: 'bg-[#C0D5E5]/300' },
     { label: 'PSA sync', value: `${syncPct}%`, sub: `${synced} linked`, valueClass: 'text-emerald-600', bar: 'bg-emerald-500' },
     { label: 'On-time / delayed', value: `${onTime}/${delayed}`, sub: 'Status mix', valueClass: 'text-amber-600', bar: 'bg-amber-500' },
     { label: 'Sea lots', value: ocean, sub: 'Ocean via PSA', valueClass: 'text-cyan-600', bar: 'bg-cyan-500' },
@@ -124,7 +124,7 @@ export function ShipmentDashboard({
       render: (s) => (
         <span className="inline-flex items-center gap-1.5 text-[10px] uppercase bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md text-slate-700 dark:text-slate-300">
           {s.transportMode === 'ocean' ? (
-            <Ship className="w-3.5 h-3.5 text-sky-600" />
+            <Ship className="w-3.5 h-3.5 text-[#4684AD]" />
           ) : (
             <Truck className="w-3.5 h-3.5 text-slate-500" />
           )}
@@ -182,7 +182,7 @@ export function ShipmentDashboard({
             s.status === 'delayed'
               ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
               : s.status === 'delivered'
-                ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300'
+                ? 'bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/40 dark:text-[#C0D5E5]'
                 : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
           )}
         >
@@ -200,7 +200,7 @@ export function ShipmentDashboard({
         <button
           type="button"
           onClick={() => onTrack(s.id)}
-          className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-400 hover:underline"
+          className="text-[10px] font-bold uppercase text-[#2F5472] dark:text-blue-300 hover:underline"
         >
           Track
         </button>
@@ -250,7 +250,7 @@ export function ShipmentDashboard({
             className={cn(
               'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors',
               boardView === 'calendar'
-                ? 'bg-sky-600 text-white shadow'
+                ? 'bg-[#4684AD] text-white shadow'
                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
             )}
           >
@@ -266,7 +266,7 @@ export function ShipmentDashboard({
             className={cn(
               'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors',
               boardView === 'table'
-                ? 'bg-sky-600 text-white shadow'
+                ? 'bg-[#4684AD] text-white shadow'
                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
             )}
           >
@@ -279,7 +279,7 @@ export function ShipmentDashboard({
             className={cn(
               'inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-xs font-semibold transition-colors',
               boardView === 'risk'
-                ? 'bg-sky-600 text-white shadow'
+                ? 'bg-[#4684AD] text-white shadow'
                 : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
             )}
           >
@@ -322,7 +322,7 @@ export function ShipmentDashboard({
 
           <div className="xl:col-span-4 space-y-3">
             <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl p-4 shadow-sm border border-slate-200 dark:border-slate-700">
-              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-sky-600 dark:text-sky-300">
+              <div className="flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wide text-[#4684AD] dark:text-[#C0D5E5]">
                 <Link2 className="w-4 h-4" /> Integration
               </div>
               <h3 className="text-base font-bold mt-1.5">PSA Portnet® Connected</h3>
@@ -345,7 +345,7 @@ export function ShipmentDashboard({
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-white">Buyer alerts</h4>
                   <button
                     onClick={onOpenAlerts}
-                    className="text-[10px] font-bold text-sky-600 dark:text-sky-300 uppercase hover:text-sky-800 dark:hover:text-white"
+                    className="text-[10px] font-bold text-[#4684AD] dark:text-[#C0D5E5] uppercase hover:text-[#2F5472] dark:hover:text-white"
                   >
                     View all
                   </button>
@@ -364,7 +364,7 @@ export function ShipmentDashboard({
                             a.category === 'Urgent'
                               ? 'bg-rose-100 text-rose-700'
                               : a.category === 'Regular'
-                                ? 'bg-sky-100 text-sky-700'
+                                ? 'bg-[#C0D5E5]/40 text-[#2F5472]'
                                 : 'bg-slate-200 text-slate-600'
                           )}
                         >
@@ -412,7 +412,7 @@ export function ShipmentDashboard({
                 type="button"
                 disabled={!activeRiskId}
                 onClick={() => activeRiskId && onTrack(activeRiskId)}
-                className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-40 text-white text-[10px] font-bold uppercase"
+                className="px-3 py-1.5 rounded-lg bg-[#4684AD] hover:bg-[#3B7398] disabled:opacity-40 text-white text-[10px] font-bold uppercase"
               >
                 Open selected in Live Tracking
               </button>
@@ -488,7 +488,7 @@ export function ShipmentDashboard({
                             alert.category === 'Urgent'
                               ? 'border-rose-200 bg-rose-50/50 dark:border-rose-900/40 dark:bg-rose-950/20'
                               : alert.category === 'Regular'
-                                ? 'border-sky-200 bg-sky-50/40 dark:border-sky-900/40 dark:bg-sky-950/20'
+                                ? 'border-[#86A8C2]/50 bg-[#C0D5E5]/40 dark:border-sky-900/40 dark:bg-sky-950/20'
                                 : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/40',
                             !alert.read && 'ring-1 ring-emerald-500/40'
                           )}
@@ -505,7 +505,7 @@ export function ShipmentDashboard({
                                   alert.category === 'Urgent'
                                     ? 'bg-rose-100 text-rose-700'
                                     : alert.category === 'Regular'
-                                      ? 'bg-sky-100 text-sky-700'
+                                      ? 'bg-[#C0D5E5]/40 text-[#2F5472]'
                                       : 'bg-slate-100 text-slate-600'
                                 )}
                               >

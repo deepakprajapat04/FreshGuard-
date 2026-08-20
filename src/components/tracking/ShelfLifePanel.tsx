@@ -6,7 +6,7 @@ import { useMemo } from 'react';
 import { Link } from 'react-router';
 import { Bell, Check, Package, TrendingDown, X } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { SAP } from '../../lib/sapTheme';
+import { SAP, btnPrimaryClass, btnSecondaryClass } from '../../lib/sapTheme';
 import {
   rejectRiskAction,
   buildShelfLifeProposal,
@@ -105,7 +105,7 @@ export function ShelfLifePanel({
             <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
               Store shelf
             </div>
-            <div className="text-lg font-bold tabular-nums text-[#4A7394] mt-0.5">
+            <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
               {formatShortDate(storeShelfDate)}
             </div>
             <div className="text-[10px] text-slate-400">
@@ -168,7 +168,7 @@ export function ShelfLifePanel({
                   <td className="px-3 py-2.5 tabular-nums text-slate-600">
                     {formatShortDate(line.currentOnHandExpiresDate)}
                   </td>
-                  <td className="px-3 py-2.5 tabular-nums font-semibold text-[#4A7394]">
+                  <td className="px-3 py-2.5 tabular-nums font-semibold text-[#2F5472]">
                     {formatShortDate(line.storeShelfDate)}
                   </td>
                   <td className="px-3 py-2.5 text-right tabular-nums">
@@ -293,8 +293,7 @@ export function ShelfLifePanel({
                 <button
                   type="button"
                   onClick={() => onApprove?.(shelfAction.id)}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-semibold"
-                  style={{ backgroundColor: SAP.blue }}
+                  className={btnPrimaryClass}
                 >
                   <Check className="w-3.5 h-3.5" />
                   Approve & notify teams
@@ -305,7 +304,7 @@ export function ShelfLifePanel({
                     rejectRiskAction(shelfAction.id, persona);
                     onActionsUpdated();
                   }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold"
+                  className={btnSecondaryClass}
                 >
                   <X className="w-3.5 h-3.5" />
                   Reject
@@ -329,7 +328,7 @@ export function ShelfLifePanel({
 
             <Link
               to="/actions"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#6A9EC8] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#4684AD] hover:underline"
             >
               View full actions queue
             </Link>

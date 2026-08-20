@@ -156,13 +156,13 @@ export function UserProfileMenu({
         title="Open profile"
         aria-expanded={open}
       >
-        <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center border border-[#B8CFE0] shrink-0">
-          <UserCircle className="w-6 h-6 text-[#6A9EC8]" />
+        <div className="w-10 h-10 rounded-full bg-white/80 flex items-center justify-center border border-[#86A8C2] shrink-0">
+          <UserCircle className="w-6 h-6 text-[#4684AD]" />
         </div>
         {!collapsed && (
           <>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-medium text-[#4A7394] truncate">{profile.role}</div>
+              <div className="text-sm font-medium text-[#2F5472] truncate">{profile.role}</div>
               <div className="text-xs text-slate-500 truncate">{profile.title}</div>
             </div>
             <ChevronUp

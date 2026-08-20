@@ -123,7 +123,7 @@ export default function Store() {
       filterOptions: branches.filter((b) => b !== 'All'),
       render: (item) => (
         <div className="flex items-center gap-1.5 font-bold text-slate-900 dark:text-slate-200">
-          <MapPin className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+          <MapPin className="w-3.5 h-3.5 text-[#4684AD] shrink-0" />
           <span>{item.branch}</span>
         </div>
       ),
@@ -160,8 +160,8 @@ export default function Store() {
       key: 'verificationTag',
       label: 'AI certification',
       render: (r) => (
-        <div className="flex items-center gap-1.5 text-sky-700 dark:text-sky-400 font-mono text-[10px] font-bold">
-          <Sparkles className="w-3.5 h-3.5 text-sky-500 shrink-0" />
+        <div className="flex items-center gap-1.5 text-[#2F5472] dark:text-blue-300 font-mono text-[10px] font-bold">
+          <Sparkles className="w-3.5 h-3.5 text-[#4684AD] shrink-0" />
           <span>{r.verificationTag}</span>
         </div>
       ),
@@ -216,9 +216,9 @@ export default function Store() {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-3 bg-sky-50 dark:bg-sky-950/40 text-sky-900 dark:text-sky-300 rounded-xl border border-sky-200 dark:border-slate-700 text-xs font-mono flex items-center gap-2 shadow-sm"
+            className="p-3 bg-[#C0D5E5]/30 dark:bg-sky-950/40 text-sky-900 dark:text-[#C0D5E5] rounded-xl border border-[#86A8C2]/50 dark:border-slate-700 text-xs font-mono flex items-center gap-2 shadow-sm"
           >
-            <Info className="w-4 h-4 text-sky-500 shrink-0" />
+            <Info className="w-4 h-4 text-[#4684AD] shrink-0" />
             <span>{feedback}</span>
           </motion.div>
         )}
@@ -234,7 +234,7 @@ export default function Store() {
         <StatCard
           label="Distributed Volume"
           value={`${totalVolumeCalculated.toLocaleString()} Cases`}
-          sub={<>Assigned to <strong className="text-sky-600 dark:text-sky-300">{branches.length - 1} metro centers</strong></>}
+          sub={<>Assigned to <strong className="text-[#4684AD] dark:text-[#C0D5E5]">{branches.length - 1} metro centers</strong></>}
           tone="sky"
         />
         <StatCard
@@ -266,7 +266,7 @@ export default function Store() {
                   className={cn(
                     'px-2.5 py-1 rounded-md text-[10px] font-extrabold uppercase tracking-tight transition-all cursor-pointer whitespace-nowrap border',
                     selectedBranch === br
-                      ? 'bg-sky-600 border-sky-500 text-white'
+                      ? 'bg-[#4684AD] border-[#4684AD] text-white'
                       : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/10'
                   )}
                 >

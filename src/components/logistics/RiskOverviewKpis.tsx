@@ -24,7 +24,7 @@ function MiniBars({
       {heights.map((h, i) => (
         <span
           key={i}
-          className={cn('w-1.5 rounded-sm opacity-90', tone === 'rose' ? 'bg-rose-500' : 'bg-sky-500')}
+          className={cn('w-1.5 rounded-sm opacity-90', tone === 'rose' ? 'bg-rose-500' : 'bg-[#C0D5E5]/300')}
           style={{ height: `${h}%` }}
         />
       ))}

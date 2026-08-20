@@ -36,12 +36,12 @@ export default function Reports() {
             : 'Deep analytics into inventory loss, markdowns, and AI preventative impact.'
         }
       >
-        <select className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-sky-500">
+        <select className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-sm text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-[#4684AD]">
           <option>Last 6 Months</option>
           <option>Last Quarter</option>
           <option>Year to Date</option>
         </select>
-        <button className="px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-medium text-white shadow-sm transition-colors">
+        <button className="px-4 py-2 bg-[#4684AD] hover:bg-[#3B7398] rounded-lg text-sm font-medium text-white shadow-sm transition-colors">
           Export PDF
         </button>
       </PageHeader>

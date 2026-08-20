@@ -1,5 +1,5 @@
 /**
- * Track → Risk → Act — master-detail with step wizard detail panel.
+ * Shipment intelligence — master-detail with step wizard detail panel.
  */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router';
@@ -23,10 +23,12 @@ import { cn } from '../lib/utils';
 import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
 import { usePersona, canApproveActions } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
-import { SAP } from '../lib/sapTheme';
+import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
 import { StockRiskPanel } from '../components/tracking/StockRiskPanel';
 import { PromotionRiskPanel } from '../components/tracking/PromotionRiskPanel';
 import { ShelfLifePanel } from '../components/tracking/ShelfLifePanel';
+import { ReceivingRiskPanel } from '../components/tracking/ReceivingRiskPanel';
+import { TransportRiskPanel } from '../components/tracking/TransportRiskPanel';
 import {
   DEMO_SHIPMENTS,
   EVENT_COLORS,
@@ -51,7 +53,13 @@ const STAGE_LABELS: Record<TrackShipment['stage'], string> = {
 };
 
 type DetailStep = 'event' | 'route' | 'risks' | 'actions';
-type RiskSubStep = 'stock' | 'promotion' | 'shelf_life' | 'overstock';
+type RiskSubStep =
+  | 'stock'
+  | 'promotion'
+  | 'shelf_life'
+  | 'overstock'
+  | 'receiving'
+  | 'transport';
 type EventFilter = 'all' | ShipmentEventStatus;
 
 const DETAIL_STEPS: { id: DetailStep; label: string; icon: typeof Package }[] = [
@@ -79,10 +87,16 @@ function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: str
       { id: 'stock', label: 'Stock risk' },
       { id: 'promotion', label: 'Promotion risk' },
       { id: 'shelf_life', label: 'Shelf life' },
+      { id: 'receiving', label: 'Receiving' },
+      { id: 'transport', label: 'Transport' },
     ];
   }
   if (shipment.eventStatus === 'early') {
-    return [{ id: 'overstock', label: 'Overstock risk' }];
+    return [
+      { id: 'overstock', label: 'Overstock risk' },
+      { id: 'receiving', label: 'Receiving' },
+      { id: 'transport', label: 'Transport' },
+    ];
   }
   return [];
 }
@@ -137,6 +151,8 @@ export default function TrackingHub() {
   const stockAction = shipmentActions.find((a) => a.category === 'stock');
   const promoAction = shipmentActions.find((a) => a.category === 'promotion');
   const shelfAction = shipmentActions.find((a) => a.category === 'shelf_life');
+  const receivingAction = shipmentActions.find((a) => a.category === 'receiving');
+  const transportAction = shipmentActions.find((a) => a.category === 'transport');
   const delayDays = getShipmentDelayDays(selected);
   const riskSubSteps = getRiskSubSteps(selected);
 
@@ -248,6 +264,28 @@ export default function TrackingHub() {
     setTimeout(() => setFlash(null), 5000);
   };
 
+  const handleResourceApprove = (actionId: string) => {
+    const updated = approveRiskAction(actionId, persona);
+    if (!updated) return;
+    upsertMany(
+      updated.notifyPersonas.map((p) => ({
+        id: `n-${updated.id}-${p}`,
+        title: `${updated.title} approved`,
+        message: `${updated.proposal} — ${PERSONA_LABELS[p]} please replan accordingly.`,
+        severity: 'info' as const,
+        category: 'Regular' as const,
+        timestamp: new Date().toISOString(),
+        read: false,
+        module: 'System' as const,
+        href: '/actions',
+      }))
+    );
+    refreshActions();
+    const teams = updated.notifyPersonas.map((p) => PERSONA_LABELS[p]).join(', ');
+    setFlash(`${updated.title} approved. ${teams} notified.`);
+    setTimeout(() => setFlash(null), 5000);
+  };
+
   const selectShipment = (id: string) => {
     setSelectedId(id);
     setDetailStep('event');
@@ -261,10 +299,7 @@ export default function TrackingHub() {
   return (
     <div className={pageShellClass}>
       {!detailExpanded && (
-        <PageHeader
-          eyebrow="FreshGuard · Shipment intelligence"
-          title="Track → Risk → Act"
-        >
+        <PageHeader title="FreshGuard · Shipment intelligence">
           <Link
             to="/logistics"
             className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-semibold hover:bg-white dark:hover:bg-slate-800"
@@ -307,12 +342,12 @@ export default function TrackingHub() {
         {/* Master — container list (whole panel sticks with list) */}
         <section
           className={cn(
-            'sticky top-0 self-start z-20 flex flex-col max-h-[calc(100vh-3.5rem)] overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm',
+            'sticky top-0 self-start z-20 flex flex-col max-h-[calc(100vh-3.5rem)] overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
             detailExpanded && 'hidden'
           )}
         >
-          <div className="shrink-0 px-4 py-3 text-[#4A7394] border-b border-slate-200/80 dark:border-slate-700" style={{ background: SAP.shellGradient }}>
-            <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5">
+          <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-slate-900 dark:text-white">
               <Filter className="w-3.5 h-3.5" />
               Containers
             </h2>
@@ -324,7 +359,7 @@ export default function TrackingHub() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search container, PO, item…"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#6A9EC8]/40"
+              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
             />
             <div className="flex flex-wrap gap-1">
               {(['all', 'delayed', 'early', 'on-time'] as const).map((f) => (
@@ -335,8 +370,8 @@ export default function TrackingHub() {
                   className={cn(
                     'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
                     eventFilter === f
-                      ? 'bg-[#6A9EC8] text-white border-[#6A9EC8]'
-                      : 'border-slate-200 text-slate-500 hover:border-[#6A9EC8]/40'
+                      ? 'bg-[#4684AD] text-white border-[#4684AD]'
+                      : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40'
                   )}
                 >
                   {f === 'all' ? 'All' : EVENT_LABELS[f]}
@@ -359,12 +394,12 @@ export default function TrackingHub() {
                     className={cn(
                       'w-full text-left px-4 py-3 transition-colors',
                       active
-                        ? 'bg-[#EDF3F9]/70 dark:bg-blue-950/30 border-l-4 border-l-[#6A9EC8]'
+                        ? 'bg-[#C0D5E5]/70 dark:bg-blue-950/30 border-l-4 border-l-[#4684AD]'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/40 border-l-4 border-l-transparent'
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-code text-xs font-bold text-[#4A7394]">{s.containerNumber}</span>
+                      <span className="font-code text-xs font-bold text-[#2F5472]">{s.containerNumber}</span>
                       <span className={cn('text-[10px] font-bold uppercase px-2 py-0.5 rounded border', EVENT_COLORS[s.eventStatus])}>
                         {EVENT_LABELS[s.eventStatus]}
                       </span>
@@ -384,18 +419,15 @@ export default function TrackingHub() {
         {/* Detail — step wizard */}
         <section
           className={cn(
-            'rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm',
+            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
             detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[480px]'
           )}
         >
           {/* Sticky chrome — sticks when page scrolls past header/stats */}
           <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200/80 dark:border-slate-700">
-            <div
-              className="px-4 py-3 text-[#4A7394] flex items-start justify-between gap-3"
-              style={{ backgroundColor: SAP.headerBg }}
-            >
+            <div className="px-4 py-3 flex items-start justify-between gap-3 bg-white dark:bg-slate-900">
               <div>
-                <h2 className="text-xs font-bold uppercase tracking-wide">Container detail</h2>
+                <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">Container detail</h2>
                 <p className="font-code text-sm font-bold mt-0.5">{selected.containerNumber}</p>
                 <p className="text-[10px] text-slate-500 mt-0.5">{selected.item} · {selected.supplier}</p>
               </div>
@@ -406,7 +438,7 @@ export default function TrackingHub() {
                 <button
                   type="button"
                   onClick={() => setDetailExpanded((v) => !v)}
-                  className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#4A7394] hover:border-[#6A9EC8]/50 transition-colors"
+                  className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#2F5472] hover:border-[#4684AD]/50 transition-colors"
                   title={detailExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
                   aria-label={detailExpanded ? 'Exit full screen' : 'Expand to full screen'}
                 >
@@ -428,14 +460,14 @@ export default function TrackingHub() {
                   className={cn(
                     'flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wide border-b-2 whitespace-nowrap transition-colors',
                     detailStep === step.id
-                      ? 'border-[#6A9EC8] text-[#6A9EC8] bg-[#EDF3F9]/40'
+                      ? 'border-[#4684AD] text-[#4684AD] bg-[#C0D5E5]/40'
                       : 'border-transparent text-slate-400 hover:text-slate-600'
                   )}
                 >
                   <span
                     className={cn(
                       'w-5 h-5 rounded-full flex items-center justify-center text-[10px]',
-                      detailStep === step.id ? 'bg-[#6A9EC8] text-white' : 'bg-slate-200 text-slate-500'
+                      detailStep === step.id ? 'bg-[#4684AD] text-white' : 'bg-slate-200 text-slate-500'
                     )}
                   >
                     {idx + 1}
@@ -457,8 +489,8 @@ export default function TrackingHub() {
                       className={cn(
                         'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors',
                         riskSubStep === sub.id
-                          ? 'bg-[#6A9EC8] text-white shadow-sm'
-                          : 'bg-white dark:bg-slate-900 text-slate-600 border border-slate-200 dark:border-slate-700 hover:border-[#6A9EC8]/40'
+                          ? 'bg-[#4684AD] text-white shadow-sm'
+                          : 'bg-white dark:bg-slate-900 text-slate-600 border border-slate-200 dark:border-slate-700 hover:border-[#4684AD]/40'
                       )}
                     >
                       <span className="text-[10px] opacity-80">{idx + 1}.</span>
@@ -474,7 +506,7 @@ export default function TrackingHub() {
             {/* Step 1 — Event */}
             {detailStep === 'event' && (
               <div className="space-y-4 max-w-2xl">
-                <h3 className="text-sm font-bold text-[#4A7394] flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#2F5472] flex items-center gap-2">
                   <AlertTriangle className="w-4 h-4" />
                   What happened
                 </h3>
@@ -494,7 +526,7 @@ export default function TrackingHub() {
                     </div>
                     <div>
                       <dt className="text-[10px] font-bold uppercase text-slate-400">Current ETA</dt>
-                      <dd className="mt-0.5 font-semibold text-[#4A7394]">{selected.eta}</dd>
+                      <dd className="mt-0.5 font-semibold text-[#2F5472]">{selected.eta}</dd>
                     </div>
                     <div>
                       <dt className="text-[10px] font-bold uppercase text-slate-400">Quantity</dt>
@@ -516,7 +548,7 @@ export default function TrackingHub() {
                 <button
                   type="button"
                   onClick={() => setDetailStep('route')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#6A9EC8]"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD]"
                 >
                   Next: Touchpoints <ChevronRight className="w-4 h-4" />
                 </button>
@@ -526,11 +558,11 @@ export default function TrackingHub() {
             {/* Step 2 — Route / touchpoints */}
             {detailStep === 'route' && (
               <div className="space-y-4 max-w-xl">
-                <h3 className="text-sm font-bold text-[#4A7394] flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#2F5472] flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
                   Touchpoints — origin to DC
                 </h3>
-                <ol className="relative border-l-2 border-[#6A9EC8]/30 ml-2 space-y-5 pl-6">
+                <ol className="relative border-l-2 border-[#4684AD]/30 ml-2 space-y-5 pl-6">
                   {(['origin', 'ocean', 'customs', 'inland', 'dc_arrival'] as const).map((stage) => {
                     const active = selected.stage === stage;
                     const stageIdx = ['origin', 'ocean', 'customs', 'inland', 'dc_arrival'].indexOf(stage);
@@ -541,10 +573,10 @@ export default function TrackingHub() {
                         <span
                           className={cn(
                             'absolute -left-[1.6rem] w-3.5 h-3.5 rounded-full border-2 border-white dark:border-slate-900',
-                            active ? 'bg-[#6A9EC8]' : passed ? 'bg-blue-300' : 'bg-slate-200'
+                            active ? 'bg-[#4684AD]' : passed ? 'bg-blue-300' : 'bg-slate-200'
                           )}
                         />
-                        <div className={cn('text-sm font-semibold', active && 'text-[#4A7394]')}>
+                        <div className={cn('text-sm font-semibold', active && 'text-[#2F5472]')}>
                           {STAGE_LABELS[stage]}
                         </div>
                         {stage === 'customs' && (
@@ -561,7 +593,7 @@ export default function TrackingHub() {
                 <button
                   type="button"
                   onClick={() => setDetailStep('risks')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#6A9EC8]"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD]"
                 >
                   Next: Business risks <ChevronRight className="w-4 h-4" />
                 </button>
@@ -612,6 +644,28 @@ export default function TrackingHub() {
                       />
                     )}
 
+                    {riskSubStep === 'receiving' && (
+                      <ReceivingRiskPanel
+                        shipment={selected}
+                        receivingAction={receivingAction}
+                        persona={persona}
+                        canApprove={canApprove}
+                        onActionsUpdated={refreshActions}
+                        onApprove={handleResourceApprove}
+                      />
+                    )}
+
+                    {riskSubStep === 'transport' && (
+                      <TransportRiskPanel
+                        shipment={selected}
+                        transportAction={transportAction}
+                        persona={persona}
+                        canApprove={canApprove}
+                        onActionsUpdated={refreshActions}
+                        onApprove={handleResourceApprove}
+                      />
+                    )}
+
                     {riskSubStep === 'overstock' && (
                       <div className="space-y-3 max-w-lg">
                         <div className="flex items-center gap-2 text-sm font-bold text-blue-900">
@@ -625,7 +679,7 @@ export default function TrackingHub() {
                 <button
                   type="button"
                   onClick={() => setDetailStep('actions')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#6A9EC8]"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD]"
                 >
                   Next: Actions <ChevronRight className="w-4 h-4" />
                 </button>
@@ -654,7 +708,7 @@ export default function TrackingHub() {
                         )}
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#4A7394]">
+                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#2F5472]">
                             {a.category.replace('_', ' ')}
                           </span>
                           <span className="text-[10px] text-slate-500">
@@ -666,7 +720,7 @@ export default function TrackingHub() {
                         <p className="text-xs text-slate-600">{a.summary}</p>
                         <p className="text-xs font-medium">{a.proposal}</p>
                         {a.status === 'pending_approval' && canApprove && (
-                          <Link to="/actions" className="inline-flex items-center gap-1 text-xs font-bold text-[#6A9EC8] hover:underline">
+                          <Link to="/actions" className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD] hover:underline">
                             Review in Actions <ArrowRight className="w-3 h-3" />
                           </Link>
                         )}

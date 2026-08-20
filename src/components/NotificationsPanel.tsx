@@ -30,7 +30,7 @@ function categoryBadgeClass(category: AlertCategory) {
     return 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300';
   }
   if (category === 'Regular') {
-    return 'bg-sky-100 text-sky-700 dark:bg-sky-950/50 dark:text-sky-300';
+    return 'bg-sky-100 text-[#2F5472] dark:bg-sky-950/50 dark:text-blue-300';
   }
   return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
 }
@@ -125,7 +125,7 @@ export function NotificationsPanel({
           <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 shrink-0">
             <div>
               <div className="flex items-center gap-2 text-sm font-bold">
-                <Bell className="w-4 h-4 text-sky-600 dark:text-sky-300" />
+                <Bell className="w-4 h-4 text-[#4684AD] dark:text-blue-300" />
                 Alerts
                 {unreadCount > 0 && (
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500">
@@ -142,7 +142,7 @@ export function NotificationsPanel({
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-[10px] font-semibold text-sky-600 dark:text-sky-300 hover:text-sky-800 dark:hover:text-sky-200 px-2 py-1"
+                  className="text-[10px] font-semibold text-[#4684AD] dark:text-blue-300 hover:text-sky-800 dark:hover:text-sky-200 px-2 py-1"
                 >
                   Mark all read
                 </button>
@@ -174,7 +174,7 @@ export function NotificationsPanel({
                     categoryFilter === tab
                       ? tab === 'Urgent'
                         ? 'bg-rose-600 text-white'
-                        : 'bg-sky-600 text-white'
+                        : 'bg-[#4684AD] text-white'
                       : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                   )}
                 >
@@ -258,7 +258,7 @@ export function NotificationsPanel({
                             navigate(n.href!);
                             onClose();
                           }}
-                          className="mt-2 text-[10px] font-bold uppercase text-sky-700 dark:text-sky-400 hover:underline"
+                          className="mt-2 text-[10px] font-bold uppercase text-[#2F5472] dark:text-sky-400 hover:underline"
                         >
                           Open module →
                         </button>

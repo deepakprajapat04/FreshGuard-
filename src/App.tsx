@@ -14,7 +14,6 @@ import Actions from './pages/Actions';
 import Logistics from './pages/Logistics';
 import QualityControl from './pages/QualityControl';
 import Claims from './pages/Claims';
-import Reports from './pages/Reports';
 import Store from './pages/Store';
 import BusinessRules from './pages/BusinessRules';
 
@@ -34,7 +33,6 @@ export default function App() {
                 <Route path="/inbox" element={<Navigate to="/actions" replace />} />
                 <Route path="/qc" element={<QualityControl />} />
                 <Route path="/claims" element={<Claims />} />
-                <Route path="/reports" element={<Reports />} />
                 <Route path="/store" element={<Store />} />
                 <Route path="/business-rules" element={<BusinessRules />} />
               </Routes>

@@ -110,7 +110,7 @@ export default function Inbox() {
       <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
         <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <InboxIcon className="w-4 h-4 text-sky-600 dark:text-sky-300 shrink-0" />
+            <InboxIcon className="w-4 h-4 text-[#4684AD] dark:text-[#C0D5E5] shrink-0" />
             <div>
               <h2 className="text-sm font-bold uppercase tracking-wider">Buyer approval queue</h2>
               <p className="text-[11px] text-slate-400 mt-0.5">
@@ -204,8 +204,8 @@ export default function Inbox() {
                     </div>
                     <div className="font-semibold mt-0.5">{p.primarySupplier}</div>
                   </div>
-                  <div className="rounded-lg border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/30 p-2.5">
-                    <div className="text-[9px] uppercase font-bold text-sky-600">2nd-best short-lead</div>
+                  <div className="rounded-lg border border-[#86A8C2]/50 dark:border-sky-800 bg-[#C0D5E5]/30 dark:bg-sky-950/30 p-2.5">
+                    <div className="text-[9px] uppercase font-bold text-[#4684AD]">2nd-best short-lead</div>
                     <div className="font-semibold mt-0.5">{p.secondBestSupplier}</div>
                     <div className="text-[10px] text-slate-500 mt-0.5">
                       {p.secondBestBidId} · ships in {p.secondBestEtaDays}d · ${p.secondBestPricePerCase}/case
@@ -238,7 +238,7 @@ export default function Inbox() {
                   <button
                     type="button"
                     onClick={() => navigate('/logistics')}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sky-700 dark:text-sky-300 text-xs font-bold uppercase hover:underline"
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[#2F5472] dark:text-[#C0D5E5] text-xs font-bold uppercase hover:underline"
                   >
                     Open live tracking
                   </button>

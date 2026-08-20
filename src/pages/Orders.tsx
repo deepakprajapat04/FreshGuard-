@@ -1,35 +1,31 @@
 /**
- * SAP purchase orders — 3-panel: list · header summary · detail wizard.
+ * SAP purchase orders — PO list on the left, PO detail with details / item / shipment / risk tabs on the right.
  */
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Link } from 'react-router';
 import {
   Upload,
   CheckSquare,
   Square,
-  ChevronRight,
-  X,
-  Package,
   Truck,
-  FileText,
-  Building2,
   Calendar,
-  TrendingDown,
   AlertTriangle,
-  Store,
-  Megaphone,
+  Maximize2,
+  Minimize2,
+  Search,
+  Filter,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, pageShellClass } from '../components/PageChrome';
 import { usePersona } from '../context/PersonaContext';
-import { SAP } from '../lib/sapTheme';
+import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
 import {
   DEMO_POS,
   buildPoRiskImpact,
+  getPoDisplayStatus,
   type PoRiskImpact,
   type SapPurchaseOrder,
-  PERSONA_LABELS,
 } from '../lib/trackingFlow';
 import {
   looksLikeSampleAsn,
@@ -41,7 +37,24 @@ import {
 const SUPPLIER_NAME = 'Berry Farms Co-op';
 const STORAGE_KEY = 'freshguard-active-shipments-v6';
 
-type WizardStep = 'item' | 'shipment' | 'risk';
+type WizardStep = 'details' | 'item' | 'shipment' | 'risk';
+
+type PoStatusFilter = 'all' | 'in-transit' | 'asn-submitted' | 'received';
+type PoRiskFilter = 'all' | 'late' | 'early' | 'on-time';
+
+const PO_STATUS_FILTER_LABELS: Record<PoStatusFilter, string> = {
+  all: 'All',
+  'in-transit': 'In transit',
+  'asn-submitted': 'ASN submitted',
+  received: 'Received',
+};
+
+const PO_RISK_FILTER_LABELS: Record<PoRiskFilter, string> = {
+  all: 'All risk',
+  late: 'Late',
+  early: 'Early',
+  'on-time': 'On time',
+};
 
 function toDateInputValue(raw?: string): string {
   if (!raw) return new Date().toISOString().slice(0, 10);
@@ -54,13 +67,18 @@ function toDateInputValue(raw?: string): string {
 function statusBadge(status: SapPurchaseOrder['status']) {
   const styles: Record<SapPurchaseOrder['status'], string> = {
     Open: 'bg-slate-100 text-slate-700 border-slate-200',
-    Acknowledged: 'bg-blue-50 text-[#4A7394] border-[#6A9EC8]/30',
+    Acknowledged: 'bg-blue-50 text-[#2F5472] border-[#4684AD]/30',
     'ASN Submitted': 'bg-emerald-50 text-emerald-800 border-emerald-200',
     'In Transit': 'bg-amber-50 text-amber-900 border-amber-200',
     Received: 'bg-slate-100 text-slate-600 border-slate-200',
   };
   return (
-    <span className={cn('text-[10px] font-bold uppercase px-2 py-0.5 rounded border', styles[status])}>
+    <span
+      className={cn(
+        'text-[10px] font-bold uppercase px-2 py-0.5 rounded border whitespace-nowrap shrink-0',
+        styles[status]
+      )}
+    >
       {status}
     </span>
   );
@@ -70,7 +88,9 @@ function DetailField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
       <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</dt>
-      <dd className="text-sm font-medium text-slate-800 dark:text-slate-100 mt-0.5">{value}</dd>
+      <dd className="text-sm font-medium text-slate-800 dark:text-slate-100 mt-0.5">
+        {value === undefined || value === null || value === '' ? '—' : value}
+      </dd>
     </div>
   );
 }
@@ -127,9 +147,10 @@ export default function Orders() {
   const { persona } = usePersona();
   const isSupplier = persona === 'supplier';
   const [orders, setOrders] = useState<SapPurchaseOrder[]>(() => [...DEMO_POS]);
-  const [selectedPo, setSelectedPo] = useState<string | null>(DEMO_POS[0]?.po ?? null);
-  const [detailOpen, setDetailOpen] = useState(false);
-  const [wizardStep, setWizardStep] = useState<WizardStep>('item');
+  const [selectedPo, setSelectedPo] = useState<string | null>(
+    () => DEMO_POS.find((o) => o.shipmentDetail)?.po ?? null
+  );
+  const [wizardStep, setWizardStep] = useState<WizardStep>('details');
   const [asnOpen, setAsnOpen] = useState(false);
   const [linkedPoIds, setLinkedPoIds] = useState<string[]>([]);
   const [asnFields, setAsnFields] = useState({
@@ -142,15 +163,20 @@ export default function Orders() {
   const [lineQty, setLineQty] = useState<Record<string, string>>({});
   const [slipMsg, setSlipMsg] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [detailExpanded, setDetailExpanded] = useState(false);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<PoStatusFilter>('all');
+  const [riskFilter, setRiskFilter] = useState<PoRiskFilter>('all');
 
   const visibleOrders = useMemo(
     () => (isSupplier ? orders.filter((o) => o.supplier === SUPPLIER_NAME) : orders),
     [orders, isSupplier]
   );
 
-  const selected = visibleOrders.find((o) => o.po === selectedPo) ?? null;
-  const eligiblePos = visibleOrders.filter(
-    (o) => o.status === 'Acknowledged' || o.status === 'Open'
+  /** Only POs with a submitted ASN appear in the purchase order list. */
+  const listedOrders = useMemo(
+    () => visibleOrders.filter((o) => o.shipmentDetail),
+    [visibleOrders]
   );
 
   const riskByPo = useMemo(() => {
@@ -162,18 +188,71 @@ export default function Orders() {
     return map;
   }, [orders]);
 
+  const filteredListedOrders = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return listedOrders.filter((o) => {
+      const displayStatus = getPoDisplayStatus(o);
+      if (statusFilter === 'in-transit' && displayStatus !== 'In Transit') return false;
+      if (statusFilter === 'asn-submitted' && displayStatus !== 'ASN Submitted') return false;
+      if (statusFilter === 'received' && displayStatus !== 'Received') return false;
+
+      const risk = riskByPo.get(o.po);
+      if (riskFilter === 'late' && !(risk && risk.delayDays > 0)) return false;
+      if (riskFilter === 'early' && !(risk && risk.delayDays < 0)) return false;
+      if (riskFilter === 'on-time' && risk && risk.delayDays !== 0) return false;
+
+      if (!q) return true;
+      const haystack = [
+        o.po,
+        o.item,
+        o.supplier,
+        o.shipmentDetail?.containerNumber,
+        o.shipmentDetail?.asnNumber,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [listedOrders, search, statusFilter, riskFilter, riskByPo]);
+  useEffect(() => {
+    if (listedOrders.length === 0) {
+      setSelectedPo(null);
+      return;
+    }
+    if (!selectedPo || !listedOrders.some((o) => o.po === selectedPo)) {
+      setSelectedPo(listedOrders[0].po);
+    }
+  }, [listedOrders, selectedPo]);
+
+  useEffect(() => {
+    if (filteredListedOrders.length === 0) return;
+    if (!selectedPo || !filteredListedOrders.some((o) => o.po === selectedPo)) {
+      setSelectedPo(filteredListedOrders[0].po);
+    }
+  }, [filteredListedOrders, selectedPo]);
+
+  const selected = listedOrders.find((o) => o.po === selectedPo) ?? null;
+  const eligiblePos = visibleOrders.filter((o) => !o.shipmentDetail);
+
   const selectedRisk = selected ? (riskByPo.get(selected.po) ?? null) : null;
+
+  useEffect(() => {
+    if (!selected) setDetailExpanded(false);
+  }, [selected]);
+
+  useEffect(() => {
+    if (!detailExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailExpanded]);
 
   const selectPo = (po: string) => {
     setSelectedPo(po);
-    setDetailOpen(false);
-    setWizardStep('item');
-  };
-
-  const openDetail = (step: WizardStep = 'item') => {
-    if (!selected) return;
-    setWizardStep(step);
-    setDetailOpen(true);
+    setWizardStep('details');
   };
 
   const togglePo = (po: string) => {
@@ -235,9 +314,40 @@ export default function Orders() {
     setSaving(true);
     setTimeout(() => {
       setOrders((prev) =>
-        prev.map((o) =>
-          linkedPoIds.includes(o.po) ? { ...o, status: 'ASN Submitted' as const } : o
-        )
+        prev.map((o) => {
+          if (!linkedPoIds.includes(o.po)) return o;
+          const qty = Number(lineQty[o.po] || o.orderedQty);
+          return {
+            ...o,
+            status: 'ASN Submitted' as const,
+            itemDetail: { ...o.itemDetail, confirmedQty: qty },
+            shipmentDetail: {
+              asnNumber: asnFields.asnNumber,
+              containerNumber: asnFields.containerNumber,
+              shipDate: asnFields.shipDate,
+              eta: asnFields.eta,
+              originalEta: asnFields.eta,
+              origin: o.itemDetail.countryOfOrigin,
+              destination: o.destination,
+              transportMode: 'ocean' as const,
+              incoterms: 'FOB',
+              tempRange: o.itemDetail.storageTemp,
+              cargoLines: [
+                {
+                  poNumber: o.po,
+                  item: o.itemDetail.description,
+                  quantity: qty,
+                  unit: o.unit,
+                  lotNumber: `LOT-${o.po.slice(-4)}`,
+                  harvestDate: asnFields.shipDate,
+                  bestBefore: o.deliveryDate,
+                  palletCount: Math.max(1, Math.round(qty / 50)),
+                  grossWeightKg: Math.round(qty * (o.itemDetail.netWeightKg / o.orderedQty)),
+                },
+              ],
+            },
+          };
+        })
       );
       try {
         const stored = localStorage.getItem(STORAGE_KEY);
@@ -279,59 +389,116 @@ export default function Orders() {
     }, 600);
   };
 
-  const gridCols = detailOpen
-    ? 'lg:grid-cols-[minmax(220px,1fr)_minmax(260px,1.1fr)_minmax(320px,1.4fr)]'
-    : 'lg:grid-cols-[minmax(260px,1fr)_minmax(320px,1.2fr)]';
-
   return (
     <div className={pageShellClass}>
-      <PageHeader
-        eyebrow={isSupplier ? PERSONA_LABELS.supplier : 'SAP S/4HANA'}
-        title="Purchase orders"
-        subtitle={
-          isSupplier
-            ? 'Select a PO for header, shipment and the delivery risk raised against it.'
-            : 'Synced from SAP. Delivery risk on each PO is derived from its linked shipment event.'
-        }
-      >
-        {isSupplier && (
-          <button
-            type="button"
-            onClick={() => {
-              setAsnOpen(true);
-              setLinkedPoIds([]);
-              setAsnFields({
-                asnNumber: `ASN-${Date.now().toString().slice(-6)}`,
-                containerNumber: '',
-                shipDate: toDateInputValue(),
-                eta: '3 Days',
-                notes: '',
-              });
-            }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-white text-sm font-semibold"
-            style={{ backgroundColor: SAP.blue }}
-          >
-            <Upload className="w-4 h-4" />
-            Create / upload ASN
-          </button>
-        )}
-      </PageHeader>
+      {!detailExpanded && (
+        <PageHeader title="Purchase Order">
+          {isSupplier && (
+            <button
+              type="button"
+              onClick={() => {
+                setAsnOpen(true);
+                setLinkedPoIds([]);
+                setAsnFields({
+                  asnNumber: `ASN-${Date.now().toString().slice(-6)}`,
+                  containerNumber: '',
+                  shipDate: toDateInputValue(),
+                  eta: '3 Days',
+                  notes: '',
+                });
+              }}
+              className={btnPrimaryClass}
+            >
+              <Upload className="w-4 h-4" />
+              Create / upload ASN
+            </button>
+          )}
+        </PageHeader>
+      )}
 
-      <div className={cn('grid grid-cols-1 gap-3 min-h-[calc(100vh-12rem)]', gridCols)}>
+      <div
+        className={cn(
+          'grid grid-cols-1 gap-3 items-start',
+          detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[calc(100vh-12rem)] lg:grid-cols-[minmax(220px,280px)_1fr]'
+        )}
+      >
         {/* Panel 1 — PO list */}
-        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm flex flex-col overflow-hidden">
-          <div
-            className="px-4 py-3 border-b border-[#B8CFE0]/60 text-[#4A7394] shrink-0"
-            style={{ background: SAP.shellGradient }}
-          >
-            <h2 className="text-xs font-bold uppercase tracking-wide">SAP PO list</h2>
-            <p className="text-[10px] text-slate-500 mt-0.5">Blueberries & Strawberries</p>
+        <section
+          className={cn(
+            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md flex flex-col overflow-hidden sticky top-0 self-start max-h-[calc(100vh-3.5rem)]',
+            detailExpanded && 'hidden'
+          )}
+        >
+          <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-slate-900 dark:text-white">
+              <Filter className="w-3.5 h-3.5" />
+              SAP PO list
+            </h2>
+            <p className="text-[10px] text-slate-500 mt-0.5">
+              {filteredListedOrders.length} of {listedOrders.length} with ASN
+            </p>
           </div>
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
-            {visibleOrders.length === 0 ? (
-              <p className="p-4 text-sm text-slate-500">No POs for this view.</p>
+
+          <div className="shrink-0 p-3 space-y-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search PO number, item, container…"
+                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Status</div>
+              <div className="flex flex-wrap gap-1">
+                {(Object.keys(PO_STATUS_FILTER_LABELS) as PoStatusFilter[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setStatusFilter(f)}
+                    className={cn(
+                      'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
+                      statusFilter === f
+                        ? 'bg-[#4684AD] text-white border-[#4684AD]'
+                        : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+                    )}
+                  >
+                    {PO_STATUS_FILTER_LABELS[f]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Delivery risk</div>
+              <div className="flex flex-wrap gap-1">
+                {(Object.keys(PO_RISK_FILTER_LABELS) as PoRiskFilter[]).map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setRiskFilter(f)}
+                    className={cn(
+                      'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
+                      riskFilter === f
+                        ? 'bg-[#4684AD] text-white border-[#4684AD]'
+                        : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+                    )}
+                  >
+                    {PO_RISK_FILTER_LABELS[f]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+            {listedOrders.length === 0 ? (
+              <p className="p-4 text-sm text-slate-500">No POs with ASN yet.</p>
+            ) : filteredListedOrders.length === 0 ? (
+              <p className="p-4 text-sm text-slate-500">No POs match your search or filters.</p>
             ) : (
-              visibleOrders.map((o) => {
+              filteredListedOrders.map((o) => {
                 const active = selectedPo === o.po;
                 const risk = riskByPo.get(o.po);
                 return (
@@ -340,17 +507,17 @@ export default function Orders() {
                     type="button"
                     onClick={() => selectPo(o.po)}
                     className={cn(
-                      'w-full text-left px-4 py-3 transition-colors',
+                      'w-full text-left px-3 py-2.5 transition-colors',
                       active
-                        ? 'bg-[#EDF3F9] dark:bg-blue-950/40 border-l-4 border-l-[#6A9EC8]'
+                        ? 'bg-[#C0D5E5] dark:bg-blue-950/40 border-l-4 border-l-[#4684AD]'
                         : 'hover:bg-slate-50 dark:hover:bg-slate-800/50 border-l-4 border-l-transparent'
                     )}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-code text-xs font-bold text-[#4A7394] dark:text-blue-300">
+                      <span className="font-code text-xs font-bold text-[#2F5472] dark:text-blue-300">
                         {o.po}
                       </span>
-                      {statusBadge(o.status)}
+                      {statusBadge(getPoDisplayStatus(o))}
                     </div>
                     <div className="text-sm font-semibold mt-1 text-slate-800 dark:text-slate-100">
                       {o.item}
@@ -375,229 +542,116 @@ export default function Orders() {
           </div>
         </section>
 
-        {/* Panel 2 — Header detail */}
-        <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm flex flex-col overflow-hidden">
-          <div
-            className="px-4 py-3 border-b border-[#B8CFE0]/60 text-[#4A7394] shrink-0 flex items-center justify-between"
-            style={{ backgroundColor: SAP.headerBg }}
-          >
-            <div>
-              <h2 className="text-xs font-bold uppercase tracking-wide">PO header</h2>
-              <p className="text-[10px] text-slate-500 mt-0.5">
-                {selected ? selected.po : 'Select a purchase order'}
-              </p>
-            </div>
-            {selected && (
-              <button
-                type="button"
-                onClick={() => openDetail()}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white/15 hover:bg-white/25 text-[11px] font-bold uppercase"
-              >
-                Detail
-                <ChevronRight className="w-3.5 h-3.5" />
-              </button>
-            )}
-          </div>
-
+        {/* Panel 2 — PO detail */}
+        <section
+          className={cn(
+            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md flex flex-col overflow-hidden',
+            detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[480px]'
+          )}
+        >
           {!selected ? (
             <div className="flex-1 flex items-center justify-center p-8 text-sm text-slate-400">
               Select a PO from the list
             </div>
           ) : (
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              <div className="rounded-lg border border-[#6A9EC8]/20 bg-[#EDF3F9]/60 dark:bg-blue-950/20 p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-code text-lg font-bold text-[#4A7394] dark:text-blue-300">
-                      {selected.po}
-                    </div>
-                    <div className="text-base font-semibold mt-1">{selected.item}</div>
+            <>
+              <div className="sticky top-0 z-20 shrink-0 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200/80 dark:border-slate-700">
+                <div className="px-4 py-3 flex items-start justify-between gap-3 bg-white dark:bg-slate-900">
+                  <div className="min-w-0">
+                    <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">PO detail</h2>
+                    <p className="font-code text-sm font-bold mt-0.5">{selected.po}</p>
+                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                      {selected.item} · {selected.supplier}
+                    </p>
                   </div>
-                  {statusBadge(selected.status)}
-                </div>
-              </div>
-
-              <dl className="grid grid-cols-2 gap-3">
-                <DetailField label="Supplier" value={selected.supplier} />
-                <DetailField label="Buyer" value={selected.buyer} />
-                <DetailField label="Company code" value={selected.companyCode} />
-                <DetailField label="Purch. org" value={selected.purchasingOrg} />
-                <DetailField
-                  label="Ordered qty"
-                  value={`${selected.orderedQty.toLocaleString()} ${selected.unit}`}
-                />
-                <DetailField label="Delivery date" value={selected.deliveryDate} />
-                <DetailField label="Destination" value={selected.destination} />
-                <DetailField label="Payment terms" value={selected.paymentTerms} />
-                <DetailField label="Created" value={selected.createdDate} />
-                <DetailField
-                  label="Net value"
-                  value={`${selected.itemDetail.currency} ${(selected.itemDetail.unitPrice * selected.orderedQty).toLocaleString()}`}
-                />
-              </dl>
-
-              {selected.shipmentDetail && (
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-xs space-y-1">
-                  <div className="font-bold text-[#4A7394] flex items-center gap-1.5">
-                    <Truck className="w-3.5 h-3.5" />
-                    Shipment linked
-                  </div>
-                  <p>
-                    Container <strong>{selected.shipmentDetail.containerNumber}</strong> · ASN{' '}
-                    {selected.shipmentDetail.asnNumber}
-                  </p>
-                  <p className="text-slate-500">ETA {selected.shipmentDetail.eta}</p>
-                </div>
-              )}
-
-              {selectedRisk && selectedRisk.severity !== 'none' && (
-                <div
-                  className={cn(
-                    'rounded-lg border overflow-hidden',
-                    selectedRisk.severity === 'high'
-                      ? 'border-rose-200 dark:border-rose-900'
-                      : 'border-amber-200 dark:border-amber-900'
-                  )}
-                >
-                  <div
-                    className={cn(
-                      'px-3 py-2 flex items-center gap-1.5 text-xs font-bold',
-                      selectedRisk.severity === 'high'
-                        ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30'
-                        : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30'
+                  <div className="flex items-center gap-2 shrink-0">
+                    {statusBadge(getPoDisplayStatus(selected))}
+                    {selectedRisk && selectedRisk.severity !== 'none' && (
+                      <button
+                        type="button"
+                        onClick={() => setWizardStep('risk')}
+                        className="hover:opacity-80 transition-opacity"
+                      >
+                        <RiskChip risk={selectedRisk} />
+                      </button>
                     )}
-                  >
-                    <AlertTriangle className="w-3.5 h-3.5" />
-                    {selectedRisk.headline}
+                    <button
+                      type="button"
+                      onClick={() => setDetailExpanded((v) => !v)}
+                      className="p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#2F5472] hover:border-[#4684AD]/50 transition-colors"
+                      title={detailExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
+                      aria-label={detailExpanded ? 'Exit full screen' : 'Expand to full screen'}
+                    >
+                      {detailExpanded ? (
+                        <Minimize2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
                   </div>
-                  <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                    <RiskStat
-                      label="DC arrival"
-                      value={formatShortDate(selectedRisk.revisedEta)}
-                      sub={`planned ${formatShortDate(selectedRisk.originalEta)}`}
-                      valueClass="text-amber-800"
-                    />
-                    <RiskStat
-                      label="Store shelf"
-                      value={formatShortDate(selectedRisk.storeShelfDate)}
-                      sub={`DC + ${selectedRisk.storeTransitBufferDays}d dock-to-shelf`}
-                      valueClass="text-[#4A7394]"
-                    />
-                    <RiskStat
-                      label="Stock at risk"
-                      value={selectedRisk.oosGapDays > 0 ? `${selectedRisk.oosGapDays}d` : 'None'}
-                      sub={
-                        selectedRisk.oosGapDays > 0
-                          ? `on-hand expires ${formatShortDate(selectedRisk.onHandExpiresDate)}`
-                          : 'covered until store'
-                      }
-                      valueClass={
-                        selectedRisk.oosGapDays > 0 ? 'text-rose-700' : 'text-emerald-700'
-                      }
-                    />
-                    <RiskStat
-                      label="Stores affected"
-                      value={`${selectedRisk.storesAtRisk}`}
-                      sub={`of ${selectedRisk.storesTotal} on this item`}
-                      valueClass={
-                        selectedRisk.storesAtRisk > 0 ? 'text-rose-700' : 'text-emerald-700'
-                      }
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => openDetail('risk')}
-                    className="w-full flex items-center justify-between gap-2 px-3 py-2.5 border-t border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-950/30 text-xs font-semibold text-[#4A7394] hover:bg-[#EDF3F9]/60"
-                  >
-                    <span>
-                      {isSupplier ? 'What the buyer needs from you' : 'Downstream impact & actions'}
-                    </span>
-                    <ChevronRight className="w-4 h-4 shrink-0" />
-                  </button>
                 </div>
-              )}
 
-              <button
-                type="button"
-                onClick={() => openDetail()}
-                className="w-full py-2.5 rounded-lg text-white text-xs font-bold uppercase tracking-wide flex items-center justify-center gap-2"
-                style={{ backgroundColor: SAP.blue }}
-              >
-                <FileText className="w-4 h-4" />
-                Open detail wizard
-              </button>
-            </div>
-          )}
-        </section>
-
-        {/* Panel 3 — Detail wizard */}
-        {detailOpen && selected && (
-          <section className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm flex flex-col overflow-hidden lg:col-span-1">
-            <div
-              className="px-4 py-3 border-b border-[#B8CFE0]/60 text-[#4A7394] shrink-0 flex items-start justify-between gap-2"
-              style={{ background: SAP.shellGradient }}
-            >
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wide">PO detail wizard</h2>
-                <p className="text-[10px] text-slate-500 mt-0.5 font-code">{selected.po}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setDetailOpen(false)}
-                className="p-1 rounded hover:bg-white/15"
-                aria-label="Close detail panel"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {/* Step indicator */}
-            <div className="flex border-b border-slate-200 dark:border-slate-700 shrink-0">
+                <div className="flex border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
               {(
                 [
-                  { id: 'item' as const, label: 'Item', icon: Package },
-                  { id: 'shipment' as const, label: 'Shipment', icon: Truck },
-                  { id: 'risk' as const, label: 'Delivery risk', icon: TrendingDown },
+                  { id: 'details' as const, label: 'Details' },
+                  { id: 'item' as const, label: 'Item' },
+                  { id: 'shipment' as const, label: 'Shipment' },
+                  { id: 'risk' as const, label: 'Delivery risk' },
                 ] as const
-              ).map((step, idx) => (
+              ).map((step) => (
                 <button
                   key={step.id}
                   type="button"
                   onClick={() => setWizardStep(step.id)}
                   className={cn(
-                    'flex-1 flex items-center justify-center gap-2 py-3 text-xs font-bold uppercase tracking-wide border-b-2 transition-colors',
+                    'flex-1 py-2.5 text-xs font-bold border-b-2 transition-colors min-w-0',
                     wizardStep === step.id
-                      ? 'border-[#6A9EC8] text-[#6A9EC8] bg-[#EDF3F9]/50 dark:bg-blue-950/30'
-                      : 'border-transparent text-slate-400 hover:text-slate-600'
+                      ? 'border-[#4684AD] text-[#4684AD] bg-[#C0D5E5]/50 dark:bg-blue-950/30'
+                      : 'border-transparent text-slate-400 hover:text-slate-600',
+                    step.id === 'risk' &&
+                      selectedRisk &&
+                      selectedRisk.severity !== 'none' &&
+                      wizardStep !== 'risk' &&
+                      'text-amber-700'
                   )}
                 >
-                  <span
-                    className={cn(
-                      'w-5 h-5 rounded-full flex items-center justify-center text-[10px]',
-                      wizardStep === step.id
-                        ? 'bg-[#6A9EC8] text-white'
-                        : 'bg-slate-200 text-slate-500'
-                    )}
-                  >
-                    {idx + 1}
-                  </span>
-                  <step.icon className="w-3.5 h-3.5 hidden sm:block" />
                   {step.label}
                 </button>
               ))}
-            </div>
+                </div>
+              </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 overflow-y-auto p-4">
+              {wizardStep === 'details' && (
+                <div className="space-y-4">
+                  <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                      <DetailField label="Supplier" value={selected.supplier} />
+                      <DetailField label="Buyer" value={selected.buyer} />
+                      <DetailField label="Company code" value={selected.companyCode} />
+                      <DetailField label="Purch. org" value={selected.purchasingOrg} />
+                      <DetailField
+                        label="Ordered qty"
+                        value={`${selected.orderedQty.toLocaleString()} ${selected.unit}`}
+                      />
+                      <DetailField label="Delivery date" value={selected.deliveryDate} />
+                      <DetailField label="Destination" value={selected.destination} />
+                      <DetailField label="Payment terms" value={selected.paymentTerms} />
+                      <DetailField label="Created" value={selected.createdDate} />
+                      <DetailField
+                        label="Net value"
+                        value={`${selected.itemDetail.currency} ${(selected.itemDetail.unitPrice * selected.orderedQty).toLocaleString()}`}
+                      />
+                  </dl>
+                </div>
+              )}
+
               {wizardStep === 'item' && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-bold text-[#4A7394]">
-                    <Package className="w-4 h-4" />
-                    Item detail — {selected.item}
-                  </div>
-                  <dl className="grid grid-cols-2 gap-3">
+                  <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                     <DetailField label="Material number" value={selected.itemDetail.materialNumber} />
                     <DetailField label="SKU" value={selected.itemDetail.sku} />
-                    <div className="col-span-2">
+                    <div className="col-span-full">
                       <DetailField label="Description" value={selected.itemDetail.description} />
                     </div>
                     <DetailField
@@ -618,24 +672,11 @@ export default function Orders() {
                     />
                     <DetailField label="Country of origin" value={selected.itemDetail.countryOfOrigin} />
                   </dl>
-                  <button
-                    type="button"
-                    onClick={() => setWizardStep('shipment')}
-                    className="w-full py-2 rounded-lg border border-[#6A9EC8] text-[#6A9EC8] text-xs font-bold uppercase flex items-center justify-center gap-2"
-                  >
-                    Next: Shipment
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
                 </div>
               )}
 
               {wizardStep === 'shipment' && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-bold text-[#4A7394]">
-                    <Truck className="w-4 h-4" />
-                    Shipment detail
-                  </div>
-
                   {!selected.shipmentDetail ? (
                     <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
                       <Truck className="w-8 h-8 mx-auto text-slate-300 mb-2" />
@@ -648,7 +689,7 @@ export default function Orders() {
                     </div>
                   ) : (
                     <>
-                      <dl className="grid grid-cols-2 gap-3">
+                      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
                         <DetailField label="ASN number" value={selected.shipmentDetail.asnNumber} />
                         <DetailField label="Container" value={selected.shipmentDetail.containerNumber} />
                         <DetailField label="Ship date" value={selected.shipmentDetail.shipDate} />
@@ -672,17 +713,14 @@ export default function Orders() {
                       </dl>
 
                       <div className="space-y-2">
-                        <h3 className="text-xs font-bold uppercase text-slate-500 flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5" />
-                          Cargo lines (per item)
-                        </h3>
+                        <h3 className="text-xs font-bold text-slate-500">Cargo lines</h3>
                         {selected.shipmentDetail.cargoLines.map((line) => (
                           <div
                             key={`${line.poNumber}-${line.lotNumber}`}
                             className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-xs space-y-2 bg-slate-50/50 dark:bg-slate-950/40"
                           >
                             <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-bold text-[#4A7394]">{line.item}</span>
+                              <span className="font-bold text-[#2F5472]">{line.item}</span>
                               <span className="font-code text-[10px] text-slate-400">{line.poNumber}</span>
                             </div>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -711,25 +749,11 @@ export default function Orders() {
                       </div>
                     </>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={() => setWizardStep('risk')}
-                    className="w-full py-2 rounded-lg border border-[#6A9EC8] text-[#6A9EC8] text-xs font-bold uppercase flex items-center justify-center gap-2"
-                  >
-                    Next: Delivery risk
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
                 </div>
               )}
 
               {wizardStep === 'risk' && (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-2 text-sm font-bold text-[#4A7394]">
-                    <TrendingDown className="w-4 h-4" />
-                    Delivery risk
-                  </div>
-
                   {!selectedRisk ? (
                     <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
                       No shipment linked yet — risk appears once an ASN is submitted.
@@ -741,8 +765,26 @@ export default function Orders() {
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                        <div className="grid grid-cols-2 divide-x divide-y divide-slate-100 dark:divide-slate-800">
+                      <div
+                        className={cn(
+                          'rounded-lg border overflow-hidden',
+                          selectedRisk.severity === 'high'
+                            ? 'border-rose-200 dark:border-rose-900'
+                            : 'border-amber-200 dark:border-amber-900'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'px-3 py-2 flex items-center gap-1.5 text-xs font-bold',
+                            selectedRisk.severity === 'high'
+                              ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30'
+                              : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30'
+                          )}
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          {selectedRisk.headline}
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                           <RiskStat
                             label="Planned DC"
                             value={formatShortDate(selectedRisk.originalEta)}
@@ -762,7 +804,7 @@ export default function Orders() {
                             label="Store shelf"
                             value={formatShortDate(selectedRisk.storeShelfDate)}
                             sub={`DC + ${selectedRisk.storeTransitBufferDays}d dock-to-shelf`}
-                            valueClass="text-[#4A7394]"
+                            valueClass="text-[#2F5472]"
                           />
                           <RiskStat
                             label="Stock at risk"
@@ -777,6 +819,41 @@ export default function Orders() {
                             valueClass={
                               selectedRisk.oosGapDays > 0 ? 'text-rose-700' : 'text-emerald-700'
                             }
+                          />
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-slate-800">
+                          <RiskStat
+                            label="Stores affected"
+                            value={`${selectedRisk.storesAtRisk}`}
+                            sub={`of ${selectedRisk.storesTotal} on this item`}
+                            valueClass={
+                              selectedRisk.storesAtRisk > 0 ? 'text-rose-700' : 'text-emerald-700'
+                            }
+                          />
+                          <RiskStat
+                            label="Transfers"
+                            value={`${selectedRisk.moveCount}`}
+                            sub={`${selectedRisk.casesToMove} cases to cover`}
+                            valueClass="text-[#2F5472]"
+                          />
+                          <RiskStat
+                            label="Promotions"
+                            value={`${selectedRisk.promosAtRisk}`}
+                            sub={`${selectedRisk.promoStoreChanges} store changes`}
+                            valueClass="text-violet-700"
+                          />
+                          <RiskStat
+                            label="Pricing"
+                            value={
+                              selectedRisk.markdownPercent != null
+                                ? `${selectedRisk.markdownPercent}%`
+                                : 'Standard'
+                            }
+                            sub="markdown on affected units"
+                            valueClass="text-amber-800"
                           />
                         </div>
                       </div>
@@ -821,63 +898,6 @@ export default function Orders() {
                       ) : (
                         <section className="space-y-2">
                           <h3 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
-                            Downstream impact
-                          </h3>
-                          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
-                            <table className="w-full text-xs">
-                              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                <tr>
-                                  <td className="px-3 py-2.5 text-slate-500 flex items-center gap-1.5">
-                                    <Store className="w-3.5 h-3.5" />
-                                    Stores needing stock
-                                  </td>
-                                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-rose-700">
-                                    {selectedRisk.storesAtRisk}
-                                    <span className="font-normal text-slate-400 ml-1">
-                                      / {selectedRisk.storesTotal}
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3 py-2.5 text-slate-500 flex items-center gap-1.5">
-                                    <Truck className="w-3.5 h-3.5" />
-                                    Transfers to cover
-                                  </td>
-                                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#4A7394]">
-                                    {selectedRisk.moveCount}
-                                    <span className="font-normal text-slate-400 ml-1">
-                                      moves · {selectedRisk.casesToMove} cases
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3 py-2.5 text-slate-500 flex items-center gap-1.5">
-                                    <Megaphone className="w-3.5 h-3.5" />
-                                    Promotions affected
-                                  </td>
-                                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-violet-700">
-                                    {selectedRisk.promosAtRisk}
-                                    <span className="font-normal text-slate-400 ml-1">
-                                      · {selectedRisk.promoStoreChanges} store changes
-                                    </span>
-                                  </td>
-                                </tr>
-                                <tr>
-                                  <td className="px-3 py-2.5 text-slate-500 flex items-center gap-1.5">
-                                    <TrendingDown className="w-3.5 h-3.5" />
-                                    Pricing
-                                  </td>
-                                  <td className="px-3 py-2.5 text-right font-bold text-amber-800">
-                                    {selectedRisk.markdownPercent != null
-                                      ? `Markdown ${selectedRisk.markdownPercent}%`
-                                      : 'Standard'}
-                                  </td>
-                                </tr>
-                              </tbody>
-                            </table>
-                          </div>
-
-                          <h3 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide pt-1">
                             Raised with supplier
                           </h3>
                           <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
@@ -898,38 +918,28 @@ export default function Orders() {
 
                           <Link
                             to="/"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#6A9EC8] hover:underline"
+                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#4684AD] hover:underline"
                           >
-                            Open Track → Risk → Act for {selectedRisk.containerNumber}
+                            Open Shipment Intelligence for {selectedRisk.containerNumber}
                           </Link>
                         </section>
                       )}
                     </>
                   )}
-
-                  <button
-                    type="button"
-                    onClick={() => setWizardStep('shipment')}
-                    className="w-full py-2 rounded-lg border text-xs font-bold uppercase text-slate-600"
-                  >
-                    Back to shipment
-                  </button>
                 </div>
               )}
-            </div>
-          </section>
-        )}
+              </div>
+            </>
+          )}
+        </section>
       </div>
 
       {/* ASN modal */}
       {asnOpen && isSupplier && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl">
-            <div
-              className="px-5 py-4 border-b border-[#B8CFE0]/60 text-[#4A7394]"
-              style={{ background: SAP.shellGradient }}
-            >
-              <h2 className="text-sm font-bold uppercase tracking-wide">Mass ASN upload</h2>
+            <div className="border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">Mass ASN upload</h2>
               <p className="text-xs text-slate-500 mt-1">
                 One container · multiple POs · photo OCR or manual entry
               </p>
@@ -960,11 +970,11 @@ export default function Orders() {
                       onClick={() => togglePo(o.po)}
                       className={cn(
                         'w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left text-sm',
-                        on ? 'border-[#6A9EC8] bg-[#EDF3F9]/60' : 'border-slate-200'
+                        on ? 'border-[#4684AD] bg-[#C0D5E5]/60' : 'border-slate-200'
                       )}
                     >
                       {on ? (
-                        <CheckSquare className="w-4 h-4 text-[#6A9EC8]" />
+                        <CheckSquare className="w-4 h-4 text-[#4684AD]" />
                       ) : (
                         <Square className="w-4 h-4 text-slate-400" />
                       )}
@@ -1017,15 +1027,14 @@ export default function Orders() {
                   type="button"
                   disabled={saving || !linkedPoIds.length || !asnFields.asnNumber}
                   onClick={submitAsn}
-                  className="flex-1 py-2.5 rounded-lg text-white text-xs font-bold uppercase disabled:opacity-50"
-                  style={{ backgroundColor: SAP.blue }}
+                  className={cn(btnPrimaryClass, 'flex-1 disabled:opacity-50')}
                 >
                   {saving ? 'Submitting…' : 'Submit ASN to DC'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setAsnOpen(false)}
-                  className="px-4 py-2.5 rounded-lg border text-sm font-semibold"
+                  className={btnSecondaryClass}
                 >
                   Cancel
                 </button>

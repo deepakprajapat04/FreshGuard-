@@ -269,6 +269,8 @@ export type RiskAction = {
   stockProposal?: StockRiskProposal;
   promotionProposal?: PromotionRiskProposal;
   shelfLifeProposal?: ShelfLifeProposal;
+  receivingImpact?: ReceivingImpact;
+  transportImpact?: TransportImpact;
 };
 
 const SUPPLIER = 'Berry Farms Co-op';
@@ -281,7 +283,7 @@ export const DEMO_POS: SapPurchaseOrder[] = [
     orderedQty: 2400,
     unit: 'Cases',
     deliveryDate: '2026-08-20',
-    status: 'Acknowledged',
+    status: 'In Transit',
     destination: 'Chicago DC',
     companyCode: '1000',
     purchasingOrg: 'PORG-US01',
@@ -328,14 +330,36 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       cargoLines: [
         {
           poNumber: 'PO-4500012345',
-          item: 'Blueberries',
-          quantity: 2400,
+          item: 'Blueberries — Premium Grade A',
+          quantity: 1000,
           unit: 'Cases',
           lotNumber: 'LOT-BB-0812-A',
           harvestDate: '2026-08-08',
           bestBefore: '2026-08-31',
-          palletCount: 48,
-          grossWeightKg: 5280,
+          palletCount: 20,
+          grossWeightKg: 2200,
+        },
+        {
+          poNumber: 'PO-4500012345',
+          item: 'Blueberries — Grade B',
+          quantity: 900,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0812-B',
+          harvestDate: '2026-08-09',
+          bestBefore: '2026-08-29',
+          palletCount: 18,
+          grossWeightKg: 1980,
+        },
+        {
+          poNumber: 'PO-4500012345',
+          item: 'Blueberries — Organic',
+          quantity: 500,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0813-C',
+          harvestDate: '2026-08-10',
+          bestBefore: '2026-08-27',
+          palletCount: 10,
+          grossWeightKg: 1100,
         },
       ],
     },
@@ -347,7 +371,7 @@ export const DEMO_POS: SapPurchaseOrder[] = [
     orderedQty: 1800,
     unit: 'Cases',
     deliveryDate: '2026-08-20',
-    status: 'Acknowledged',
+    status: 'In Transit',
     destination: 'Chicago DC',
     companyCode: '1000',
     purchasingOrg: 'PORG-US01',
@@ -394,14 +418,25 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       cargoLines: [
         {
           poNumber: 'PO-4500012346',
-          item: 'Strawberries',
-          quantity: 1800,
+          item: 'Strawberries — Driscoll Select',
+          quantity: 1000,
           unit: 'Cases',
           lotNumber: 'LOT-ST-0812-A',
           harvestDate: '2026-08-09',
           bestBefore: '2026-08-31',
-          palletCount: 36,
-          grossWeightKg: 2970,
+          palletCount: 20,
+          grossWeightKg: 1650,
+        },
+        {
+          poNumber: 'PO-4500012346',
+          item: 'Strawberries — Standard',
+          quantity: 800,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0813-B',
+          harvestDate: '2026-08-10',
+          bestBefore: '2026-08-28',
+          palletCount: 16,
+          grossWeightKg: 1320,
         },
       ],
     },
@@ -413,7 +448,7 @@ export const DEMO_POS: SapPurchaseOrder[] = [
     orderedQty: 1200,
     unit: 'Cases',
     deliveryDate: '2026-08-22',
-    status: 'Open',
+    status: 'In Transit',
     destination: 'Chicago DC',
     companyCode: '1000',
     purchasingOrg: 'PORG-US01',
@@ -425,7 +460,7 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       description: 'Fresh Blueberries — Premium Grade A',
       sku: 'SKU-BB-2388',
       orderedQty: 1200,
-      confirmedQty: 0,
+      confirmedQty: 1200,
       unit: 'Cases',
       unitPrice: 28.5,
       currency: 'USD',
@@ -434,6 +469,78 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       plant: 'PL-CHI-01',
       storageLocation: 'CH01-A',
       netWeightKg: 2400,
+      countryOfOrigin: 'USA',
+    },
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-ST-0802',
+      containerNumber: 'MSCU7710092',
+      shipDate: '2026-08-17',
+      eta: 'Aug 19, 2026 (−1 day early)',
+      originalEta: 'Aug 20, 2026',
+      origin: 'San Pedro, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Midwest Reefer Lines',
+      bookingNumber: 'BB-MSCU-7710',
+      sealNumber: 'SL-7710092',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–2°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012388',
+          item: 'Blueberries — Premium Grade A',
+          quantity: 700,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0816-A',
+          harvestDate: '2026-08-14',
+          bestBefore: '2026-08-30',
+          palletCount: 14,
+          grossWeightKg: 1540,
+        },
+        {
+          poNumber: 'PO-4500012388',
+          item: 'Blueberries — Grade B',
+          quantity: 500,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0816-B',
+          harvestDate: '2026-08-15',
+          bestBefore: '2026-08-28',
+          palletCount: 10,
+          grossWeightKg: 1100,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500012390',
+    item: 'Strawberries',
+    supplier: SUPPLIER,
+    orderedQty: 1500,
+    unit: 'Cases',
+    deliveryDate: '2026-09-02',
+    status: 'Open',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-18',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-ST-2201',
+      description: 'Fresh Strawberries — Driscoll Select',
+      sku: 'SKU-ST-2390',
+      orderedQty: 1500,
+      confirmedQty: 0,
+      unit: 'Cases',
+      unitPrice: 32.0,
+      currency: 'USD',
+      shelfLifeDays: 22,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-B',
+      netWeightKg: 2250,
       countryOfOrigin: 'USA',
     },
   },
@@ -1030,6 +1137,15 @@ export function getShipmentForPo(po: SapPurchaseOrder): TrackShipment | undefine
   return linked.find((s) => s.eventStatus !== 'on-time') ?? linked[0];
 }
 
+/** PO status follows the physical shipment so the badge can never contradict the ETA. */
+export function getPoDisplayStatus(po: SapPurchaseOrder): SapPurchaseOrder['status'] {
+  const shipment = getShipmentForPo(po);
+  if (!shipment) return po.status === 'Received' ? 'Received' : po.status;
+  if (shipment.stage === 'delivered') return 'Received';
+  if (shipment.stage === 'origin') return 'ASN Submitted';
+  return 'In Transit';
+}
+
 export function buildPoRiskImpact(po: SapPurchaseOrder): PoRiskImpact | null {
   const shipment = getShipmentForPo(po);
   if (!shipment) return null;
@@ -1140,13 +1256,239 @@ export function buildPoRiskImpact(po: SapPurchaseOrder): PoRiskImpact | null {
   };
 }
 
-const ACTIONS_KEY = 'freshguard-risk-actions-v6';
+/** Demo throughput assumptions used to size dock crew and truck bookings. */
+const CASES_PER_PALLET = 50;
+const CASES_PER_FTE_HOUR = 120;
+const DOCK_SHIFT_HOURS = 8;
+const CASES_PER_TRUCK = 1200;
+
+export type ResourceStep = {
+  id: string;
+  action: string;
+  detail: string;
+  when: string;
+};
+
+export type ReceivingImpact = {
+  delayDays: number;
+  plannedSlot: string;
+  revisedSlot: string;
+  cases: number;
+  pallets: number;
+  crewFte: number;
+  unloadHours: number;
+  freedCrewHours: number;
+  doorId: string;
+  steps: ResourceStep[];
+};
+
+export type TruckReassignment = {
+  shipmentId: string;
+  containerNumber: string;
+  item: string;
+  date: string;
+  trucks: number;
+  reason: string;
+};
+
+export type TransportImpact = {
+  delayDays: number;
+  plannedPickup: string;
+  revisedPickup: string;
+  cases: number;
+  trucksBooked: number;
+  trucksReassigned: number;
+  idleTruckDays: number;
+  reassignments: TruckReassignment[];
+  steps: ResourceStep[];
+};
+
+function getDockDoor(shipment: TrackShipment): string {
+  const idx = DEMO_SHIPMENTS.findIndex((s) => s.id === shipment.id);
+  return `D-${(idx < 0 ? 0 : idx) + 1}`;
+}
+
+export function buildReceivingImpact(shipment: TrackShipment): ReceivingImpact {
+  const { original, revised } = getShipmentEtaIso(shipment);
+  const delayDays = daysBetween(original, revised);
+  const cases = shipment.quantity;
+  const pallets = Math.ceil(cases / CASES_PER_PALLET);
+  const crewFte = Math.min(12, Math.max(2, Math.ceil(cases / (CASES_PER_FTE_HOUR * DOCK_SHIFT_HOURS))));
+  const unloadHours = Math.max(1, Math.round((cases / (CASES_PER_FTE_HOUR * crewFte)) * 10) / 10);
+  const doorId = getDockDoor(shipment);
+  const late = delayDays > 0;
+
+  const steps: ResourceStep[] = late
+    ? [
+        {
+          id: 'release-crew',
+          action: `Stand down ${crewFte} FTE on ${original}`,
+          detail: `Nothing to unload on the planned date — redeploy the crew to putaway backlog or another inbound door.`,
+          when: original,
+        },
+        {
+          id: 'rebook-slot',
+          action: `Rebook door ${doorId} for ${revised}`,
+          detail: `${crewFte} FTE for ~${unloadHours}h to move ${pallets} pallets (${cases.toLocaleString()} cases).`,
+          when: revised,
+        },
+        {
+          id: 'qc-window',
+          action: 'Book QC straight after unload',
+          detail: 'Shelf-life clock already lost days in transit — no overnight wait before inspection.',
+          when: revised,
+        },
+      ]
+    : [
+        {
+          id: 'advance-crew',
+          action: `Pull ${crewFte} FTE forward to ${revised}`,
+          detail: `Load arrives ${Math.abs(delayDays)}d early — cover door ${doorId} for ~${unloadHours}h.`,
+          when: revised,
+        },
+        {
+          id: 'pre-stage',
+          action: 'Pre-stage pre-cool lane',
+          detail: `${pallets} pallets need chilled space before the planned ${original} window.`,
+          when: revised,
+        },
+      ];
+
+  return {
+    delayDays,
+    plannedSlot: original,
+    revisedSlot: revised,
+    cases,
+    pallets,
+    crewFte,
+    unloadHours,
+    freedCrewHours: late ? crewFte * DOCK_SHIFT_HOURS : 0,
+    doorId,
+    steps,
+  };
+}
+
+export function buildTransportImpact(shipment: TrackShipment): TransportImpact {
+  const { original, revised } = getShipmentEtaIso(shipment);
+  const delayDays = daysBetween(original, revised);
+  const cases = shipment.quantity;
+  const trucksBooked = Math.max(1, Math.ceil(cases / CASES_PER_TRUCK));
+  const late = delayDays > 0;
+
+  // Trucks freed by the delay go to shipments already inbound in the original window.
+  let remaining = late ? trucksBooked : 0;
+  const reassignments: TruckReassignment[] = [];
+  for (const other of DEMO_SHIPMENTS) {
+    if (other.id === shipment.id || remaining <= 0) continue;
+    const otherEta = getShipmentEtaIso(other).revised;
+    if (daysBetween(otherEta, original) < -1) continue;
+    const need = Math.max(1, Math.ceil(other.quantity / CASES_PER_TRUCK));
+    const trucks = Math.min(need, remaining);
+    remaining -= trucks;
+    reassignments.push({
+      shipmentId: other.id,
+      containerNumber: other.containerNumber,
+      item: other.item,
+      date: otherEta,
+      trucks,
+      reason:
+        other.eventStatus === 'early'
+          ? 'Arriving early — needs haulage sooner than booked'
+          : 'On-time load in the freed window',
+    });
+  }
+
+  const trucksReassigned = reassignments.reduce((n, r) => n + r.trucks, 0);
+
+  const steps: ResourceStep[] = late
+    ? [
+        {
+          id: 'release-drayage',
+          action: `Release ${trucksBooked} reefers held for ${original}`,
+          detail: `Container ${shipment.containerNumber} will not gate in — cancel before detention starts.`,
+          when: original,
+        },
+        {
+          id: 'reassign',
+          action:
+            trucksReassigned > 0
+              ? `Reassign ${trucksReassigned} of them to inbound loads`
+              : 'No inbound load to absorb the freed trucks',
+          detail:
+            trucksReassigned > 0
+              ? reassignments
+                  .map((r) => `${r.trucks} → ${r.containerNumber} (${r.date})`)
+                  .join(' · ')
+              : 'Park the assets rather than run them empty.',
+          when: original,
+        },
+        {
+          id: 'rebook-pickup',
+          action: `Rebook pickup for ${revised}`,
+          detail: 'Hold the booking until the carrier confirms the revised arrival.',
+          when: revised,
+        },
+      ]
+    : [
+        {
+          id: 'pull-forward',
+          action: `Move pickup to ${revised}`,
+          detail: `${trucksBooked} reefers needed ${Math.abs(delayDays)}d earlier than booked.`,
+          when: revised,
+        },
+      ];
+
+  return {
+    delayDays,
+    plannedPickup: original,
+    revisedPickup: revised,
+    cases,
+    trucksBooked,
+    trucksReassigned,
+    idleTruckDays: late ? trucksBooked * delayDays : 0,
+    reassignments,
+    steps,
+  };
+}
+
+export function formatReceivingProposalSummary(impact: ReceivingImpact): string {
+  if (impact.delayDays > 0) {
+    return (
+      `Move door ${impact.doorId} from ${impact.plannedSlot} to ${impact.revisedSlot}. ` +
+      `Stand down ${impact.crewFte} FTE (${impact.freedCrewHours} crew-hours) on ${impact.plannedSlot} and ` +
+      `rebook ${impact.crewFte} FTE for ~${impact.unloadHours}h to unload ${impact.pallets} pallets.`
+    );
+  }
+  return (
+    `Pull door ${impact.doorId} forward to ${impact.revisedSlot}. ` +
+    `${impact.crewFte} FTE for ~${impact.unloadHours}h on ${impact.pallets} pallets.`
+  );
+}
+
+export function formatTransportProposalSummary(impact: TransportImpact): string {
+  if (impact.delayDays <= 0) {
+    return `Move pickup from ${impact.plannedPickup} to ${impact.revisedPickup} — ${impact.trucksBooked} reefers needed earlier.`;
+  }
+  const moves = impact.reassignments.length
+    ? impact.reassignments
+        .map((r) => `${r.trucks} to ${r.containerNumber} on ${r.date}`)
+        .join(', ')
+    : 'no inbound load to absorb them';
+  return (
+    `Release ${impact.trucksBooked} reefers booked for ${impact.plannedPickup} (${impact.idleTruckDays} idle truck-days). ` +
+    `Reassign ${moves}. Rebook this pickup for ${impact.revisedPickup}.`
+  );
+}
+
+const ACTIONS_KEY = 'freshguard-risk-actions-v7';
 
 export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction[] {
   if (shipment.eventStatus === 'delayed') {
     const stockProposal = buildStockRiskProposal(shipment);
     const promotionProposal = buildPromotionRiskProposal(shipment);
     const shelfLifeProposal = buildShelfLifeProposal(shipment);
+    const receivingImpact = buildReceivingImpact(shipment);
+    const transportImpact = buildTransportImpact(shipment);
     return [
       {
         id: `ACT-${shipment.id}-STOCK`,
@@ -1203,26 +1545,34 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         shipmentId: shipment.id,
         eventStatus: 'delayed',
         category: 'receiving',
-        title: 'Reschedule receiving labor',
-        summary: 'Receiving team must replan dock crew for revised ETA.',
+        title: 'Replan receiving manpower',
+        summary:
+          'Dock crew is booked for the original date. Stand the shift down, then rebook the door and headcount against the revised arrival.',
         ownerPersona: 'receiving',
         approverPersona: 'dc_purchasing',
         notifyPersonas: ['receiving'],
         status: 'pending_approval',
-        proposal: 'Move dock slot from Aug 21 AM → Aug 23 AM. Reduce Aug 21 swing shift by 4 FTE.',
+        proposal: formatReceivingProposalSummary(receivingImpact),
+        detail:
+          'Crew freed on the planned date can cover putaway backlog; QC must follow the unload immediately since shelf life is already reduced.',
+        receivingImpact,
       },
       {
         id: `ACT-${shipment.id}-TRN`,
         shipmentId: shipment.id,
         eventStatus: 'delayed',
         category: 'transport',
-        title: 'Reschedule transport assets',
-        summary: 'Trucks assigned to this container should be redeployed.',
+        title: 'Redeploy trucks booked for this container',
+        summary:
+          'Reefers held for this pickup will sit idle. Release them, move them onto loads already inbound in that window, and rebook this pickup.',
         ownerPersona: 'transport',
         approverPersona: 'dc_purchasing',
         notifyPersonas: ['transport'],
         status: 'pending_approval',
-        proposal: 'Reassign 2 reefers to SHP-BB-ONT-01 pickup. Hold Chicago drayage until Aug 23 ETA confirmation.',
+        proposal: formatTransportProposalSummary(transportImpact),
+        detail:
+          'Release before detention accrues; hold the new booking until the carrier confirms the revised arrival.',
+        transportImpact,
       },
     ];
   }

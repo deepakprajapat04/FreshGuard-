@@ -200,7 +200,7 @@ export function ReallocationMovesDrawer({
                       className={cn(
                         'flex-1 flex items-center justify-center gap-1.5 py-2 px-2 rounded-md text-xs font-semibold transition-colors',
                         tab === t
-                          ? 'bg-white dark:bg-slate-900 text-[#4A7394] shadow-sm'
+                          ? 'bg-white dark:bg-slate-900 text-[#2F5472] shadow-sm'
                           : 'text-slate-600 hover:text-slate-800 dark:text-slate-400'
                       )}
                     >
@@ -219,7 +219,7 @@ export function ReallocationMovesDrawer({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder={`Search ${meta.short}…`}
-                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-[#6A9EC8]/30"
+                  className="w-full pl-9 pr-3 py-2 text-sm rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 outline-none focus:ring-2 focus:ring-[#4684AD]/30"
                 />
               </div>
             </header>
@@ -243,7 +243,7 @@ export function ReallocationMovesDrawer({
                           onClick={() => setExpandedKey(expanded ? null : key)}
                           className={cn(
                             'w-full text-left px-5 py-3 flex items-start gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors',
-                            expanded && 'bg-[#EDF3F9]/40 dark:bg-slate-800/60'
+                            expanded && 'bg-[#C0D5E5]/40 dark:bg-slate-800/60'
                           )}
                           aria-expanded={expanded}
                         >

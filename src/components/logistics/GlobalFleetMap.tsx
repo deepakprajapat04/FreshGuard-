@@ -217,7 +217,7 @@ export function GlobalFleetMap({
                 onClick={() => onFilterChange(id)}
                 className={cn(
                   'px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase flex items-center gap-1',
-                  filter === id ? 'bg-sky-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                  filter === id ? 'bg-[#4684AD] text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                 )}
                 title={label}
               >
@@ -331,7 +331,7 @@ export function GlobalFleetMap({
                     </div>
                     <button
                       type="button"
-                      className="mt-1 text-[10px] font-bold uppercase text-sky-700"
+                      className="mt-1 text-[10px] font-bold uppercase text-[#2F5472]"
                       onClick={() => (onOpenLot || onSelect)(s.id)}
                     >
                       Open one-lot map

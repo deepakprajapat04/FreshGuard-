@@ -1,886 +1,977 @@
 /**
- * @license
- * SPDX-License-Identifier: Apache-2.0
+ * Receiving quality control — pick a PO, pick an item lot, run the check,
+ * then pass the lot, receive it with a markdown, or reject it into a claim.
  */
-
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ScanLine, 
-  CheckCircle, 
-  AlertCircle, 
-  Camera, 
-  Upload, 
-  ArrowRight, 
-  Activity, 
-  Leaf, 
-  Tag, 
-  Box, 
-  RefreshCw, 
-  CheckCircle2, 
-  Sparkles,
-  ArrowUpRight
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Link } from 'react-router';
+import {
+  Activity,
+  AlertTriangle,
+  ArrowLeft,
+  ArrowRight,
+  Boxes,
+  Check,
+  CheckCircle2,
+  Camera,
+  ChevronRight,
+  ClipboardCheck,
+  FileWarning,
+  ImagePlus,
+  Package,
+  RotateCcw,
+  ScanLine,
+  Search,
+  Thermometer,
+  TrendingDown,
+  XCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, pageShellClass } from '../components/PageChrome';
+import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
+import {
+  applyQcDecision,
+  claimValue,
+  clearQcRecords,
+  getQcLines,
+  getQcPurchaseOrders,
+  loadQcRecords,
+  removeQcRecord,
+  runQualityCheck,
+  QC_DECISION_LABELS,
+  type QcCheckResult,
+  type QcDecision,
+  type QcLine,
+  type QcRecord,
+} from '../lib/qualityCheck';
 
-// Premium high-fidelity presets for testing both flawless eggs and avocado lots
-const PRESETS = [
-  {
-    name: "Hard-Boiled Eggs",
-    image: "https://images.unsplash.com/photo-1582293001053-efcc1ea00522?auto=format&fit=crop&q=80&w=800",
-    results: {
-      item_name: "Hard-Boiled Eggs",
-      freshness_score: 10,
-      defects_detected: false,
-      defect_details: [],
-      reasoning: "Perfect pristine physical and bacteriological rating. Deep laser scan confirms 100/100 product integrity with zero fracture stress lines. Cold-chain records confirm constant 4.0°C in-transit stability. Recommending zero markdown and immediate direct retail distribution bypass.",
-      markdown_price_discount: 0
-    }
+const STEPS = [
+  { id: 1, label: 'Purchase order' },
+  { id: 2, label: 'Item lot' },
+  { id: 3, label: 'Quality check' },
+  { id: 4, label: 'Decision' },
+] as const;
+
+const DECISION_TONE: Record<QcDecision, { chip: string; dot: string; icon: typeof Check }> = {
+  pass: {
+    chip: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    dot: 'bg-emerald-500',
+    icon: CheckCircle2,
   },
-  {
-    name: "Hass Avocados",
-    image: "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=800",
-    results: {
-      item_name: "Hass Avocados",
-      freshness_score: 8,
-      defects_detected: true,
-      defect_details: ["Slight over-ripeness near the pulp base", "Minor cosmetic blemish"],
-      reasoning: "General skin structure intact, but mild bruising indicates faster consumable lifecycle speed. Recommend quick sale via 10% promotional store markup discount.",
-      markdown_price_discount: 10
-    }
-  }
-];
+  markdown: {
+    chip: 'bg-amber-50 text-amber-800 border-amber-200',
+    dot: 'bg-amber-500',
+    icon: TrendingDown,
+  },
+  reject: {
+    chip: 'bg-rose-50 text-rose-700 border-rose-200',
+    dot: 'bg-rose-500',
+    icon: XCircle,
+  },
+};
+
+function formatShortDate(iso: string) {
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function StepBar({ current }: { current: number }) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {STEPS.map((step, i) => {
+        const done = step.id < current;
+        const active = step.id === current;
+        return (
+          <div key={step.id} className="flex items-center gap-1.5">
+            <div
+              className={cn(
+                'flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold',
+                active
+                  ? 'border-[#4684AD] bg-[#C0D5E5] text-[#254659]'
+                  : done
+                    ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                    : 'border-slate-200 bg-white text-slate-400 dark:border-slate-700 dark:bg-slate-900'
+              )}
+            >
+              <span
+                className={cn(
+                  'grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold',
+                  active
+                    ? 'bg-[#4684AD] text-white'
+                    : done
+                      ? 'bg-emerald-500 text-white'
+                      : 'bg-slate-200 text-slate-500 dark:bg-slate-700'
+                )}
+              >
+                {done ? <Check className="h-2.5 w-2.5" /> : step.id}
+              </span>
+              {step.label}
+            </div>
+            {i < STEPS.length - 1 && <ChevronRight className="h-3 w-3 text-slate-300" />}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function Field({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
+      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</div>
+    </div>
+  );
+}
+
+function DecisionChip({ decision }: { decision: QcDecision }) {
+  const tone = DECISION_TONE[decision];
+  const Icon = tone.icon;
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase',
+        tone.chip
+      )}
+    >
+      <Icon className="h-3 w-3" />
+      {decision === 'reject' ? 'Rejected' : decision}
+    </span>
+  );
+}
+
+type QcPhoto = { id: string; name: string; previewUrl: string };
+
+function PhotoEvidence({
+  photos,
+  onUpload,
+  onRemove,
+  compact,
+}: {
+  photos: QcPhoto[];
+  onUpload: (files: FileList | null) => void;
+  onRemove: (id: string) => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className={cn('w-full', compact ? 'max-w-lg' : 'max-w-md')}>
+      <label className="block cursor-pointer rounded-lg border border-dashed border-[#86A8C2] bg-white px-4 py-3 text-left transition-colors hover:bg-[#C0D5E5]/20 dark:border-slate-600 dark:bg-slate-900 dark:hover:bg-slate-800/60">
+        <span className="flex items-center gap-2 text-xs font-semibold text-[#2F5472] dark:text-slate-200">
+          <Camera className="h-4 w-4 shrink-0" />
+          Upload inspection photos
+        </span>
+        <span className="mt-1 block text-[11px] text-slate-500">
+          PNG or JPG — carton labels, defects, cold-chain logger
+        </span>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          className="sr-only"
+          onChange={(e) => {
+            onUpload(e.target.files);
+            e.target.value = '';
+          }}
+        />
+      </label>
+      {photos.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {photos.map((photo) => (
+            <div
+              key={photo.id}
+              className="group relative h-16 w-16 overflow-hidden rounded-lg border border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-900"
+            >
+              <img src={photo.previewUrl} alt={photo.name} className="h-full w-full object-cover" />
+              <button
+                type="button"
+                onClick={() => onRemove(photo.id)}
+                className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[9px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {photos.length > 0 && (
+        <p className="mt-2 text-[11px] text-slate-500">
+          {photos.length} photo{photos.length === 1 ? '' : 's'} attached to this inspection
+        </p>
+      )}
+    </div>
+  );
+}
 
 export default function QualityControl() {
-  const [scanState, setScanState] = useState<'idle' | 'scanning' | 'results'>('idle');
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [scanResults, setScanResults] = useState<{
-    item_name: string;
-    freshness_score: number;
-    defects_detected: boolean;
-    defect_details: string[];
-    reasoning: string;
-    markdown_price_discount: number;
-  } | null>(null);
+  const pos = useMemo(() => getQcPurchaseOrders(), []);
+  const [selectedPo, setSelectedPo] = useState<string | null>(pos[0]?.po ?? null);
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+  const [phase, setPhase] = useState<'idle' | 'scanning' | 'result'>('idle');
+  const [result, setResult] = useState<QcCheckResult | null>(null);
+  const [records, setRecords] = useState<QcRecord[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<QcPhoto[]>([]);
+  const [poSearch, setPoSearch] = useState('');
+  const photosRef = useRef(photos);
+  photosRef.current = photos;
 
-  // Core interactive states for step updates and toasts
-  const [isFading, setIsFading] = useState(false);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
-  const [isWarningToast, setIsWarningToast] = useState(false);
-
-  // Dynamic receiving queue linked backward to Logistics page
-  const [logisticsQueue, setLogisticsQueue] = useState<any[]>([]);
-  const [selectedShipment, setSelectedShipment] = useState<any>(null);
-
-  // Default initial queue items if logistics page isn't in LocalStorage yet
-  const defaultBaseShipments = [
-    {
-      id: "PO-2026-8842",
-      vendor: "Global Farms Suppliers",
-      item: "1,200 Cases of Hard-Boiled Eggs",
-      product: 'Hard-Boiled Eggs',
-      quantity: 1200,
-      unit: "Cases",
-      status: "delayed",
-      stage: 'delivering',
-      temp: "3.2°C"
-    },
-    {
-      id: "PO-2026-9912A",
-      vendor: "Ocean Catch Suppliers",
-      item: "200 Cases of Fresh Salmon",
-      product: "Fresh Salmon",
-      quantity: 200,
-      unit: "Cases",
-      status: "on-time",
-      stage: 'delivering',
-      temp: "3.0°C"
-    },
-    {
-      id: "PO-2026-7731C",
-      vendor: "Sunrise Dairy Co.",
-      item: "400 Cases of Organic Milk",
-      product: "Organic Milk",
-      quantity: 400,
-      unit: "Cases",
-      status: "on-time",
-      stage: 'delivering',
-      temp: "4.0°C"
-    }
-  ];
-
-  // Sync / retrieve state backward from Logistics
-  const fetchLogistics = () => {
-    try {
-      const stored = localStorage.getItem('freshguard-active-shipments');
-      if (stored) {
-        const list = JSON.parse(stored);
-        // Exclude those already fully received or delivered (keep pending receiving lots)
-        const activeLots = list.filter((s: any) => 
-          s.status !== 'delivered' && 
-          s.stage !== 'delivered' &&
-          (s.stage === 'delivering' || s.stage === 'transit' || s.status === 'delayed' || s.status === 'on-time')
-        );
-        setLogisticsQueue(activeLots);
-      } else {
-        // Fallback to active default shipments
-        setLogisticsQueue(defaultBaseShipments);
-      }
-    } catch (err) {
-      console.error("Failed to load active shipments:", err);
-      setLogisticsQueue(defaultBaseShipments);
-    }
+  const revokePhotos = (items: QcPhoto[]) => {
+    items.forEach((p) => URL.revokeObjectURL(p.previewUrl));
   };
 
   useEffect(() => {
-    fetchLogistics();
-    window.addEventListener('storage', fetchLogistics);
-    return () => window.removeEventListener('storage', fetchLogistics);
+    setRecords(loadQcRecords());
   }, []);
 
-  // Format label string exactly as requested: "PO-2026-8842: Hard-Boiled Eggs from Global Farms • 1,200 Cases"
-  const getShipmentLabel = (shipment: any) => {
-    const po = shipment.id;
-    const item = shipment.product || shipment.item?.replace(/^\d+,\d*\s*Cases\s*of\s*/i, "") || "Fresh Produce";
-    const vendor = shipment.vendor?.replace(/\s*Suppliers\s*/i, "") || "Global Farms";
-    const cases = shipment.quantity || 1200;
-    const unit = shipment.unit || "Cases";
-    return `${po}: ${item} from ${vendor} • ${cases.toLocaleString()} ${unit}`;
-  };
+  useEffect(() => {
+    return () => {
+      photosRef.current.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+    };
+  }, []);
 
-  const startScan = async (imageOrPreset?: string | typeof PRESETS[0] | React.MouseEvent) => {
-    let preset: typeof PRESETS[0] | null = null;
-    let targetImage = "https://images.unsplash.com/photo-1582293001053-efcc1ea00522?auto=format&fit=crop&q=80&w=800"; // default: eggs
-
-    if (imageOrPreset && typeof imageOrPreset === 'object' && 'results' in imageOrPreset) {
-      preset = imageOrPreset;
-      targetImage = preset.image;
-    } else if (typeof imageOrPreset === 'string') {
-      targetImage = imageOrPreset;
-      const found = PRESETS.find(p => p.image === imageOrPreset);
-      if (found) preset = found;
-    }
-
-    setSelectedImage(targetImage);
-    setScanState('scanning');
-
-    // Simulate precise model diagnostics sequence
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Seed preset result or fallback to default
-    if (preset) {
-      setScanResults(preset.results);
-      setScanState('results');
-      return;
-    }
-
-    // Default option if click start scan live
-    if (!imageOrPreset || typeof imageOrPreset !== 'string') {
-      const defaultEggs = PRESETS[0];
-      setScanResults(defaultEggs.results);
-      setScanState('results');
-      return;
-    }
-
-    let base64Image = targetImage;
-    if (targetImage.startsWith("http")) {
-      try {
-        const response = await fetch(targetImage);
-        const blob = await response.blob();
-        const reader = new FileReader();
-        base64Image = await new Promise((resolve) => {
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
-      } catch (e) {
-        console.error("Failed to fetch default image", e);
-      }
-    }
-
-    try {
-      const res = await fetch("/api/analyze-produce", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: base64Image })
-      });
-      if (!res.ok) throw new Error("Failed to analyze image");
-      const data = await res.json();
-      setScanResults(data);
-      setScanState('results');
-    } catch (err) {
-      console.error("Fall-backing scan call to Eggs preset metrics", err);
-      const defaultEggs = PRESETS[0];
-      setScanResults(defaultEggs.results);
-      setScanState('results');
-    }
-  };
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64String = reader.result as string;
-        setSelectedImage(base64String);
-        startScan(base64String);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const resetScan = () => {
-    setScanState('idle');
-    setSelectedImage(null);
-    setScanResults(null);
-    setSelectedShipment(null);
-  };
-
-  // Clicking an inbound queue row loads that active logistics shipment into scanner area
-  const handleLoadBatch = async (shipment: any) => {
-    setSelectedShipment(shipment);
-    setSelectedImage(null);
-    setScanResults(null);
-    setScanState('scanning');
-
-    let targetImage = "https://images.unsplash.com/photo-1582293001053-efcc1ea00522?auto=format&fit=crop&q=80&w=800"; // default: eggs
-    const nameLower = (shipment.product || shipment.item || "").toLowerCase();
-    
-    if (nameLower.includes('salmon')) {
-      targetImage = "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&q=80&w=800";
-    } else if (nameLower.includes('milk') || nameLower.includes('dairy')) {
-      targetImage = "https://images.unsplash.com/photo-1550583724-b2692b85b150?auto=format&fit=crop&q=80&w=800";
-    }
-
-    setSelectedImage(targetImage);
-
-    // Simulate 1.5s scanning sequence
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    let score = 100;
-    let defectsDetected = false;
-    let defectDetails: string[] = [];
-    let reasoning = "";
-    let markdown = 0;
-
-    if (nameLower.includes('egg')) {
-      score = 100;
-      defectsDetected = false;
-      reasoning = "Perfect pristine physical and bacteriological rating. Deep laser scan confirms 100/100 product integrity with zero fracture stress lines. Cold-chain records confirm constant 4.0°C in-transit stability. Recommending zero markdown and immediate direct retail distribution bypass.";
-    } else if (nameLower.includes('salmon')) {
-      score = 45; // Quality score below 60/100
-      defectsDetected = true;
-      defectDetails = [
-        "Surface bruising detected near collar flaps",
-        "Slime buildup on gill slits",
-        "Extreme cold-chain temperature safety violation: 12.4°C"
-      ];
-      reasoning = "Persistently failed core-transit chilling index. Active loggers tracked continuous excursion of 12.4°C for 14.8 hours. Slime levels indicate immediate bacterial oxidation. Reject lot.";
-      markdown = 100;
-    } else if (nameLower.includes('milk') || nameLower.includes('dairy')) {
-      score = 52; // Quality score below 60/100
-      defectsDetected = true;
-      defectDetails = [
-        "Pallet leakage and wet exterior carton cases",
-        "Temperature alarm excursion: 9.5°C"
-      ];
-      reasoning = "Visual inspection detected moisture leakage at the pallet foundation. Temperature spiked directly to 9.5°C, surpassing safe storage requirements for over 9 hours. Reject lot.";
-      markdown = 75;
-    } else {
-      score = 100;
-      defectsDetected = false;
-      reasoning = "Sample meets rigorous FreshGuard criteria. Optical color profiling indicates excellent nutritional preservation.";
-    }
-
-    setScanResults({
-      item_name: shipment.product || shipment.item?.replace(/^\d+,\d*\s*Cases\s*of\s*/i, "") || shipment.item,
-      freshness_score: score / 10,
-      defects_detected: defectsDetected,
-      defect_details: defectDetails,
-      reasoning: reasoning,
-      markdown_price_discount: markdown
+  useEffect(() => {
+    setPhotos((prev) => {
+      revokePhotos(prev);
+      return [];
     });
-    setScanState('results');
+  }, [selectedLineId]);
+
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
+
+  const po = useMemo(() => pos.find((p) => p.po === selectedPo) ?? null, [pos, selectedPo]);
+
+  const filteredPos = useMemo(() => {
+    const q = poSearch.trim().toLowerCase();
+    if (!q) return pos;
+    return pos.filter((p) => {
+      const haystack = [p.po, p.supplier, p.item].join(' ').toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [pos, poSearch]);
+
+  useEffect(() => {
+    if (filteredPos.length === 0) return;
+    if (!selectedPo || !filteredPos.some((p) => p.po === selectedPo)) {
+      setSelectedPo(filteredPos[0].po);
+      setSelectedLineId(null);
+      setResult(null);
+      setPhase('idle');
+      setPhotos((prev) => {
+        revokePhotos(prev);
+        return [];
+      });
+    }
+  }, [filteredPos, selectedPo]);
+
+  const lines = useMemo(() => (po ? getQcLines(po) : []), [po]);
+  const line = lines.find((l) => l.id === selectedLineId) ?? null;
+  const recordFor = (lineId: string) => records.find((r) => r.lineId === lineId) ?? null;
+  const decidedRecord = line ? recordFor(line.id) : null;
+
+  const currentStep = !selectedPo ? 1 : !line ? 2 : decidedRecord ? 4 : phase === 'result' ? 4 : 3;
+
+  const checkedCount = (poNumber: string) =>
+    records.filter((r) => r.po === poNumber).length;
+
+  const selectPo = (poNumber: string) => {
+    setSelectedPo(poNumber);
+    setSelectedLineId(null);
+    setResult(null);
+    setPhase('idle');
+    setPhotos((prev) => {
+      revokePhotos(prev);
+      return [];
+    });
   };
 
-  // FORWARD FLOW A: [ Approve & Route to Store ]
-  const handleApproveAndRoute = () => {
-    if (!selectedShipment) return;
+  const selectLine = (lineId: string) => {
+    setSelectedLineId(lineId);
+    setResult(null);
+    setPhase('idle');
+  };
 
-    const activePO = selectedShipment.id;
-    const itemTitle = selectedShipment.product || selectedShipment.item;
-    const totalVolume = selectedShipment.quantity || 1200;
+  const clearLine = () => {
+    setSelectedLineId(null);
+    setResult(null);
+    setPhase('idle');
+    setPhotos((prev) => {
+      revokePhotos(prev);
+      return [];
+    });
+  };
 
-    // Toast configuration
-    setIsWarningToast(false);
-    setSuccessToast("Lot Approved. Bypassing manual store checks.");
-
-    // Remove from DC receiving queue / set status completed in logistics
-    try {
-      const storedLogistics = localStorage.getItem('freshguard-active-shipments');
-      let defaultList = storedLogistics ? JSON.parse(storedLogistics) : defaultBaseShipments;
-      
-      const updatedList = defaultList.map((s: any) => {
-        if (s.id === activePO) {
-          return {
-            ...s,
-            status: 'delivered', // solid green DELIVERED/CLOSED in logistics
-            stage: 'delivered',
-            temp: s.temp || '3.6°C',
-            eta: 'Received @ DC Hub'
-          };
-        }
-        return s;
-      });
-      localStorage.setItem('freshguard-active-shipments', JSON.stringify(updatedList));
-    } catch (err) {
-      console.warn("Error updating active shipments:", err);
-    }
-
-    // Push into store inventory ledger
-    try {
-      const storedStore = localStorage.getItem('freshguard-store-items');
-      let storeList = storedStore ? JSON.parse(storedStore) : [];
-
-      const splits = [
-        { branch: 'Chicago Downtown', cases: Math.round(totalVolume * 0.25) || 300 },
-        { branch: 'Lincoln Park', cases: Math.round(totalVolume * 0.25) || 300 },
-        { branch: 'West Loop', cases: Math.round(totalVolume * 0.25) || 300 },
-        { branch: 'Southport', cases: Math.round(totalVolume * 0.25) || 300 }
-      ];
-
-      const newlyAdded = splits.map(split => ({
-        id: activePO,
-        branch: split.branch,
-        item: itemTitle,
-        cases: split.cases,
-        qualityScore: 100,
-        markdown: '0%',
-        verificationTag: 'Auto-Received: Premium Grade',
-        timestamp: new Date().toISOString(),
-        status: 'Auto-Received' as const
+  const onPhotoUpload = (files: FileList | null) => {
+    if (!files?.length) return;
+    const next = Array.from(files)
+      .filter((f) => f.type.startsWith('image/'))
+      .map((f) => ({
+        id: `${Date.now()}-${f.name}-${Math.random().toString(36).slice(2, 7)}`,
+        name: f.name,
+        previewUrl: URL.createObjectURL(f),
       }));
-
-      localStorage.setItem('freshguard-store-items', JSON.stringify([...newlyAdded, ...storeList]));
-    } catch (err) {
-      console.warn("Error receiving in store inventory:", err);
+    if (!next.length) {
+      setToast('Please choose a PNG or JPG image.');
+      return;
     }
-
-    // Workspace Fade-Out Reset (1 second transition)
-    setIsFading(true);
-    setTimeout(() => {
-      setIsFading(false);
-      setScanState('idle');
-      setSelectedImage(null);
-      setScanResults(null);
-      setSelectedShipment(null);
-      
-      // Update local view state queue immediate
-      fetchLogistics();
-    }, 1000);
-
-    setTimeout(() => {
-      setSuccessToast(null);
-    }, 5000);
+    setPhotos((prev) => [...prev, ...next]);
   };
 
-  // FORWARD FLOW B: [ Flag Anomalies & Reject to Claims ]
-  const handleRejectAndClaim = () => {
-    if (!selectedShipment) return;
+  const removePhoto = (id: string) => {
+    setPhotos((prev) => {
+      const target = prev.find((p) => p.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((p) => p.id !== id);
+    });
+  };
 
-    const activePO = selectedShipment.id;
-    const vendorName = selectedShipment.vendor || 'Global Farms';
-    const totalVolume = selectedShipment.quantity || 1200;
+  const startCheck = async () => {
+    if (!line) return;
+    setPhase('scanning');
+    await new Promise((resolve) => setTimeout(resolve, 1400));
+    setResult(runQualityCheck(line));
+    setPhase('result');
+  };
 
-    // Reject toast configuration
-    setIsWarningToast(true);
-    setSuccessToast("Lot Rejected. Generating automated evidence folder.");
+  const decide = (decision: QcDecision) => {
+    if (!line || !result) return;
+    const record = applyQcDecision(
+      line,
+      result,
+      decision,
+      photos.map((p) => p.name)
+    );
+    setRecords((prev) => [record, ...prev.filter((r) => r.lineId !== line.id)]);
+    setPhotos((prev) => {
+      revokePhotos(prev);
+      return [];
+    });
+    setToast(
+      decision === 'reject'
+        ? `Lot ${line.lotNumber} rejected — claim raised against ${line.supplier}.`
+        : decision === 'markdown'
+          ? `Lot ${line.lotNumber} received at ${result.markdownPercent}% markdown and routed to stores.`
+          : `Lot ${line.lotNumber} passed and routed to stores at full price.`
+    );
+  };
 
-    // Remove from active DC Queue (closes logistics pipeline)
-    try {
-      const storedLogistics = localStorage.getItem('freshguard-active-shipments');
-      let defaultList = storedLogistics ? JSON.parse(storedLogistics) : defaultBaseShipments;
+  const nextPendingLine = lines.find((l) => !recordFor(l.id) && l.id !== selectedLineId);
 
-      const updatedList = defaultList.map((s: any) => {
-        if (s.id === activePO) {
-          return {
-            ...s,
-            status: 'delivered', // close tracking pipeline
-            stage: 'delivered',
-            temp: 'Temp Error Flagged',
-            hasAnomaly: true
-          };
-        }
-        return s;
-      });
-      localStorage.setItem('freshguard-active-shipments', JSON.stringify(updatedList));
-    } catch (err) {
-      console.error(err);
-    }
-
-    // Auto-generate Claims item in claims ledger
-    try {
-      const storedClaims = localStorage.getItem('freshguard-claims-list');
-      let claimsList = storedClaims ? JSON.parse(storedClaims) : [];
-
-      const nextClaimId = `CLM-00${claimsList.length + 5}`;
-      const financialImpact = totalVolume * 12; // cost basis calculation $12 per case
-      const defectSummary = scanResults && scanResults.defect_details.length > 0 
-        ? scanResults.defect_details.join(", ")
-        : "Surface bruising, slime, and extreme cold-chain temperature violations.";
-
-      const generatedClaim = {
-        id: nextClaimId,
-        po: activePO,
-        vendor: vendorName,
-        issue: defectSummary,
-        status: 'pending',
-        amount: `$${financialImpact.toLocaleString()}`,
-        date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-      };
-
-      localStorage.setItem('freshguard-claims-list', JSON.stringify([generatedClaim, ...claimsList]));
-    } catch (err) {
-      console.warn("Claims integration failed:", err);
-    }
-
-    // Workspace Fade-Out Reset (1 second transition)
-    setIsFading(true);
-    setTimeout(() => {
-      setIsFading(false);
-      setScanState('idle');
-      setSelectedImage(null);
-      setScanResults(null);
-      setSelectedShipment(null);
-
-      // Update local view state queue immediate
-      fetchLogistics();
-    }, 1000);
-
-    setTimeout(() => {
-      setSuccessToast(null);
-    }, 5000);
+  const resetDemo = () => {
+    clearQcRecords();
+    setRecords([]);
+    setSelectedLineId(null);
+    setResult(null);
+    setPhase('idle');
+    setPhotos((prev) => {
+      revokePhotos(prev);
+      return [];
+    });
+    setToast('Quality check history cleared.');
   };
 
   return (
     <div className={pageShellClass}>
-      
-      {/* Floating Success / Warning Toast Alert Banner */}
-      <AnimatePresence>
-        {successToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -40, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -40, scale: 0.95 }}
-            className={cn(
-              "fixed top-20 left-1/2 -translate-x-1/2 z-50 font-sans text-xs sm:text-sm font-extrabold px-6 py-4 rounded-xl shadow-2xl border flex items-center gap-3 w-11/12 max-w-2xl backdrop-blur-md transition-all duration-300",
-              isWarningToast 
-                ? "bg-rose-600 border-rose-500/30 text-white"
-                : "bg-emerald-650 border-emerald-500/30 text-white"
-            )}
-          >
-            {isWarningToast ? (
-              <AlertCircle className="w-5 h-5 text-white shrink-0 animate-pulse" />
-            ) : (
-              <CheckCircle2 className="w-5 h-5 text-white shrink-0 animate-bounce" />
-            )}
-            <div className="flex-1 leading-relaxed">
-              {successToast}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <PageHeader
-        eyebrow="Receiving Gate Control"
-        title="AI Quality Control & Receiving"
-        subtitle="Scan incoming logistics lot samples to certify freshness, identify thermal defects, and trigger direct retail store routing."
-      >
-        <div className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-1.5 flex items-center gap-2 text-xs font-mono font-bold text-slate-700 dark:bg-white/10 dark:border-white/20 dark:text-white">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          Vision Core: <span className="font-semibold text-sky-600 dark:text-sky-200">FreshDetect v4.2</span>
+      {toast && (
+        <div className="fixed left-1/2 top-16 z-50 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-800 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
+          {toast}
         </div>
+      )}
+
+      <PageHeader title="Quality Control">
+        <button
+          type="button"
+          onClick={resetDemo}
+          className="flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+        >
+          <RotateCcw className="h-3.5 w-3.5" /> Reset checks
+        </button>
       </PageHeader>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-        
-        {/* Left Column: Optical Laser Spectrograph Scanning Window */}
-        <div className="lg:col-span-2 space-y-3.5">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl shadow-md overflow-hidden relative">
-            <div className="px-4 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center justify-between">
-              <span className="text-xs font-black font-mono uppercase tracking-wider">Inspection terminal</span>
-              <span className="text-[10px] font-mono text-sky-600 dark:text-sky-300">Spectrograph live</span>
-            </div>
-            <div className="p-2">
-            <div className="relative bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden aspect-video flex items-center justify-center border border-slate-200/50 dark:border-slate-800/60">
-              
-              {/* Workspace Cleanup Fading Animator Cover Layer */}
-              <AnimatePresence>
-                {isFading && (
-                  <motion.div 
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="absolute inset-0 bg-white/95 dark:bg-slate-950/95 backdrop-blur-md z-30 flex flex-col items-center justify-center"
-                  >
-                    <RefreshCw className="w-8 h-8 text-indigo-500 animate-spin mb-2" />
-                    <span className="text-xs font-bold font-mono tracking-wider text-indigo-500">Resetting Inspection Terminal...</span>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+        <StepBar current={currentStep} />
+      </div>
 
-              <AnimatePresence mode="wait">
-                {scanState === 'idle' && (
-                  <motion.div 
-                    key="idle"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="flex flex-col items-center justify-center p-8 text-center"
-                  >
-                    <div 
-                      className="w-16 h-16 bg-white dark:bg-slate-900 rounded-2xl flex items-center justify-center shadow-md mb-5 border border-slate-200 dark:border-slate-800 group cursor-pointer hover:border-emerald-400 hover:shadow-emerald-100/30 transition-all duration-300"
-                      onClick={() => startScan()}
-                    >
-                      <Camera className="w-8 h-8 text-slate-400 group-hover:text-emerald-500 transition-colors" />
-                    </div>
-                    
-                    <h3 className="text-lg font-bold text-slate-850 dark:text-slate-100 mb-1">Initialize Sample Scan</h3>
-                    <p className="text-xs text-slate-550 dark:text-slate-404 max-w-sm leading-relaxed mb-6">
-                      Awaiting next pallet selection from inbound queue. Select a pallet below or load custom targets to trigger the spectrometer.
-                    </p>
-
-                    <div className="flex flex-col sm:flex-row items-center gap-2.5">
-                      <button 
-                        onClick={() => startScan()} 
-                        className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold font-mono text-xs uppercase tracking-wider transition-all flex items-center gap-2 shadow-md shadow-emerald-500/15 cursor-pointer"
-                      >
-                        <ScanLine className="w-4 h-4" /> Start Live Scan
-                      </button>
-                      
-                      <label className="cursor-pointer px-4 py-2.5 bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-300 dark:border-slate-800 rounded-lg font-bold font-mono text-xs uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-850 transition-colors flex items-center gap-2 shadow-sm">
-                        <Upload className="w-4 h-4 text-slate-400" /> Upload Batch
-                        <input type="file" className="hidden" accept="image/*" onChange={handleFileUpload} />
-                      </label>
-                    </div>
-
-                    {/* Quick Demo Presets */}
-                    <div className="mt-8 border-t border-slate-150 dark:border-slate-850 pt-5 w-full max-w-md">
-                      <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest font-mono block mb-3">AI Demo Scan Targets</span>
-                      <div className="flex justify-center gap-3">
-                        {PRESETS.map((p, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => startScan(p)}
-                            className="px-3.5 py-2 bg-slate-55 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-505 dark:hover:border-indigo-400 hover:bg-white rounded-lg text-xs font-bold text-slate-700 dark:text-slate-204 transition-all flex items-center gap-2 group cursor-pointer"
-                          >
-                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 group-hover:scale-135 transition-all"></span>
-                            {p.name}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-
-                {scanState === 'scanning' && (
-                  <motion.div 
-                    key="scanning"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="w-full h-full relative"
-                  >
-                    <img src={selectedImage || "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=800"} alt="Scanning Object" className="w-full h-full object-cover" />
-                    <div className="absolute inset-0 bg-slate-950/40 mix-blend-multiply"></div>
-                    
-                    {/* Laser Scanner bar overlays */}
-                    <div className="absolute inset-4 border-2 border-emerald-400/30 rounded-lg">
-                      <motion.div 
-                        animate={{ top: ['0%', '100%', '0%'] }}
-                        transition={{ repeat: Infinity, duration: 1.8, ease: 'linear' }}
-                        className="absolute left-0 right-0 h-0.5 bg-emerald-400 shadow-[0_0_12px_#34d399]"
-                      />
-                    </div>
-                    
-                    <div className="absolute top-1/4 left-1/4 w-32 h-20 border border-dashed border-emerald-450 rounded flex flex-col justify-end p-1.5 bg-slate-950/20">
-                      <span className="bg-emerald-600 text-white text-[9px] uppercase font-bold px-1 rounded w-fit font-mono tracking-tight">Spectrograph diagnostics...</span>
-                    </div>
-
-                    <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-slate-900/95 backdrop-blur-md text-white px-4 py-2.5 rounded-full flex items-center gap-3 text-xs font-bold font-mono border border-white/10 shadow-xl">
-                      <Activity className="w-3.5 h-3.5 animate-pulse text-emerald-400" />
-                      Analyzing Multispectral Surface Matrix...
-                    </div>
-                  </motion.div>
-                )}
-
-                {scanState === 'results' && (
-                  <motion.div 
-                    key="results"
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    className="w-full h-full relative group"
-                  >
-                    <img src={selectedImage || "https://images.unsplash.com/photo-1610832958506-aa56368176cf?auto=format&fit=crop&q=80&w=800"} alt="Scanned Object" className="w-full h-full object-cover opacity-80 dark:opacity-55" />
-                    
-                    {/* Bounding Box Diagnostics HUD */}
-                    <div className={cn(
-                      "absolute top-[22%] left-[24%] w-[25%] h-[35%] border-2 rounded-lg bg-white/5 flex flex-col justify-between p-1.5",
-                      scanResults?.defects_detected ? "border-rose-550/85 bg-rose-500/10" : "border-emerald-500/85 bg-emerald-500/10"
-                    )}>
-                       <span className={cn(
-                         "text-[9px] font-black font-mono px-1.5 py-0.5 rounded shadow-sm w-fit uppercase",
-                         scanResults?.defects_detected ? "bg-rose-600 text-white" : "bg-emerald-600 text-white"
-                       )}>
-                         {scanResults?.defects_detected ? "DEFECT DETECTED" : "QA CONFIRMED 100/100"}
-                       </span>
-                    </div>
-
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/25 to-transparent flex flex-col justify-end p-6">
-                      <div className="flex justify-between items-end">
-                        <div className="max-w-lg">
-                           <div className={cn(
-                             "backdrop-blur-md border text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest font-mono mb-2 w-fit",
-                             scanResults?.defects_detected 
-                               ? "bg-rose-500/25 text-rose-300 border-rose-500/35"
-                               : "bg-emerald-500/25 text-emerald-300 border-emerald-500/35"
-                           )}>
-                             {scanResults?.defects_detected ? "Inspection Warning Alert" : "Certified Premium Grade"}
-                           </div>
-                           <h2 className="text-xl font-bold text-white mb-0.5">{scanResults?.item_name || 'Hass Avocados'}</h2>
-                           <p className="text-slate-300 text-xs font-mono">
-                             {selectedShipment ? `Lot: ${selectedShipment.id} • Supplied by ${selectedShipment.vendor}` : 'Prototype Preset Test Lot'}
-                           </p>
-                        </div>
-                        <button 
-                          onClick={resetScan} 
-                          className="px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md border border-white/20 rounded-lg text-xs font-mono font-bold uppercase tracking-tight transition-all cursor-pointer hover:border-white/45"
-                        >
-                          Reset Scan
-                        </button>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+      <div className="grid items-start gap-3 lg:grid-cols-[minmax(280px,340px)_1fr]">
+        {/* Step 1 — purchase orders */}
+        <section className="sticky top-0 z-20 flex max-h-[calc(100vh-3.5rem)] flex-col self-start overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900">
+          <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <h2 className="text-sm font-bold text-slate-900 dark:text-white">Purchase orders</h2>
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              {filteredPos.length} of {pos.length} arrived with an ASN · select one to inspect
+            </p>
+          </div>
+          <div className="shrink-0 border-b border-slate-100 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={poSearch}
+                onChange={(e) => setPoSearch(e.target.value)}
+                placeholder="Search PO number, supplier, item…"
+                className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40 dark:border-slate-700 dark:bg-slate-950"
+              />
             </div>
           </div>
-        </div>
-
-        {/* Right Column: AI Analysis Results Insights panel */}
-        <div className="space-y-3.5">
-          <AnimatePresence mode="popLayout">
-            {scanState === 'results' ? (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                className={cn(
-                  "bg-white dark:bg-slate-900 border text-slate-900 dark:text-slate-100 rounded-2xl p-6 shadow-md overflow-hidden relative transition-colors duration-300",
-                  scanResults?.defects_detected 
-                    ? "border-rose-200 dark:border-rose-950/40"
-                    : "border-emerald-250 dark:border-emerald-900/60"
-                )}
-              >
-                <div className="absolute top-0 left-0 w-full h-1.5 bg-white dark:bg-slate-900"></div>
-                <div className={cn(
-                  "absolute top-0 left-0 w-full h-1", 
-                  scanResults?.defects_detected ? "bg-rose-500" : "bg-emerald-500"
-                )}></div>
-
-                <div className="flex items-center gap-2.5 mb-5">
-                  <div className={cn(
-                    "p-2 rounded-lg shrink-0", 
-                    scanResults?.defects_detected 
-                      ? "bg-rose-100 dark:bg-rose-950 text-rose-600 dark:text-rose-400" 
-                      : "bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400"
-                  )}>
-                    <Activity className="w-5 h-5 animate-pulse" />
-                  </div>
-                  <h2 className="text-base font-black uppercase tracking-tight text-slate-950 dark:text-slate-100">Live Diagnosis Insights</h2>
-                </div>
-
-                <div className="space-y-4">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                       <span className="text-xs font-bold font-mono text-slate-400 uppercase tracking-wider">AI Quality Score</span>
-                       <span className={cn(
-                         "text-xl font-mono font-extrabold", 
-                         scanResults && scanResults.freshness_score >= 8 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"
-                       )}>
-                         {scanResults ? Math.round(scanResults.freshness_score * 10) : 0}/100
-                       </span>
-                    </div>
-                    <div className="w-full bg-slate-100 dark:bg-slate-950 rounded-full h-1.5 border border-slate-200/20">
-                      <div 
-                        className={cn(
-                          "h-1.5 rounded-full transition-all duration-500", 
-                          scanResults && scanResults.freshness_score >= 8 ? "bg-emerald-500" : "bg-rose-500"
-                        )} 
-                        style={{ width: `${scanResults ? scanResults.freshness_score * 10 : 0}%` }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-3 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-850 rounded-xl">
-                      <div className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-bold tracking-wider mb-1 flex items-center gap-1 font-mono">
-                        <Leaf className="w-3.5 h-3.5 text-emerald-500 shrink-0"/> Freshness
-                      </div>
-                      <div className="text-base font-extrabold font-mono text-slate-900 dark:text-slate-100">
-                        {scanResults ? scanResults.freshness_score.toFixed(1) : "0.0"}/10
-                      </div>
-                    </div>
-                    <div className={cn(
-                      "p-3 rounded-xl border font-sans", 
-                      scanResults?.defects_detected 
-                        ? "bg-rose-50/20 border-rose-100 text-rose-600 dark:border-rose-950/50" 
-                        : "bg-emerald-50/20 border-emerald-100 text-emerald-600 dark:border-emerald-950/20"
-                    )}>
-                      <div className="text-[10px] uppercase font-bold tracking-wider mb-1 flex items-center gap-1 font-mono">
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0"/> Anomalies
-                      </div>
-                      <div className="text-xs sm:text-sm font-mono font-black uppercase text-right leading-none mt-1">
-                        {scanResults?.defects_detected ? 'FAIL FLAGS' : 'ZERO DEFECTS'}
-                      </div>
-                    </div>
-                  </div>
-
-                  {scanResults?.defects_detected && scanResults.defect_details.length > 0 ? (
-                     <div className="bg-rose-50/40 dark:bg-rose-950/10 border border-rose-150/50 dark:border-rose-900/30 rounded-xl p-3">
-                        <h4 className="text-xs font-bold flex items-center gap-1.5 text-rose-900 dark:text-rose-400 mb-2 font-mono uppercase tracking-wider">
-                          <AlertCircle className="w-3.5 h-3.5 text-rose-500" /> Active Defect Log
-                        </h4>
-                        <ul className="text-[11px] text-rose-800 dark:text-rose-350 leading-relaxed max-h-24 overflow-y-auto custom-scrollbar list-disc pl-4 space-y-1">
-                          {scanResults.defect_details.map((d, i) => (
-                             <li key={i} className="font-sans font-medium">{d}</li>
-                          ))}
-                        </ul>
-                     </div>
-                  ) : (
-                    <div className="bg-emerald-50/20 dark:bg-emerald-950/10 border border-emerald-100/50 dark:border-emerald-900/30 rounded-xl p-3 flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-emerald-505 shrink-0" />
-                      <span className="text-[11px] font-sans font-semibold text-emerald-700 dark:text-emerald-400 leading-normal">
-                        Perfect laser spectrometry readings. Micro-integrity meets high structural thresholds. 
-                      </span>
-                    </div>
-                  )}
-
-                  {/* AI Reasoning Decoupled Matrix Override */}
-                  <div className="bg-gradient-to-br from-indigo-50/10 via-white to-slate-50 dark:from-slate-950/30 dark:via-slate-950/20 dark:to-slate-900 border border-indigo-100/50 dark:border-indigo-950/45 rounded-xl p-4 space-y-2">
-                    <h4 className="text-xs font-bold uppercase font-mono tracking-wider flex items-center gap-1.5 text-indigo-900 dark:text-indigo-400">
-                      <Tag className="w-3.5 h-3.5 text-indigo-505 shrink-0" />
-                      FreshDetect Core Reasoning
-                    </h4>
-                    <p className="text-[11px] text-slate-550 dark:text-slate-350 leading-relaxed max-h-28 overflow-y-auto custom-scrollbar font-medium">
-                      {scanResults?.reasoning}
-                    </p>
-                    <div className="flex items-center justify-between bg-indigo-55/10 dark:bg-slate-950 p-2 rounded-lg border border-indigo-100/10 dark:border-indigo-950/20 mt-1">
-                      <span className="text-[10px] font-bold text-indigo-900 dark:text-indigo-400 uppercase font-mono">Suggested Markdown</span>
-                      <span className="text-indigo-650 dark:text-indigo-405 font-mono font-black border border-indigo-150 dark:border-indigo-900/40 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/40 rounded text-xs">
-                        -{scanResults?.markdown_price_discount}%
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* THE INTUITIVE ACTION FORK: Dual beautiful spaced full-width decision buttons */}
-                  <div className="space-y-3 pt-1">
-                    <button 
-                      onClick={handleApproveAndRoute}
-                      className={cn(
-                        "w-full py-3.5 px-4 rounded-xl font-sans text-xs font-black uppercase tracking-wider transition-all flex justify-center items-center gap-2 shadow-lg cursor-pointer",
-                        "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98] hover:shadow-emerald-600/15"
-                      )}
-                    >
-                      <CheckCircle2 className="w-4 h-4 text-white" />
-                      Approve &amp; Route to Store
-                    </button>
-                    
-                    <button 
-                      onClick={handleRejectAndClaim}
-                      className={cn(
-                        "w-full py-3.5 px-4 rounded-xl font-sans text-xs font-black uppercase tracking-wider transition-all flex justify-center items-center gap-2 cursor-pointer border",
-                        "border-rose-500 bg-rose-50/10 hover:bg-rose-50/20 text-rose-500 dark:text-rose-400 active:scale-[0.98]"
-                      )}
-                    >
-                      <AlertCircle className="w-4 h-4 text-rose-500" />
-                      Flag Anomalies &amp; Reject to Claims
-                    </button>
-                  </div>
-
-                </div>
-              </motion.div>
+          <div className="flex-1 overflow-y-auto p-2">
+            {filteredPos.length === 0 ? (
+              <p className="p-3 text-xs text-slate-500">No purchase orders match your search.</p>
             ) : (
-              <div className="bg-slate-50 dark:bg-slate-950 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl p-6 h-[400px] flex flex-col items-center justify-center text-center text-slate-400">
-                <Box className="w-10 h-10 mb-3 text-slate-350 dark:text-slate-800" />
-                <h4 className="text-xs font-bold text-slate-500 dark:text-slate-400 font-mono uppercase tracking-wider mb-1">Optical diagnosis inactive</h4>
-                <p className="text-[11px] text-slate-450 dark:text-slate-505 max-w-xs leading-relaxed">
-                  Choose an inbound shipment below or upload an incoming pallet snapshot to activate laser spectroanalysis and decision matrix controls.
-                </p>
-              </div>
+              filteredPos.map((p) => {
+              const poLines = getQcLines(p);
+              const checked = checkedCount(p.po);
+              const active = p.po === selectedPo;
+              return (
+                <button
+                  key={p.po}
+                  type="button"
+                  onClick={() => selectPo(p.po)}
+                  className={cn(
+                    'mb-2 w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
+                    active
+                      ? 'border-[#4684AD] bg-[#C0D5E5] dark:bg-slate-800'
+                      : 'border-slate-200 bg-white hover:border-[#86A8C2] dark:border-slate-700 dark:bg-slate-900'
+                  )}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{p.po}</span>
+                    <span
+                      className={cn(
+                        'rounded border px-1.5 py-0.5 text-[10px] font-bold',
+                        checked === poLines.length
+                          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                          : 'border-slate-200 bg-slate-50 text-slate-500'
+                      )}
+                    >
+                      {checked}/{poLines.length} checked
+                    </span>
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] text-slate-600 dark:text-slate-400">
+                    {p.supplier}
+                  </div>
+                  <div className="mt-1 flex items-center gap-2 text-[11px] text-slate-500">
+                    <Boxes className="h-3 w-3" />
+                    {poLines.length} item lots · {p.orderedQty.toLocaleString()} {p.unit}
+                  </div>
+                </button>
+              );
+            })
             )}
-          </AnimatePresence>
-        </div>
-
-      </div>
-
-      {/* Full-width bottom section: Backwards Linked Inbound DC Receiving Queue */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-805 rounded-2xl p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-5">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider font-mono text-slate-505 dark:text-slate-400">Inbound DC Receiving Queue</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Physical supply chain queue synced backwards with logistics arrival events.</p>
           </div>
-          <span className="text-[9.5px] font-mono text-indigo-500 font-semibold px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/30 rounded-md">
-            Pending Arrival Count: {logisticsQueue.length}
-          </span>
-        </div>
+        </section>
 
-        <div className="space-y-3">
-          {logisticsQueue.map((shipment) => {
-            const isActive = selectedShipment?.id === shipment.id;
-            return (
-              <div 
-                key={shipment.id}
-                id={`queue-row-${shipment.id}`}
-                onClick={() => handleLoadBatch(shipment)}
-                className={cn(
-                  "p-4 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row justify-between sm:items-center gap-3 shadow-xs",
-                  isActive 
-                    ? "bg-indigo-50/10 border-indigo-400 text-indigo-900 dark:text-indigo-300 ring-1 ring-indigo-400" 
-                    : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-400/40 hover:shadow-md"
-                )}
-              >
-                <div className="flex items-center gap-3 truncate">
-                  <div className={cn(
-                    "w-2.5 h-2.5 rounded-full shrink-0",
-                    isActive ? "bg-indigo-550 animate-pulse" : (shipment.status === 'delayed' ? "bg-rose-500" : "bg-emerald-500")
-                  )}></div>
-                  <span className="font-mono text-xs sm:text-sm tracking-tight text-slate-900 dark:text-slate-100 font-semibold truncate">
-                    {getShipmentLabel(shipment)}
-                  </span>
-                </div>
-                
-                <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-                  <span className="text-[10px] font-mono text-slate-450 dark:text-slate-500 tracking-tight mr-1">
-                    ETA: {shipment.eta || 'Standard'}
-                  </span>
-                  <span className={cn(
-                    "px-2.5 py-0.5 rounded text-[9.5px] font-mono font-black uppercase tracking-wider border",
-                    isActive 
-                      ? "text-indigo-650 bg-indigo-55/20 border-indigo-300" 
-                      : (shipment.status === 'delayed' ? "text-rose-600 bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/50" : "text-amber-600 bg-amber-50 dark:bg-amber-950/20 border-amber-200/50")
-                  )}>
-                    {isActive ? "Scanning active" : (shipment.status === 'delayed' ? "ANOMALY WARNING" : "READY TO LOAD")}
-                  </span>
-                  <ArrowUpRight className={cn("w-4 h-4 text-slate-400 transition-transform", isActive ? "rotate-45 text-indigo-500 font-bold" : "group-hover:translate-x-0.5")} />
-                </div>
-              </div>
-            );
-          })}
-          {logisticsQueue.length === 0 && (
-            <div className="py-12 border border-dashed border-slate-200 dark:border-slate-805 rounded-xl text-center text-slate-450 text-xs font-mono">
-              Inbound DC Receiving Queue Empty • Syncing Logistics arrive events...
+        {/* Steps 2–4 */}
+        <section className="min-h-[480px] rounded-xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900">
+          {!po ? (
+            <div className="grid h-[420px] place-items-center text-center text-xs text-slate-500">
+              Select a purchase order to begin the receiving check.
             </div>
+          ) : (
+            <>
+              <div className="sticky top-0 z-20 flex flex-wrap items-start justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
+                    <span>{po.po}</span>
+                    {line && (
+                      <>
+                        <ChevronRight className="h-3 w-3" />
+                        <span>{line.lotNumber}</span>
+                      </>
+                    )}
+                  </div>
+                  <h2 className="mt-0.5 text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {line ? line.item : `${lines.length} item lots to inspect`}
+                  </h2>
+                </div>
+                {line && (
+                  <button
+                    type="button"
+                    onClick={clearLine}
+                    className="flex items-center gap-1.5 rounded-lg border border-[#86A8C2] bg-white/70 px-2.5 py-1.5 text-[11px] font-semibold text-[#2F5472] hover:bg-white"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5" /> All items
+                  </button>
+                )}
+              </div>
+
+              <div className="space-y-4 p-4">
+                {!line ? (
+                  /* Step 2 — item lots in this PO */
+                  <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Field label="Supplier" value={po.supplier} />
+                      <Field label="Material" value={po.itemDetail.materialNumber} />
+                      <Field label="Storage temp" value={po.itemDetail.storageTemp} />
+                      <Field label="Delivery date" value={formatShortDate(po.deliveryDate)} />
+                    </div>
+
+                    <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="border-b border-slate-200 bg-slate-50 text-left dark:border-slate-700 dark:bg-slate-950">
+                            <th className="px-3 py-2.5 font-semibold text-slate-500">Item</th>
+                            <th className="px-3 py-2.5 font-semibold text-slate-500">Lot</th>
+                            <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Cases</th>
+                            <th className="px-3 py-2.5 text-right font-semibold text-slate-500">Pallets</th>
+                            <th className="px-3 py-2.5 font-semibold text-slate-500">Best before</th>
+                            <th className="px-3 py-2.5 font-semibold text-slate-500">Status</th>
+                            <th className="px-3 py-2.5" />
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {lines.map((l) => {
+                            const record = recordFor(l.id);
+                            return (
+                              <tr key={l.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/60">
+                                <td className="px-3 py-2.5 font-medium text-slate-900 dark:text-slate-100">
+                                  {l.item}
+                                </td>
+                                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">
+                                  {l.lotNumber}
+                                </td>
+                                <td className="px-3 py-2.5 text-right tabular-nums">
+                                  {l.quantity.toLocaleString()}
+                                </td>
+                                <td className="px-3 py-2.5 text-right tabular-nums">{l.palletCount}</td>
+                                <td className="px-3 py-2.5 text-slate-600 dark:text-slate-400">
+                                  {formatShortDate(l.bestBefore)}
+                                </td>
+                                <td className="px-3 py-2.5">
+                                  {record ? (
+                                    <DecisionChip decision={record.decision} />
+                                  ) : (
+                                    <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                                      Awaiting check
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2.5 text-right">
+                                  <button
+                                    type="button"
+                                    onClick={() => selectLine(l.id)}
+                                    className={btnPrimaryClass}
+                                  >
+                                    {record ? 'Review' : 'Inspect'}
+                                    <ArrowRight className="h-3 w-3" />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                ) : (
+                  /* Steps 3–4 — inspection and decision */
+                  <>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <Field label="Cases" value={line.quantity.toLocaleString()} />
+                      <Field label="Pallets" value={String(line.palletCount)} />
+                      <Field label="Harvested" value={formatShortDate(line.harvestDate)} />
+                      <Field label="Best before" value={formatShortDate(line.bestBefore)} />
+                    </div>
+
+                    {decidedRecord ? (
+                      <DecisionSummary
+                        record={decidedRecord}
+                        line={line}
+                        onNext={() => nextPendingLine && selectLine(nextPendingLine.id)}
+                        hasNext={Boolean(nextPendingLine)}
+                        onRecheck={() => {
+                          setResult(null);
+                          setPhase('idle');
+                          setPhotos((prev) => {
+                            revokePhotos(prev);
+                            return [];
+                          });
+                          setRecords(removeQcRecord(line.id));
+                        }}
+                      />
+                    ) : phase === 'result' && result ? (
+                      <CheckResult
+                        result={result}
+                        line={line}
+                        photos={photos}
+                        onUpload={onPhotoUpload}
+                        onRemovePhoto={removePhoto}
+                        onDecide={decide}
+                      />
+                    ) : (
+                      <div className="grid place-items-center rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center dark:border-slate-700 dark:bg-slate-950">
+                        {phase === 'scanning' ? (
+                          <>
+                            <Activity className="mb-3 h-8 w-8 animate-pulse text-[#4684AD]" />
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                              Inspecting lot {line.lotNumber}…
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              Reading cold-chain logger, sampling pallets and grading surface quality.
+                            </p>
+                            {photos.length > 0 && (
+                              <div className="mt-4 flex flex-wrap justify-center gap-2">
+                                {photos.map((photo) => (
+                                  <img
+                                    key={photo.id}
+                                    src={photo.previewUrl}
+                                    alt={photo.name}
+                                    className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <ScanLine className="mb-3 h-8 w-8 text-slate-400" />
+                            <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                              Ready to inspect {line.item}
+                            </p>
+                            <p className="mt-1 max-w-md text-xs text-slate-500">
+                              The check grades surface quality, reviews the cold-chain log for this lot and
+                              compares remaining shelf life against the receiving standard.
+                            </p>
+                            <div className="mt-4 flex w-full flex-col items-center gap-3">
+                              <PhotoEvidence
+                                photos={photos}
+                                onUpload={onPhotoUpload}
+                                onRemove={removePhoto}
+                              />
+                              <button
+                                type="button"
+                                onClick={startCheck}
+                                className={btnPrimaryClass}
+                              >
+                                <ClipboardCheck className="h-4 w-4" /> Run quality check
+                              </button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </>
           )}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function CheckResult({
+  result,
+  line,
+  photos,
+  onUpload,
+  onRemovePhoto,
+  onDecide,
+}: {
+  result: QcCheckResult;
+  line: QcLine;
+  photos: QcPhoto[];
+  onUpload: (files: FileList | null) => void;
+  onRemovePhoto: (id: string) => void;
+  onDecide: (decision: QcDecision) => void;
+}) {
+  const failed = result.recommendation === 'reject';
+  return (
+    <div className="space-y-4">
+      {photos.length > 0 && (
+        <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <ImagePlus className="h-3.5 w-3.5" /> Inspection photos
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {photos.map((photo) => (
+              <img
+                key={photo.id}
+                src={photo.previewUrl}
+                alt={photo.name}
+                className="h-14 w-14 rounded-lg border border-slate-200 object-cover dark:border-slate-700"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      <PhotoEvidence photos={photos} onUpload={onUpload} onRemove={onRemovePhoto} compact />
+      <div className="rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Quality score
+            </div>
+            <div
+              className={cn(
+                'text-2xl font-bold tabular-nums',
+                result.score >= 85
+                  ? 'text-emerald-600'
+                  : result.score >= 60
+                    ? 'text-amber-600'
+                    : 'text-rose-600'
+              )}
+            >
+              {result.score}/100
+            </div>
+          </div>
+          <div className="text-right text-[11px] text-slate-500">
+            Receiving standard: 85 pass · 60–84 markdown · below 60 reject
+          </div>
+        </div>
+        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div
+            className={cn(
+              'h-full rounded-full',
+              result.score >= 85 ? 'bg-emerald-500' : result.score >= 60 ? 'bg-amber-500' : 'bg-rose-500'
+            )}
+            style={{ width: `${result.score}%` }}
+          />
         </div>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <Thermometer className="h-3.5 w-3.5" /> Cold chain
+          </div>
+          <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            Peak {result.tempMaxC.toFixed(1)}°C
+          </div>
+          <div className="text-[11px] text-slate-500">
+            {result.excursionHours > 0
+              ? `${result.excursionHours}h above ${line.storageTemp}`
+              : `Held within ${line.storageTemp}`}
+          </div>
+        </div>
+        <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <Package className="h-3.5 w-3.5" /> Shelf life left
+          </div>
+          <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {result.shelfLifeLeftDays} days
+          </div>
+          <div className="text-[11px] text-slate-500">Best before {formatShortDate(line.bestBefore)}</div>
+        </div>
+        <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
+          <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            <AlertTriangle className="h-3.5 w-3.5" /> Defects
+          </div>
+          <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
+            {result.defects.length === 0 ? 'None found' : `${result.defects.length} found`}
+          </div>
+          <div className="text-[11px] text-slate-500">Sampled {line.palletCount} pallets</div>
+        </div>
+      </div>
+
+      {result.defects.length > 0 && (
+        <ul className="space-y-1 rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-xs text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
+          {result.defects.map((d) => (
+            <li key={d} className="flex items-start gap-2">
+              <span className="mt-1.5 h-1 w-1 shrink-0 rounded-full bg-rose-500" />
+              {d}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div
+        className={cn(
+          'rounded-xl border p-4',
+          failed
+            ? 'border-rose-200 bg-rose-50/60 dark:border-rose-900/40 dark:bg-rose-950/20'
+            : result.recommendation === 'markdown'
+              ? 'border-amber-200 bg-amber-50/60 dark:border-amber-900/40 dark:bg-amber-950/20'
+              : 'border-emerald-200 bg-emerald-50/60 dark:border-emerald-900/40 dark:bg-emerald-950/20'
+        )}
+      >
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          Recommendation
+        </div>
+        <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
+          {QC_DECISION_LABELS[result.recommendation]}
+          {result.recommendation === 'markdown' && ` (${result.markdownPercent}%)`}
+        </div>
+        <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
+          {result.reasoning}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+        <DecisionButton
+          decision="pass"
+          recommended={result.recommendation === 'pass'}
+          title="Pass"
+          sub={`Receive ${line.quantity.toLocaleString()} cases at full price`}
+          onClick={() => onDecide('pass')}
+        />
+        <DecisionButton
+          decision="markdown"
+          recommended={result.recommendation === 'markdown'}
+          title={`Markdown ${result.markdownPercent || 10}%`}
+          sub="Receive and clear fast in store"
+          onClick={() => onDecide('markdown')}
+        />
+        <DecisionButton
+          decision="reject"
+          recommended={result.recommendation === 'reject'}
+          title="Reject to claim"
+          sub={`Recover $${claimValue(line).toLocaleString()} from ${line.supplier}`}
+          onClick={() => onDecide('reject')}
+        />
+      </div>
+    </div>
+  );
+}
+
+function DecisionButton({
+  decision,
+  recommended,
+  title,
+  sub,
+  onClick,
+}: {
+  decision: QcDecision;
+  recommended: boolean;
+  title: string;
+  sub: string;
+  onClick: () => void;
+}) {
+  const tone = DECISION_TONE[decision];
+  const Icon = tone.icon;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'rounded-xl border px-3 py-3 text-left transition-colors',
+        recommended
+          ? `${tone.chip} shadow-sm`
+          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200'
+      )}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="flex items-center gap-1.5 text-xs font-bold">
+          <Icon className="h-4 w-4" />
+          {title}
+        </span>
+        {recommended && (
+          <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+            Recommended
+          </span>
+        )}
+      </div>
+      <div className="mt-1 text-[11px] opacity-80">{sub}</div>
+    </button>
+  );
+}
+
+function DecisionSummary({
+  record,
+  line,
+  onNext,
+  hasNext,
+  onRecheck,
+}: {
+  record: QcRecord;
+  line: QcLine;
+  onNext: () => void;
+  hasNext: boolean;
+  onRecheck: () => void;
+}) {
+  const tone = DECISION_TONE[record.decision];
+  const Icon = tone.icon;
+  return (
+    <div className="space-y-4">
+      <div
+        className={cn(
+          'flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4',
+          tone.chip
+        )}
+      >
+        <div className="flex items-start gap-3">
+          <Icon className="mt-0.5 h-5 w-5 shrink-0" />
+          <div>
+            <div className="text-sm font-bold">
+              {QC_DECISION_LABELS[record.decision]}
+              {record.decision === 'markdown' && ` — ${record.markdownPercent}%`}
+            </div>
+            <p className="mt-0.5 text-xs opacity-90">
+              Lot {record.lotNumber} · {record.quantity.toLocaleString()} cases · scored{' '}
+              {record.score}/100
+            </p>
+          </div>
+        </div>
+        <DecisionChip decision={record.decision} />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 p-4 text-xs dark:border-slate-700">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+          What happened next
+        </div>
+        {record.decision === 'reject' ? (
+          <ul className="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+            <li className="flex items-start gap-2">
+              <FileWarning className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-500" />
+              Claim raised against {line.supplier} for ${claimValue(line).toLocaleString()} with the
+              defect log attached.
+            </li>
+            {record.evidencePhotos?.length ? (
+              <li className="flex items-start gap-2">
+                <Camera className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-500" />
+                {record.evidencePhotos.length} inspection photo
+                {record.evidencePhotos.length === 1 ? '' : 's'} attached to the claim file.
+              </li>
+            ) : null}
+            <li className="flex items-start gap-2">
+              <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-500" />
+              Lot blocked from put-away — no stock routed to stores.
+            </li>
+          </ul>
+        ) : (
+          <ul className="mt-2 space-y-1.5 text-slate-700 dark:text-slate-300">
+            <li className="flex items-start gap-2">
+              <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
+              {record.quantity.toLocaleString()} cases released to put-away and split across the four
+              stores.
+            </li>
+            {record.markdownPercent > 0 && (
+              <li className="flex items-start gap-2">
+                <TrendingDown className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                {record.markdownPercent}% markdown applied to the retail price for this lot.
+              </li>
+            )}
+          </ul>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link
+            to={record.decision === 'reject' ? '/claims' : '/store'}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+          >
+            {record.decision === 'reject' ? 'Open claims' : 'Open store inventory'}
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+          {hasNext && (
+            <button
+              type="button"
+              onClick={onNext}
+              className={btnPrimaryClass}
+            >
+              Inspect next item <ArrowRight className="h-3 w-3" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onRecheck}
+            className={btnSecondaryClass}
+          >
+            <RotateCcw className="h-3 w-3" /> Re-run check
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

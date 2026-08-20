@@ -1567,7 +1567,7 @@ export default function Procurement() {
               const firstOpen = bidsList.find((b) => b.status === 'open');
               if (firstOpen) setSelectedBidId(firstOpen.id);
             }}
-            className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 bg-[#4684AD] hover:bg-[#3B7398] rounded-lg text-sm font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Search className="w-4 h-4 text-white" />
             Browse Open Market Tenders
@@ -1575,7 +1575,7 @@ export default function Procurement() {
         ) : (
           <button
             onClick={() => setIsModalOpen(true)}
-            className="w-full sm:w-auto px-4 py-2 bg-sky-600 hover:bg-sky-500 rounded-lg text-sm font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full sm:w-auto px-4 py-2 bg-[#4684AD] hover:bg-[#3B7398] rounded-lg text-sm font-semibold text-white shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Plus className="w-4 h-4 text-white" />
             Initiate Fresh Requirement
@@ -1614,7 +1614,7 @@ export default function Procurement() {
           className={cn(
             "px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeTab === 'bidding' 
-              ? "bg-sky-600 text-white shadow-sm" 
+              ? "bg-[#4684AD] text-white shadow-sm" 
               : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           )}
         >
@@ -1625,7 +1625,7 @@ export default function Procurement() {
           className={cn(
             "px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeTab === 'contracts' 
-              ? "bg-sky-600 text-white shadow-sm" 
+              ? "bg-[#4684AD] text-white shadow-sm" 
               : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           )}
         >
@@ -1636,7 +1636,7 @@ export default function Procurement() {
           className={cn(
             "px-4 py-2 rounded-md text-sm font-medium transition-all",
             activeTab === 'orders' 
-              ? "bg-sky-600 text-white shadow-sm" 
+              ? "bg-[#4684AD] text-white shadow-sm" 
               : "text-slate-500 hover:text-slate-800 hover:bg-slate-100 dark:text-slate-400 dark:hover:text-white dark:hover:bg-white/5"
           )}
         >
@@ -1657,7 +1657,7 @@ export default function Procurement() {
           >
             <div className="px-4 py-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
               <div>
-                <h2 className="text-xs font-black font-mono uppercase tracking-wider text-sky-200">
+                <h2 className="text-xs font-black font-mono uppercase tracking-wider text-[#C0D5E5]">
                   {isVendor ? 'Open Buyer Requests' : 'Active Demands'}
                 </h2>
                 <p className="text-[10px] text-slate-400 mt-0.5">
@@ -1668,7 +1668,7 @@ export default function Procurement() {
                 {!isVendor && (
                   <button 
                     onClick={() => setIsModalOpen(true)}
-                    className="px-2.5 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1 cursor-pointer font-sans"
+                    className="px-2.5 py-1.5 bg-[#4684AD] hover:bg-[#3B7398] text-white rounded-lg text-xs font-bold shadow-sm transition-all flex items-center gap-1 cursor-pointer font-sans"
                   >
                     <Plus className="w-3.5 h-3.5 text-white" />
                     <span>Create</span>
@@ -1678,7 +1678,7 @@ export default function Procurement() {
                   type="button"
                   title={fullscreenPanel === 'pipeline' ? 'Exit fullscreen' : 'Fullscreen'}
                   onClick={() => setFullscreenPanel((p) => (p === 'pipeline' ? null : 'pipeline'))}
-                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-sky-700 dark:bg-white/10 dark:hover:bg-white/20 dark:text-sky-200"
+                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-[#2F5472] dark:bg-white/10 dark:hover:bg-white/20 dark:text-[#C0D5E5]"
                 >
                   {fullscreenPanel === 'pipeline' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
                 </button>
@@ -1693,7 +1693,7 @@ export default function Procurement() {
                 placeholder="Search demands..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800 rounded-lg text-xs focus:ring-1 focus:ring-sky-500 focus:border-sky-500 outline-none placeholder:text-slate-400 dark:text-slate-100 transition-colors"
+                className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-950 border border-slate-150 dark:border-slate-800 rounded-lg text-xs focus:ring-1 focus:ring-[#4684AD] focus:border-[#4684AD] outline-none placeholder:text-slate-400 dark:text-slate-100 transition-colors"
               />
               {searchQuery && (
                 <button 
@@ -1738,8 +1738,8 @@ export default function Procurement() {
                       className={cn(
                         "w-full text-left p-3.5 rounded-xl border transition-all duration-150 relative overflow-hidden flex flex-col gap-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer",
                         isSelected 
-                          ? "border-sky-500 dark:border-sky-400 bg-sky-500/[0.04] dark:bg-sky-500/[0.05] shadow-sm" 
-                          : "border-slate-150 dark:border-slate-850 bg-white dark:bg-slate-900 hover:border-sky-300 dark:hover:border-sky-700"
+                          ? "border-[#4684AD] dark:border-[#4684AD] bg-[#C0D5E5]/300/[0.04] dark:bg-[#C0D5E5]/300/[0.05] shadow-sm" 
+                          : "border-slate-150 dark:border-slate-850 bg-white dark:bg-slate-900 hover:border-[#86A8C2] dark:hover:border-sky-700"
                       )}
                     >
                       <div className="flex justify-between items-center w-full">
@@ -1806,7 +1806,7 @@ export default function Procurement() {
                 type="button"
                 title={fullscreenPanel === 'workspace' ? 'Exit fullscreen' : 'Fullscreen'}
                 onClick={() => setFullscreenPanel((p) => (p === 'workspace' ? null : 'workspace'))}
-                className="p-1.5 rounded-lg bg-white dark:bg-slate-900/90 text-sky-200 hover:bg-white dark:bg-slate-900 border border-sky-800/50 shadow-sm"
+                className="p-1.5 rounded-lg bg-white dark:bg-slate-900/90 text-[#C0D5E5] hover:bg-white dark:bg-slate-900 border border-sky-800/50 shadow-sm"
               >
                 {fullscreenPanel === 'workspace' ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
               </button>
@@ -2053,7 +2053,7 @@ export default function Procurement() {
                   <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-850">
                     <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#A1A1AA] text-slate-400 dark:text-slate-500">Biological Parameters &amp; Requirements:</span>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[9px] bg-sky-50 dark:bg-sky-950/30 text-sky-700 dark:text-sky-404 border border-sky-100/50 dark:border-sky-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
+                      <span className="text-[9px] bg-[#C0D5E5]/30 dark:bg-sky-950/30 text-[#2F5472] dark:text-sky-404 border border-sky-100/50 dark:border-sky-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
                         Target Temp: {selectedBid.specifications.targetColdChainTemp || '4°C'}
                       </span>
                       <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-404 border border-indigo-100/50 dark:border-indigo-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
@@ -2460,7 +2460,7 @@ export default function Procurement() {
                       <span>Auto-syncs telemetry logs directly into Buyer's tracking system on dispatch.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-sky-500 rounded-full mt-1 shrink-0 animate-ping"></div>
+                      <div className="w-1.5 h-1.5 bg-[#C0D5E5]/300 rounded-full mt-1 shrink-0 animate-ping"></div>
                       <span>Active SLA validation engine pre-screening thermal and biological boundaries.</span>
                     </li>
                   </>
@@ -2475,7 +2475,7 @@ export default function Procurement() {
                       <span>Enforces thermal limits biological standards SLA directly.</span>
                     </li>
                     <li className="flex items-start gap-2">
-                      <div className="w-1.5 h-1.5 bg-sky-500 rounded-full mt-1 shrink-0 animate-ping"></div>
+                      <div className="w-1.5 h-1.5 bg-[#C0D5E5]/300 rounded-full mt-1 shrink-0 animate-ping"></div>
                       <span>Listening on secure webhooks for vendor pricing updates.</span>
                     </li>
                   </>
@@ -2647,7 +2647,7 @@ export default function Procurement() {
                           : row.status === 'Confirmed'
                             ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
                             : row.status === 'Acknowledged'
-                              ? 'bg-sky-100 dark:bg-sky-950/40 text-sky-800 dark:text-sky-300'
+                              ? 'bg-[#C0D5E5]/40 dark:bg-sky-950/40 text-[#2F5472] dark:text-[#C0D5E5]'
                               : row.status === 'ASN Submitted'
                                 ? 'bg-violet-100 dark:bg-violet-950/40 text-violet-800 dark:text-violet-300'
                                 : row.status === 'Processing'
@@ -2706,7 +2706,7 @@ export default function Procurement() {
                         <button
                           type="button"
                           onClick={() => openAsnModal([row])}
-                          className="px-2.5 py-1 rounded border border-sky-500/40 text-sky-700 dark:text-sky-300 hover:bg-sky-600 hover:text-white transition-all text-[11px] font-bold"
+                          className="px-2.5 py-1 rounded border border-[#4684AD]/40 text-[#2F5472] dark:text-[#C0D5E5] hover:bg-[#4684AD] hover:text-white transition-all text-[11px] font-bold"
                         >
                           Update ASN
                         </button>
@@ -2740,7 +2740,7 @@ export default function Procurement() {
                 <button
                   type="button"
                   onClick={() => openAsnModal([])}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-[11px] font-bold uppercase tracking-wide"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#4684AD] hover:bg-[#4684AD] text-white text-[11px] font-bold uppercase tracking-wide"
                 >
                   <Package className="w-3.5 h-3.5" />
                   Create ASN
@@ -2963,7 +2963,7 @@ export default function Procurement() {
                         setPoModal(null);
                         openAsnModal([row]);
                       }}
-                      className="w-full py-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 text-white text-xs font-black uppercase tracking-wider"
+                      className="w-full py-2.5 rounded-lg bg-[#4684AD] hover:bg-[#4684AD] text-white text-xs font-black uppercase tracking-wider"
                     >
                       Continue to ASN details
                     </button>
@@ -3012,15 +3012,15 @@ export default function Procurement() {
               </div>
 
               <div className="p-5 space-y-4 overflow-y-auto">
-                <label className="block space-y-1.5 rounded-xl border border-dashed border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 p-3 cursor-pointer hover:bg-sky-50 dark:hover:bg-sky-950/40 transition-colors">
-                  <span className="text-[10px] font-bold uppercase text-sky-700 dark:text-sky-300 flex items-center gap-1.5">
+                <label className="block space-y-1.5 rounded-xl border border-dashed border-[#86A8C2] dark:border-sky-800 bg-[#C0D5E5]/50 dark:bg-sky-950/20 p-3 cursor-pointer hover:bg-[#C0D5E5]/30 dark:hover:bg-sky-950/40 transition-colors">
+                  <span className="text-[10px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5] flex items-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" />
                     Upload packing slip / ASN image
                   </span>
                   <input
                     type="file"
                     accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,image/*,application/pdf"
-                    className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-sky-700 file:text-white file:text-[10px] file:font-bold file:uppercase"
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#4684AD] file:text-white file:text-[10px] file:font-bold file:uppercase"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) void handlePackingSlipUpload(f);
@@ -3041,7 +3041,7 @@ export default function Procurement() {
                       href="/samples/asn-sample-multi-po.png"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-sky-700 dark:text-sky-300 font-semibold underline"
+                      className="text-[#2F5472] dark:text-[#C0D5E5] font-semibold underline"
                       onClick={(e) => e.stopPropagation()}
                     >
                       sample multi-PO ASN
@@ -3165,7 +3165,7 @@ export default function Procurement() {
                             key={o.po}
                             className={cn(
                               'flex items-start gap-3 px-3 py-2.5 cursor-pointer text-xs',
-                              checked ? 'bg-sky-50/80 dark:bg-sky-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                              checked ? 'bg-[#C0D5E5]/80 dark:bg-sky-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
                             )}
                           >
                             <input
@@ -3197,7 +3197,7 @@ export default function Procurement() {
                     </div>
                   )}
                   {asnLinkedPoIds.length > 1 && (
-                    <p className="text-[10px] text-sky-700 dark:text-sky-300 font-medium">
+                    <p className="text-[10px] text-[#2F5472] dark:text-[#C0D5E5] font-medium">
                       {asnLinkedPoIds.length} POs will share one ASN and container in logistics.
                     </p>
                   )}
@@ -3258,7 +3258,7 @@ export default function Procurement() {
                     fulfillSaving || !fulfillAsn.trim() || asnLinkedPoIds.length === 0
                   }
                   onClick={submitAsn}
-                  className="w-full py-2.5 rounded-lg bg-sky-700 hover:bg-sky-600 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider"
+                  className="w-full py-2.5 rounded-lg bg-[#4684AD] hover:bg-[#4684AD] disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider"
                 >
                   {fulfillSaving
                     ? 'Saving…'
@@ -3492,7 +3492,7 @@ export default function Procurement() {
                             className={cn(
                               'flex-1 px-3 py-2 text-xs font-bold transition-colors',
                               newOrderType === 'one-time'
-                                ? 'bg-sky-600 text-white'
+                                ? 'bg-[#4684AD] text-white'
                                 : 'bg-slate-50 dark:bg-slate-950 text-slate-600 dark:text-slate-300 hover:bg-slate-100'
                             )}
                           >
@@ -3653,7 +3653,7 @@ export default function Procurement() {
                         <button
                           type="button"
                           onClick={() => setSelectedVendorNames(matchedVendorsLive.map((v) => v.name))}
-                          className="text-[10px] font-bold uppercase text-sky-700 hover:underline"
+                          className="text-[10px] font-bold uppercase text-[#2F5472] hover:underline"
                         >
                           Select all
                         </button>

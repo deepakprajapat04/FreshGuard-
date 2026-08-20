@@ -2,7 +2,7 @@ import { ReactNode, useRef, useState } from 'react';
 import { NavLink } from 'react-router';
 import { usePersona, isSupplierPersona } from '../context/PersonaContext';
 import { PERSONA_LABELS, type FreshGuardPersona } from '../lib/trackingFlow';
-import { SAP } from '../lib/sapTheme';
+import { SAP, contentCanvasClass } from '../lib/sapTheme';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
 import {
@@ -11,7 +11,6 @@ import {
   Map,
   ScanLine,
   AlertTriangle,
-  BarChart3,
   Menu,
   X,
   Bell,
@@ -37,14 +36,13 @@ const ALL_PERSONAS: FreshGuardPersona[] = [
 ];
 
 const navItems = [
-  { name: 'Track → Risk → Act', path: '/', icon: LayoutDashboard, personas: ALL_PERSONAS },
+  { name: 'Shipment Intelligence', path: '/', icon: LayoutDashboard, personas: ALL_PERSONAS },
   { name: 'SAP Purchase Orders', path: '/orders', icon: ShoppingCart, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
   { name: 'Logistics Tracking', path: '/logistics', icon: Map, personas: ALL_PERSONAS },
   { name: 'Risk Actions', path: '/actions', icon: ClipboardCheck, personas: ['dc_purchasing', 'transport', 'receiving', 'category_manager'] as FreshGuardPersona[] },
   { name: 'Business Rules', path: '/business-rules', icon: Settings2, personas: ['dc_purchasing'] as FreshGuardPersona[] },
-  { name: 'AI Quality Control', path: '/qc', icon: ScanLine, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
+  { name: 'Quality Control', path: '/qc', icon: ScanLine, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
   { name: 'Claims & Wastage', path: '/claims', icon: AlertTriangle, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
-  { name: 'Shrinkage Reports', path: '/reports', icon: BarChart3, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -60,7 +58,7 @@ export function Layout({ children }: { children: ReactNode }) {
   const filteredNavItems = navItems.filter((item) => item.personas.includes(persona));
 
   return (
-    <div className="min-h-screen bg-[#f5f6f7] dark:bg-[#1d2d3e] flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300">
+    <div className={cn('min-h-screen flex overflow-hidden font-sans text-slate-900 dark:text-slate-100 transition-colors duration-300', contentCanvasClass, 'dark:bg-[#1d2d3e]')}>
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
@@ -76,7 +74,7 @@ export function Layout({ children }: { children: ReactNode }) {
       <div
         className={cn(
           'fixed inset-y-0 left-0 z-50 transform transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:flex-shrink-0 flex flex-col group overflow-visible text-slate-700',
-          'border-r border-[#B8CFE0]/80 shadow-[4px_0_16px_rgba(106,158,200,0.08)]',
+          'border-r border-[#86A8C2]/80 shadow-[4px_0_16px_rgba(70,132,173,0.08)]',
           mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
           sidebarCollapsed ? 'w-20' : 'w-72'
         )}
@@ -84,14 +82,14 @@ export function Layout({ children }: { children: ReactNode }) {
       >
         <div
           className={cn(
-            'flex items-center border-b border-[#B8CFE0]/60 bg-white/30',
+            'flex items-center border-b border-[#86A8C2]/60 bg-white/30',
             sidebarCollapsed
               ? 'flex-col justify-center gap-1.5 px-2 py-3'
               : 'h-16 justify-between px-4'
           )}
         >
           <div className={cn('flex items-center gap-3', !sidebarCollapsed && 'overflow-hidden min-w-0')}>
-            <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-1 ring-1 ring-[#B8CFE0]/60">
+            <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center shrink-0 shadow-sm overflow-hidden p-1 ring-1 ring-[#86A8C2]/60">
               <img
                 src="/freshguard-logo.png"
                 alt="FreshGuard"
@@ -99,7 +97,7 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             </div>
             {!sidebarCollapsed && (
-              <span className="text-xl font-bold tracking-tight text-[#4A7394] whitespace-nowrap">
+              <span className="text-xl font-bold tracking-tight text-[#2F5472] whitespace-nowrap">
                 FreshGuard
               </span>
             )}
@@ -107,7 +105,7 @@ export function Layout({ children }: { children: ReactNode }) {
           <button
             onClick={() => setMobileMenuOpen(false)}
             className={cn(
-              'lg:hidden text-slate-500 hover:text-[#4A7394] shrink-0',
+              'lg:hidden text-slate-500 hover:text-[#2F5472] shrink-0',
               !sidebarCollapsed && 'ml-2'
             )}
           >
@@ -115,7 +113,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
           <button
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className="hidden lg:flex p-1 rounded-md hover:bg-white/60 text-slate-500 hover:text-[#4A7394] shrink-0"
+            className="hidden lg:flex p-1 rounded-md hover:bg-white/60 text-slate-500 hover:text-[#2F5472] shrink-0"
             title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-5 h-5" />}
@@ -137,8 +135,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 cn(
                   'flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group/link text-sm font-medium',
                   isActive
-                    ? 'bg-white/90 text-[#4A7394] shadow-sm ring-1 ring-[#6A9EC8]/25'
-                    : 'text-slate-600 hover:bg-white/50 hover:text-[#4A7394]',
+                    ? 'bg-white/90 text-[#2F5472] shadow-sm ring-1 ring-[#4684AD]/25'
+                    : 'text-slate-600 hover:bg-white/50 hover:text-[#2F5472]',
                   sidebarCollapsed ? 'justify-center px-0' : ''
                 )
               }
@@ -150,7 +148,7 @@ export function Layout({ children }: { children: ReactNode }) {
           ))}
         </div>
 
-        <div className="p-3 border-t border-[#B8CFE0]/60 bg-white/25 overflow-visible">
+        <div className="p-3 border-t border-[#86A8C2]/60 bg-white/25 overflow-visible">
           <UserProfileMenu
             open={profileOpen}
             onToggle={() => {
@@ -165,17 +163,17 @@ export function Layout({ children }: { children: ReactNode }) {
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <header
-          className="h-14 border-b border-[#B8CFE0]/80 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0 text-slate-700"
+          className="h-14 border-b border-[#86A8C2]/80 flex items-center justify-between px-4 sm:px-6 lg:px-8 z-30 sticky top-0 shadow-sm shrink-0 text-slate-700"
           style={{ backgroundColor: SAP.headerBg }}
         >
           <div className="flex items-center gap-4">
             <button
               onClick={() => setMobileMenuOpen(true)}
-              className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-[#4A7394] hover:bg-white/60 rounded-lg"
+              className="lg:hidden p-2 -ml-2 text-slate-500 hover:text-[#2F5472] hover:bg-white/60 rounded-lg"
             >
               <Menu className="w-6 h-6" />
             </button>
-            <div className="hidden sm:flex items-center gap-2 text-slate-600 border border-[#B8CFE0] rounded-full px-3 py-1.5 bg-white/70 w-64 focus-within:ring-2 focus-within:ring-[#6A9EC8]/30 transition-all">
+            <div className="hidden sm:flex items-center gap-2 text-slate-600 border border-[#86A8C2] rounded-full px-3 py-1.5 bg-white/70 w-64 focus-within:ring-2 focus-within:ring-[#4684AD]/30 transition-all">
               <Search className="w-4 h-4 text-slate-400" />
               <input
                 type="text"
@@ -191,7 +189,7 @@ export function Layout({ children }: { children: ReactNode }) {
               <select
                 value={persona}
                 onChange={(e) => setPersona(e.target.value as FreshGuardPersona)}
-                className="bg-white/80 border border-[#B8CFE0] text-slate-700 text-xs font-medium rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-[#6A9EC8]/30"
+                className="bg-white/80 border border-[#86A8C2] text-slate-700 text-xs font-medium rounded-lg px-2 py-1.5 outline-none focus:ring-2 focus:ring-[#4684AD]/30"
               >
                 {ALL_PERSONAS.map((p) => (
                   <option key={p} value={p}>
@@ -203,7 +201,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
             <button
               onClick={toggleTheme}
-              className="p-2 text-slate-500 hover:text-[#4A7394] hover:bg-white/60 rounded-lg transition-colors relative flex items-center justify-center min-w-[36px] min-h-[36px]"
+              className="p-2 text-slate-500 hover:text-[#2F5472] hover:bg-white/60 rounded-lg transition-colors relative flex items-center justify-center min-w-[36px] min-h-[36px]"
               title={theme === 'light' ? 'Switch to Dark Mode' : 'Switch to Light Mode'}
               aria-label="Toggle Theme"
             >
@@ -236,8 +234,8 @@ export function Layout({ children }: { children: ReactNode }) {
                 className={cn(
                   'relative p-2 rounded-lg transition-colors',
                   alertsOpen
-                    ? 'bg-white/80 text-[#4A7394] ring-1 ring-[#6A9EC8]/30'
-                    : 'text-slate-500 hover:text-[#4A7394] hover:bg-white/60'
+                    ? 'bg-white/80 text-[#2F5472] ring-1 ring-[#4684AD]/30'
+                    : 'text-slate-500 hover:text-[#2F5472] hover:bg-white/60'
                 )}
                 title="Alerts"
                 aria-label="Open alerts"
@@ -245,7 +243,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#E4EEF6]">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#B8CFE0]">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}
@@ -257,14 +255,14 @@ export function Layout({ children }: { children: ReactNode }) {
               />
             </div>
 
-            <div className="h-8 w-px bg-[#B8CFE0] hidden sm:block" />
+            <div className="h-8 w-px bg-[#86A8C2] hidden sm:block" />
             <div className="hidden sm:flex items-center gap-2">
               <span className="text-sm font-medium text-slate-600">HQ DC — Chicago</span>
             </div>
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto bg-[#f5f6f7] dark:bg-[#1d2d3e] transition-colors duration-300">
+        <main className={cn('flex-1 overflow-auto transition-colors duration-300', contentCanvasClass, 'dark:bg-[#1d2d3e]')}>
           {children}
         </main>
       </div>

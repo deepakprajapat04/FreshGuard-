@@ -4,9 +4,10 @@
   --font-sans: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "Outfit", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   --font-code: "IBM Plex Mono", "Consolas", ui-monospace, monospace;
-  --color-sap-blue: #6A9EC8;
-  --color-sap-blue-dark: #4A7394;
-  --color-sap-blue-light: #EDF3F9;
+  --color-sap-blue: #4684AD;
+  --color-sap-blue-dark: #2F5472;
+  --color-sap-blue-light: #C0D5E5;
+  --color-sap-canvas: #F5F8FB;
 }
 
 @variant dark (&:where(.dark, .dark *));

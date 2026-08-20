@@ -16,7 +16,7 @@ import {
   ArrowRightLeft,
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
-import { SAP } from '../../lib/sapTheme';
+import { SAP, btnPrimaryClass, btnSecondaryClass } from '../../lib/sapTheme';
 import {
   ReallocationMovesDrawer,
   sumReallocationCases,
@@ -118,7 +118,7 @@ function InboundTimingStrip({
           <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
             Store arrival
           </div>
-          <div className="text-lg font-bold tabular-nums text-[#4A7394] mt-0.5">
+          <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
             {formatShortDate(storeShelfDate)}
           </div>
           <div className="text-[10px] text-slate-400">
@@ -177,7 +177,7 @@ function MoveCategoryCard({
       <div className={cn('px-4 py-3 border-b border-slate-100 dark:border-slate-800', accentClass)}>
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-md bg-white/80 dark:bg-slate-900/80 shadow-sm">
-            <Icon className="w-4 h-4 text-[#4A7394]" />
+            <Icon className="w-4 h-4 text-[#2F5472]" />
           </div>
           <h5 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h5>
         </div>
@@ -197,7 +197,7 @@ function MoveCategoryCard({
         <button
           type="button"
           onClick={onViewDetails}
-          className="w-full flex items-center justify-between gap-2 py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-[#4A7394] hover:border-[#6A9EC8]/50 hover:bg-[#EDF3F9]/50 dark:hover:bg-slate-800 transition-colors"
+          className="w-full flex items-center justify-between gap-2 py-2.5 px-3 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-semibold text-[#2F5472] hover:border-[#4684AD]/50 hover:bg-[#C0D5E5]/50 dark:hover:bg-slate-800 transition-colors"
         >
           <span>View details ({moves.length})</span>
           <ChevronRight className="w-4 h-4 shrink-0" />
@@ -313,7 +313,7 @@ export function StockRiskPanel({
                   <tr key={`${dc.dcId}-${dc.item}`}>
                     <td className="px-3 py-2.5 text-slate-600">{dc.name}</td>
                     <td className="px-3 py-2.5 font-semibold text-slate-900 dark:text-slate-100">{dc.item}</td>
-                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#4A7394]">
+                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#2F5472]">
                       {dc.availableStock}
                       <span className="font-normal text-slate-400 ml-1">{dc.unit}</span>
                     </td>
@@ -427,7 +427,7 @@ export function StockRiskPanel({
       <section className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <Truck className="w-4 h-4 text-[#4A7394]" />
+            <Truck className="w-4 h-4 text-[#2F5472]" />
             <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
               Transfer plan — from → to
             </h4>
@@ -436,7 +436,7 @@ export function StockRiskPanel({
             <button
               type="button"
               onClick={() => openDrawer('dc_to_store')}
-              className="text-[11px] font-semibold text-[#4A7394] hover:underline"
+              className="text-[11px] font-semibold text-[#2F5472] hover:underline"
             >
               All DC moves ({dcMoves.length})
             </button>
@@ -444,7 +444,7 @@ export function StockRiskPanel({
             <button
               type="button"
               onClick={() => openDrawer('store_to_store')}
-              className="text-[11px] font-semibold text-[#4A7394] hover:underline"
+              className="text-[11px] font-semibold text-[#2F5472] hover:underline"
             >
               All inter-store ({storeMoves.length})
             </button>
@@ -470,7 +470,7 @@ export function StockRiskPanel({
                     <span
                       className={cn(
                         'text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
-                        'bg-[#EDF3F9] text-[#4A7394]'
+                        'bg-[#C0D5E5] text-[#2F5472]'
                       )}
                     >
                       DC → store
@@ -482,7 +482,7 @@ export function StockRiskPanel({
                   </td>
                   <td className="px-3 py-2.5 font-semibold">{move.toLabel}</td>
                   <td className="px-3 py-2.5 text-slate-600">{move.item}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#4A7394]">
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#2F5472]">
                     {move.cases}
                   </td>
                 </tr>
@@ -500,7 +500,7 @@ export function StockRiskPanel({
                   </td>
                   <td className="px-3 py-2.5 font-semibold">{move.toLabel}</td>
                   <td className="px-3 py-2.5 text-slate-600">{move.item}</td>
-                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#4A7394]">
+                  <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#2F5472]">
                     {move.cases}
                   </td>
                 </tr>
@@ -514,7 +514,7 @@ export function StockRiskPanel({
             title="DC reallocation"
             icon={Warehouse}
             moves={dcMoves}
-            accentClass="bg-[#EDF3F9]/60 dark:bg-slate-800/50"
+            accentClass="bg-[#C0D5E5]/60 dark:bg-slate-800/50"
             onViewDetails={() => openDrawer('dc_to_store')}
           />
           <MoveCategoryCard
@@ -552,20 +552,11 @@ export function StockRiskPanel({
 
             {stockAction.status === 'pending_approval' && canApprove && (
               <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={handleApprove}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-white text-xs font-semibold"
-                  style={{ backgroundColor: SAP.blue }}
-                >
+                <button type="button" onClick={handleApprove} className={btnPrimaryClass}>
                   <Check className="w-3.5 h-3.5" />
                   Approve & notify delivery team
                 </button>
-                <button
-                  type="button"
-                  onClick={handleReject}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 text-xs font-semibold text-slate-700 dark:text-slate-200"
-                >
+                <button type="button" onClick={handleReject} className={btnSecondaryClass}>
                   <X className="w-3.5 h-3.5" />
                   Reject
                 </button>
@@ -588,7 +579,7 @@ export function StockRiskPanel({
 
             <Link
               to="/actions"
-              className="inline-flex items-center gap-1 text-xs font-semibold text-[#6A9EC8] hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#4684AD] hover:underline"
             >
               View full actions queue
             </Link>

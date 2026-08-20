@@ -1,9 +1,10 @@
 import type { ReactNode } from 'react';
 import { cn } from '../lib/utils';
+import { contentCanvasClass } from '../lib/sapTheme';
 
 /** Shared full-bleed page shell — SAP Fiori canvas */
 export const pageShellClass =
-  'p-3 sm:p-4 w-full mx-auto space-y-3.5 bg-[#f5f6f7] dark:bg-slate-950 min-h-full text-slate-900 dark:text-slate-100';
+  `p-3 sm:p-4 w-full mx-auto space-y-3.5 ${contentCanvasClass} min-h-full text-slate-900 dark:text-slate-100`;
 
 /** Standard compact grid for KPI / stat cards */
 export const statGridClass =
@@ -65,12 +66,12 @@ export function Panel({
   return (
     <div
       className={cn(
-        'rounded-2xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-sm bg-white dark:bg-slate-900',
+        'rounded-xl overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-md bg-white dark:bg-slate-900',
         className
       )}
     >
       {title && (
-        <div className="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+        <div className="px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
           <div className="min-w-0">
             <h3 className="text-xs font-bold tracking-tight text-slate-900 dark:text-white">{title}</h3>
             {subtitle && (
@@ -87,10 +88,11 @@ export function Panel({
   );
 }
 
-type StatTone = 'sap' | 'emerald' | 'amber' | 'rose' | 'cyan';
+type StatTone = 'sap' | 'emerald' | 'amber' | 'rose' | 'cyan' | 'sky';
 
 const STAT_TONES: Record<StatTone, { value: string; bar: string; accent: string }> = {
-  sap: { value: 'text-[#4A7394] dark:text-blue-300', bar: 'bg-[#6A9EC8]', accent: 'from-[#6A9EC8]/10' },
+  sap: { value: 'text-[#2F5472] dark:text-blue-300', bar: 'bg-[#4684AD]', accent: 'from-[#4684AD]/10' },
+  sky: { value: 'text-[#2F5472] dark:text-blue-300', bar: 'bg-[#4684AD]', accent: 'from-[#4684AD]/10' },
   emerald: { value: 'text-emerald-600 dark:text-emerald-300', bar: 'bg-emerald-500', accent: 'from-emerald-500/10' },
   amber: { value: 'text-amber-600 dark:text-amber-300', bar: 'bg-amber-500', accent: 'from-amber-500/10' },
   rose: { value: 'text-rose-600 dark:text-rose-300', bar: 'bg-rose-500', accent: 'from-rose-500/10' },
@@ -110,7 +112,7 @@ export function StatCard({
   tone?: StatTone;
   className?: string;
 }) {
-  const t = STAT_TONES[tone];
+  const t = STAT_TONES[tone] ?? STAT_TONES.sap;
   return (
     <div
       className={cn(

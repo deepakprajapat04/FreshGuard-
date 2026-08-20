@@ -14,6 +14,7 @@ import {
   ChevronDown, ChevronUp,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { btnTabActiveClass, contentCanvasClass } from '../lib/sapTheme';
 import { usePersona, isSupplierPersona } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
 import {
@@ -629,7 +630,7 @@ export default function Logistics() {
   ];
 
   return (
-    <div className="flex flex-col h-screen min-h-screen bg-[#F0F3F8] dark:bg-slate-950 font-sans antialiased overflow-hidden">
+    <div className={cn('flex flex-col h-screen min-h-screen font-sans antialiased overflow-hidden', contentCanvasClass)}>
       <AnimatePresence>
         {successToast && (
           <motion.div
@@ -651,7 +652,7 @@ export default function Logistics() {
                 <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                   Logistics &amp; Shipment Tracking
                 </h1>
-                <span className="text-[10px] font-semibold tracking-wide text-sky-600 dark:text-sky-300 uppercase">
+                <span className="text-[10px] font-semibold tracking-wide text-[#4684AD] dark:text-[#C0D5E5] uppercase">
                   FreshGuard × PSA Portnet®
                 </span>
               </div>
@@ -688,7 +689,7 @@ export default function Logistics() {
                   className={cn(
                     'flex-1 min-w-[100px] py-1.5 px-2.5 rounded-md text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all',
                     activeTab === t.id
-                      ? 'bg-sky-600 text-white shadow-md'
+                      ? btnTabActiveClass
                       : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5'
                   )}
                 >
@@ -702,7 +703,7 @@ export default function Logistics() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search PO, container, vendor..."
-            className="w-full md:w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500 placeholder:text-slate-400"
+            className="w-full md:w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-[#4684AD] placeholder:text-slate-400"
           />
         </div>
       </header>
@@ -744,7 +745,7 @@ export default function Logistics() {
               <div className="w-full space-y-5">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm gap-4">
                   <div>
-                    <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-sky-600 dark:text-sky-300">Warehouse readiness</h3>
+                    <h3 className="text-sm font-bold uppercase font-mono tracking-wider text-[#4684AD] dark:text-[#C0D5E5]">Warehouse readiness</h3>
                     <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Finalize packing, then dispatch — manifests push to PSA Portnet for retail visibility.</p>
                   </div>
                   <span className="bg-amber-50 border border-amber-200 text-amber-700 dark:bg-amber-500/15 dark:border-amber-400/40 dark:text-amber-300 px-3.5 py-1.5 rounded-lg text-xs font-mono font-extrabold flex items-center gap-2">
@@ -764,7 +765,7 @@ export default function Logistics() {
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-sky-600 via-sky-400 to-emerald-500" />
                         <div className="space-y-3">
                           <div>
-                            <span className="font-mono text-xs font-black text-sky-700 dark:text-sky-400 uppercase tracking-widest">{s.id}</span>
+                            <span className="font-mono text-xs font-black text-[#2F5472] dark:text-blue-300 uppercase tracking-widest">{s.id}</span>
                             <h4 className="text-sm font-black mt-1">{s.product || s.item}</h4>
                             <div className="text-[10px] font-mono text-slate-500 mt-1">Ordered: {s.quantity.toLocaleString()} {s.unit}</div>
                             {s.asnNumber && (
@@ -794,7 +795,7 @@ export default function Logistics() {
                                 min={1}
                                 value={confirmQtyById[s.id] ?? String(s.quantity)}
                                 onChange={(e) => setConfirmQtyById((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                               />
                             </label>
                             <label className="block space-y-1">
@@ -802,7 +803,7 @@ export default function Logistics() {
                               <input
                                 value={shipContainerById[s.id] ?? (s.containerNumber || '')}
                                 onChange={(e) => setShipContainerById((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                                 placeholder="e.g. FGRU8800121"
                               />
                             </label>
@@ -811,7 +812,7 @@ export default function Logistics() {
                               <input
                                 value={shipEtaById[s.id] ?? (s.eta === 'Pending dispatch' ? '3 Days' : s.eta)}
                                 onChange={(e) => setShipEtaById((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                                 placeholder="e.g. 3 Days"
                               />
                             </label>
@@ -821,7 +822,7 @@ export default function Logistics() {
                                 rows={2}
                                 value={shipNotesById[s.id] ?? ''}
                                 onChange={(e) => setShipNotesById((prev) => ({ ...prev, [s.id]: e.target.value }))}
-                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-sky-500"
+                                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                                 placeholder="Seal #, trailer, special handling…"
                               />
                             </label>
@@ -874,7 +875,7 @@ export default function Logistics() {
               <div className="w-full lg:w-[32%] xl:w-[28%] bg-white dark:bg-slate-900 border-b lg:border-b-0 lg:border-r border-slate-200 dark:border-slate-800 flex flex-col h-[42vh] lg:h-full shrink-0">
                 <div className="p-3 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 space-y-2 shrink-0">
                   <div className="flex justify-between items-center text-[11px]">
-                    <span className="font-bold text-sky-200">PSA-linked fleet</span>
+                    <span className="font-bold text-[#C0D5E5]">PSA-linked fleet</span>
                     <span className="text-slate-400">
                       {filteredTransitShipments.length}
                       {transitFilterCount > 0 ? ` / ${transitShipments.length}` : ''} active
@@ -902,7 +903,7 @@ export default function Logistics() {
                               ? value === 'delayed' || value === 'mismatched'
                                 ? 'bg-rose-600 border-rose-500 text-white'
                                 : value === 'delivered'
-                                  ? 'bg-sky-600 border-sky-500 text-white'
+                                  ? 'bg-[#4684AD] border-[#4684AD] text-white'
                                   : value === 'on-time'
                                     ? 'bg-emerald-600 border-emerald-500 text-white'
                                     : 'bg-slate-700 border-slate-600 text-white dark:bg-white/20 dark:border-white/30'
@@ -921,7 +922,7 @@ export default function Logistics() {
                       className={cn(
                         'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
                         transitFiltersOpen || transitFilterCount > 0
-                          ? 'bg-sky-600 border-sky-500 text-white'
+                          ? 'bg-[#4684AD] border-[#4684AD] text-white'
                           : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'
                       )}
                     >
@@ -1032,7 +1033,7 @@ export default function Logistics() {
                       onClick={() => setViewMode(mode)}
                       className={cn(
                         'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase flex items-center gap-1.5',
-                        viewMode === mode ? 'bg-sky-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
+                        viewMode === mode ? 'bg-[#4684AD] text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                       )}
                     >
                       <Icon className="w-3.5 h-3.5" /> {label}
@@ -1151,7 +1152,7 @@ export default function Logistics() {
                                       <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                         Demand: {activeDisruption.dailyDemandCases ?? 0}/day
                                       </span>
-                                      <span className="px-2 py-1 rounded bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                                      <span className="px-2 py-1 rounded bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/40 dark:text-[#C0D5E5]">
                                         Cover: {activeDisruption.daysOfCover ?? 0}d
                                       </span>
                                       {activeDisruption.willShortage && (
@@ -1183,7 +1184,7 @@ export default function Logistics() {
                               <button
                                 type="button"
                                 onClick={() => setAlertDetailsOpen((v) => !v)}
-                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300 hover:text-sky-700"
+                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300 hover:text-[#2F5472]"
                               >
                                 {alertDetailsOpen ? (
                                   <ChevronUp className="w-3.5 h-3.5" />
@@ -1209,7 +1210,7 @@ export default function Logistics() {
                                     <button
                                       type="button"
                                       onClick={() => setShowAlertsPanel(true)}
-                                      className="inline-flex items-center gap-2 px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-[#4684AD] hover:bg-[#4684AD] text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
                                     >
                                       Open buyer alerts
                                     </button>
@@ -1226,7 +1227,7 @@ export default function Logistics() {
                                 <button
                                   type="button"
                                   onClick={() => navigate('/procurement')}
-                                  className="inline-flex items-center gap-2 px-3 py-2 bg-sky-700 hover:bg-sky-600 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#4684AD] hover:bg-[#4684AD] text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
                                 >
                                   <ShoppingCart className="w-3.5 h-3.5" />
                                   Ask alternative suppliers
@@ -1242,7 +1243,7 @@ export default function Logistics() {
                     {!isVendor && selectedShipment && !activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 w-full">
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-3 flex flex-wrap justify-between gap-2 text-xs text-slate-700 dark:text-slate-200">
-                          <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
+                          <div className="flex items-center gap-2 font-mono font-bold text-[#C0D5E5]">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
                           <span className="text-[10px] font-mono text-emerald-300">Sync {formatSyncAge(selectedShipment.psaLastSyncAt)} · {selectedShipment.psaEvents?.length || 0} events</span>
@@ -1252,7 +1253,7 @@ export default function Logistics() {
                     {!isVendor && selectedShipment && activeDisruption && (
                       <div className="px-4 lg:px-5 pb-2 shrink-0 w-full">
                         <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2 flex flex-wrap justify-between gap-2 text-xs text-slate-700 dark:text-slate-200">
-                          <div className="flex items-center gap-2 font-mono font-bold text-sky-200">
+                          <div className="flex items-center gap-2 font-mono font-bold text-[#C0D5E5]">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
                           <span className="text-[10px] font-mono text-amber-300">
@@ -1281,13 +1282,13 @@ export default function Logistics() {
                             const lines = getShipmentCargoLines(selectedShipment);
                             const poCount = new Set(lines.map((l) => l.poNumber)).size;
                             return (
-                              <div className="text-[11px] text-sky-300/90 mt-1.5">
+                              <div className="text-[11px] text-[#C0D5E5]/90 mt-1.5">
                                 {poCount} PO{poCount === 1 ? '' : 's'} / {lines.length} item{lines.length === 1 ? '' : 's'} in this container
                                 {' · '}
                                 <button
                                   type="button"
                                   onClick={() => setActiveTab('containers')}
-                                  className="underline hover:text-sky-200"
+                                  className="underline hover:text-[#C0D5E5]"
                                 >
                                   View all PO details
                                 </button>
@@ -1297,7 +1298,7 @@ export default function Logistics() {
                           <div className="flex flex-wrap gap-2 mt-3">
                             <span className="flex items-center gap-1.5 border border-slate-700 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Clock className="w-3.5 h-3.5" />{selectedShipment.status === 'delivered' ? 'Landed @ DC' : `ETA ${selectedShipment.eta}`}</span>
                             <span className="flex items-center gap-1.5 border border-emerald-900/60 bg-emerald-950/40 text-emerald-400 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Thermometer className="w-3.5 h-3.5" />{selectedShipment.temp}</span>
-                            <span className="flex items-center gap-1.5 border border-sky-700/60 bg-sky-950/40 text-sky-300 px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Navigation className="w-3.5 h-3.5" />{selectedShipment.fleetSpecification}</span>
+                            <span className="flex items-center gap-1.5 border border-sky-700/60 bg-sky-950/40 text-[#C0D5E5] px-3 py-1 rounded-md text-[9.5px] font-black uppercase"><Navigation className="w-3.5 h-3.5" />{selectedShipment.fleetSpecification}</span>
                           </div>
                         </div>
                       )}
@@ -1440,7 +1441,7 @@ function ShipmentListItem({
         ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-100 dark:bg-rose-950/40'
         : 'border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/25'),
       !isAlert && !isDelivered && (active
-        ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40'
+        ? 'border-[#4684AD] ring-1 ring-[#4684AD] bg-[#C0D5E5]/40'
         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900')
     )}>
       <div className="flex justify-between gap-2">
@@ -1503,7 +1504,7 @@ function BuyerShipmentListItem({ shipment, active, onClick }: { shipment: Shipme
         ? 'border-rose-500 ring-1 ring-rose-500 bg-rose-100 dark:bg-rose-950/40'
         : 'border-rose-200 dark:border-rose-800/60 bg-rose-50 dark:bg-rose-950/25'),
       !isAlert && !isDelivered && (active
-        ? 'border-sky-500 ring-1 ring-sky-500 bg-sky-50/40'
+        ? 'border-[#4684AD] ring-1 ring-[#4684AD] bg-[#C0D5E5]/40'
         : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900')
     )}>
       <div className="flex items-start justify-between gap-2">
