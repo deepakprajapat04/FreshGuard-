@@ -44,6 +44,25 @@ export type SapPoItemDetail = {
   countryOfOrigin: string;
 };
 
+/** SAP-style PO line item (multi-line purchase orders). */
+export type SapPoOrderLine = {
+  lineNumber: number;
+  item: 'Blueberries' | 'Strawberries';
+  materialNumber: string;
+  description: string;
+  sku: string;
+  orderedQty: number;
+  confirmedQty: number;
+  unit: 'Cases';
+  unitPrice: number;
+  currency: string;
+  shelfLifeDays: number;
+  storageTemp: string;
+  storageLocation: string;
+  netWeightKg: number;
+  countryOfOrigin: string;
+};
+
 export type SapPoShipmentLine = {
   poNumber: string;
   item: string;
@@ -95,8 +114,41 @@ export type SapPurchaseOrder = {
   createdDate: string;
   paymentTerms: string;
   itemDetail: SapPoItemDetail;
+  /** Multiple SAP line items on one PO header (falls back to itemDetail when omitted). */
+  orderLines?: SapPoOrderLine[];
   shipmentDetail?: SapPoShipmentDetail;
 };
+
+export function getPoOrderLines(po: SapPurchaseOrder): SapPoOrderLine[] {
+  if (po.orderLines?.length) return po.orderLines;
+  return [
+    {
+      lineNumber: 10,
+      item: po.item,
+      materialNumber: po.itemDetail.materialNumber,
+      description: po.itemDetail.description,
+      sku: po.itemDetail.sku,
+      orderedQty: po.itemDetail.orderedQty,
+      confirmedQty: po.itemDetail.confirmedQty,
+      unit: 'Cases',
+      unitPrice: po.itemDetail.unitPrice,
+      currency: po.itemDetail.currency,
+      shelfLifeDays: po.itemDetail.shelfLifeDays,
+      storageTemp: po.itemDetail.storageTemp,
+      storageLocation: po.itemDetail.storageLocation,
+      netWeightKg: po.itemDetail.netWeightKg,
+      countryOfOrigin: po.itemDetail.countryOfOrigin,
+    },
+  ];
+}
+
+export function getPoLineCount(po: SapPurchaseOrder): number {
+  return getPoOrderLines(po).length;
+}
+
+export function getPoNetValue(po: SapPurchaseOrder): number {
+  return getPoOrderLines(po).reduce((sum, line) => sum + line.unitPrice * line.orderedQty, 0);
+}
 
 export type TrackShipment = {
   id: string;
@@ -266,11 +318,41 @@ export type RiskAction = {
   status: ActionStatus;
   proposal: string;
   detail?: string;
+  /** Shipment / PO context for task list and detail headers */
+  containerNumber?: string;
+  asnNumber?: string;
+  supplier?: string;
+  linkedPos?: string[];
+  items?: string[];
   stockProposal?: StockRiskProposal;
   promotionProposal?: PromotionRiskProposal;
   shelfLifeProposal?: ShelfLifeProposal;
   receivingImpact?: ReceivingImpact;
   transportImpact?: TransportImpact;
+};
+
+export type RiskActionPoSummary = {
+  po: string;
+  item: string;
+  supplier: string;
+  orderedQty: number;
+  unit: string;
+  lineCount: number;
+  lineDescriptions: string[];
+};
+
+export type RiskActionContext = {
+  shipmentId: string;
+  containerNumber: string;
+  asnNumber?: string;
+  supplier: string;
+  linkedPos: string[];
+  items: string[];
+  totalQuantity: number;
+  unit: string;
+  destination: string;
+  eta: string;
+  poSummaries: RiskActionPoSummary[];
 };
 
 const SUPPLIER = 'Berry Farms Co-op';
@@ -306,6 +388,59 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       netWeightKg: 4800,
       countryOfOrigin: 'Chile',
     },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4401-A',
+        description: 'Fresh Blueberries — Premium Grade A',
+        sku: 'SKU-BB-2345-A',
+        orderedQty: 1000,
+        confirmedQty: 1000,
+        unit: 'Cases',
+        unitPrice: 29.5,
+        currency: 'USD',
+        shelfLifeDays: 23,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 2200,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 20,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4402',
+        description: 'Fresh Blueberries — Grade B',
+        sku: 'SKU-BB-2345-B',
+        orderedQty: 900,
+        confirmedQty: 900,
+        unit: 'Cases',
+        unitPrice: 26.0,
+        currency: 'USD',
+        shelfLifeDays: 21,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1980,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 30,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4403-O',
+        description: 'Fresh Blueberries — Organic',
+        sku: 'SKU-BB-2345-O',
+        orderedQty: 500,
+        confirmedQty: 500,
+        unit: 'Cases',
+        unitPrice: 34.0,
+        currency: 'USD',
+        shelfLifeDays: 20,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1100,
+        countryOfOrigin: 'Chile',
+      },
+    ],
     shipmentDetail: {
       asnNumber: 'ASN-2026-BB-0801',
       containerNumber: 'TRHU8820144',
@@ -394,6 +529,42 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       netWeightKg: 2700,
       countryOfOrigin: 'Chile',
     },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2201-A',
+        description: 'Fresh Strawberries — Driscoll Select',
+        sku: 'SKU-ST-2346-A',
+        orderedQty: 1000,
+        confirmedQty: 1000,
+        unit: 'Cases',
+        unitPrice: 33.5,
+        currency: 'USD',
+        shelfLifeDays: 22,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 1650,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 20,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2202',
+        description: 'Fresh Strawberries — Standard',
+        sku: 'SKU-ST-2346-B',
+        orderedQty: 800,
+        confirmedQty: 800,
+        unit: 'Cases',
+        unitPrice: 29.0,
+        currency: 'USD',
+        shelfLifeDays: 20,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 1320,
+        countryOfOrigin: 'Chile',
+      },
+    ],
     shipmentDetail: {
       asnNumber: 'ASN-2026-BB-0801',
       containerNumber: 'TRHU8820144',
@@ -471,6 +642,42 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       netWeightKg: 2400,
       countryOfOrigin: 'USA',
     },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4401-A',
+        description: 'Fresh Blueberries — Premium Grade A',
+        sku: 'SKU-BB-2388-A',
+        orderedQty: 700,
+        confirmedQty: 700,
+        unit: 'Cases',
+        unitPrice: 28.5,
+        currency: 'USD',
+        shelfLifeDays: 14,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1540,
+        countryOfOrigin: 'USA',
+      },
+      {
+        lineNumber: 20,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4402',
+        description: 'Fresh Blueberries — Grade B',
+        sku: 'SKU-BB-2388-B',
+        orderedQty: 500,
+        confirmedQty: 500,
+        unit: 'Cases',
+        unitPrice: 24.5,
+        currency: 'USD',
+        shelfLifeDays: 12,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1100,
+        countryOfOrigin: 'USA',
+      },
+    ],
     shipmentDetail: {
       asnNumber: 'ASN-2026-ST-0802',
       containerNumber: 'MSCU7710092',
@@ -544,6 +751,508 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       countryOfOrigin: 'USA',
     },
   },
+  {
+    po: 'PO-4500012401',
+    item: 'Blueberries',
+    supplier: SUPPLIER,
+    orderedQty: 3600,
+    unit: 'Cases',
+    deliveryDate: '2026-08-24',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-12',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-BB-MIX',
+      description: 'Blueberry program — multi-grade consolidated PO',
+      sku: 'SKU-BB-2401',
+      orderedQty: 3600,
+      confirmedQty: 3600,
+      unit: 'Cases',
+      unitPrice: 27.8,
+      currency: 'USD',
+      shelfLifeDays: 18,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-A',
+      netWeightKg: 7200,
+      countryOfOrigin: 'Chile',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4401-A',
+        description: 'Blueberries — Premium Grade A',
+        sku: 'SKU-BB-2401-A',
+        orderedQty: 1200,
+        confirmedQty: 1200,
+        unit: 'Cases',
+        unitPrice: 30.0,
+        currency: 'USD',
+        shelfLifeDays: 18,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 2640,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 20,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4402',
+        description: 'Blueberries — Grade B',
+        sku: 'SKU-BB-2401-B',
+        orderedQty: 900,
+        confirmedQty: 900,
+        unit: 'Cases',
+        unitPrice: 26.5,
+        currency: 'USD',
+        shelfLifeDays: 16,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1980,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 30,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4403-O',
+        description: 'Blueberries — Organic',
+        sku: 'SKU-BB-2401-O',
+        orderedQty: 600,
+        confirmedQty: 600,
+        unit: 'Cases',
+        unitPrice: 35.0,
+        currency: 'USD',
+        shelfLifeDays: 15,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1320,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 40,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4404-F',
+        description: 'Blueberries — Family Pack',
+        sku: 'SKU-BB-2401-F',
+        orderedQty: 900,
+        confirmedQty: 900,
+        unit: 'Cases',
+        unitPrice: 24.0,
+        currency: 'USD',
+        shelfLifeDays: 17,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1800,
+        countryOfOrigin: 'Chile',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-BB-0810',
+      containerNumber: 'HLXU5520198',
+      shipDate: '2026-08-14',
+      eta: 'Aug 25, 2026 (+1 day delay)',
+      originalEta: 'Aug 24, 2026',
+      origin: 'Valparaíso, Chile',
+      portOfLoading: 'Valparaíso',
+      portOfDischarge: 'Los Angeles',
+      destination: 'Chicago DC',
+      transportMode: 'ocean',
+      carrier: 'Hapag-Lloyd Reefer',
+      vesselName: 'MV Cordillera Express',
+      voyageNumber: 'CE-204W',
+      bookingNumber: 'HLXU-5520198',
+      sealNumber: 'SL-5520198',
+      billOfLading: 'BOL-2026-8810',
+      incoterms: 'FOB Valparaíso',
+      customsStatus: 'Pending clearance',
+      tempRange: '0–2°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012401',
+          item: 'Blueberries — Premium Grade A',
+          quantity: 1200,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0814-A',
+          harvestDate: '2026-08-11',
+          bestBefore: '2026-08-29',
+          palletCount: 24,
+          grossWeightKg: 2860,
+        },
+        {
+          poNumber: 'PO-4500012401',
+          item: 'Blueberries — Grade B',
+          quantity: 900,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0814-B',
+          harvestDate: '2026-08-12',
+          bestBefore: '2026-08-27',
+          palletCount: 18,
+          grossWeightKg: 2145,
+        },
+        {
+          poNumber: 'PO-4500012401',
+          item: 'Blueberries — Organic',
+          quantity: 600,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0814-O',
+          harvestDate: '2026-08-12',
+          bestBefore: '2026-08-26',
+          palletCount: 12,
+          grossWeightKg: 1430,
+        },
+        {
+          poNumber: 'PO-4500012401',
+          item: 'Blueberries — Family Pack',
+          quantity: 900,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0814-F',
+          harvestDate: '2026-08-13',
+          bestBefore: '2026-08-28',
+          palletCount: 18,
+          grossWeightKg: 1980,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500012402',
+    item: 'Strawberries',
+    supplier: SUPPLIER,
+    orderedQty: 2850,
+    unit: 'Cases',
+    deliveryDate: '2026-08-24',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-12',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-ST-MIX',
+      description: 'Strawberry seasonal — multi-line consolidated PO',
+      sku: 'SKU-ST-2402',
+      orderedQty: 2850,
+      confirmedQty: 2850,
+      unit: 'Cases',
+      unitPrice: 31.2,
+      currency: 'USD',
+      shelfLifeDays: 20,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-B',
+      netWeightKg: 4275,
+      countryOfOrigin: 'Chile',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2201-A',
+        description: 'Strawberries — Driscoll Select',
+        sku: 'SKU-ST-2402-A',
+        orderedQty: 1100,
+        confirmedQty: 1100,
+        unit: 'Cases',
+        unitPrice: 34.0,
+        currency: 'USD',
+        shelfLifeDays: 20,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 1815,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 20,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2202',
+        description: 'Strawberries — Standard',
+        sku: 'SKU-ST-2402-B',
+        orderedQty: 950,
+        confirmedQty: 950,
+        unit: 'Cases',
+        unitPrice: 29.5,
+        currency: 'USD',
+        shelfLifeDays: 18,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 1568,
+        countryOfOrigin: 'Chile',
+      },
+      {
+        lineNumber: 30,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2203-P',
+        description: 'Strawberries — Pint Clamshell',
+        sku: 'SKU-ST-2402-P',
+        orderedQty: 800,
+        confirmedQty: 800,
+        unit: 'Cases',
+        unitPrice: 30.0,
+        currency: 'USD',
+        shelfLifeDays: 19,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 1200,
+        countryOfOrigin: 'Chile',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-BB-0810',
+      containerNumber: 'HLXU5520198',
+      shipDate: '2026-08-14',
+      eta: 'Aug 25, 2026 (+1 day delay)',
+      originalEta: 'Aug 24, 2026',
+      origin: 'Valparaíso, Chile',
+      portOfLoading: 'Valparaíso',
+      portOfDischarge: 'Los Angeles',
+      destination: 'Chicago DC',
+      transportMode: 'ocean',
+      carrier: 'Hapag-Lloyd Reefer',
+      vesselName: 'MV Cordillera Express',
+      voyageNumber: 'CE-204W',
+      bookingNumber: 'HLXU-5520198',
+      sealNumber: 'SL-5520198',
+      billOfLading: 'BOL-2026-8810',
+      incoterms: 'FOB Valparaíso',
+      customsStatus: 'Pending clearance',
+      tempRange: '0–4°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012402',
+          item: 'Strawberries — Driscoll Select',
+          quantity: 1100,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0814-A',
+          harvestDate: '2026-08-11',
+          bestBefore: '2026-08-30',
+          palletCount: 22,
+          grossWeightKg: 1870,
+        },
+        {
+          poNumber: 'PO-4500012402',
+          item: 'Strawberries — Standard',
+          quantity: 950,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0814-B',
+          harvestDate: '2026-08-12',
+          bestBefore: '2026-08-28',
+          palletCount: 19,
+          grossWeightKg: 1615,
+        },
+        {
+          poNumber: 'PO-4500012402',
+          item: 'Strawberries — Pint Clamshell',
+          quantity: 800,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0814-P',
+          harvestDate: '2026-08-13',
+          bestBefore: '2026-08-29',
+          palletCount: 16,
+          grossWeightKg: 1280,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500012403',
+    item: 'Blueberries',
+    supplier: SUPPLIER,
+    orderedQty: 2200,
+    unit: 'Cases',
+    deliveryDate: '2026-08-19',
+    status: 'Received',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'James Chen',
+    createdDate: '2026-08-05',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-BB-RCV',
+      description: 'Blueberry receiving batch — five line grades',
+      sku: 'SKU-BB-2403',
+      orderedQty: 2200,
+      confirmedQty: 2200,
+      unit: 'Cases',
+      unitPrice: 27.0,
+      currency: 'USD',
+      shelfLifeDays: 14,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-A',
+      netWeightKg: 4400,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4401-A',
+        description: 'Blueberries — Premium Grade A',
+        sku: 'SKU-BB-2403-A',
+        orderedQty: 500,
+        confirmedQty: 500,
+        unit: 'Cases',
+        unitPrice: 29.0,
+        currency: 'USD',
+        shelfLifeDays: 14,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 1100,
+        countryOfOrigin: 'USA',
+      },
+      {
+        lineNumber: 20,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4402',
+        description: 'Blueberries — Grade B',
+        sku: 'SKU-BB-2403-B',
+        orderedQty: 450,
+        confirmedQty: 450,
+        unit: 'Cases',
+        unitPrice: 25.0,
+        currency: 'USD',
+        shelfLifeDays: 12,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 990,
+        countryOfOrigin: 'USA',
+      },
+      {
+        lineNumber: 30,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4403-O',
+        description: 'Blueberries — Organic',
+        sku: 'SKU-BB-2403-O',
+        orderedQty: 350,
+        confirmedQty: 350,
+        unit: 'Cases',
+        unitPrice: 33.0,
+        currency: 'USD',
+        shelfLifeDays: 13,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 770,
+        countryOfOrigin: 'USA',
+      },
+      {
+        lineNumber: 40,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4404-F',
+        description: 'Blueberries — Family Pack',
+        sku: 'SKU-BB-2403-F',
+        orderedQty: 450,
+        confirmedQty: 450,
+        unit: 'Cases',
+        unitPrice: 23.5,
+        currency: 'USD',
+        shelfLifeDays: 12,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 900,
+        countryOfOrigin: 'USA',
+      },
+      {
+        lineNumber: 50,
+        item: 'Blueberries',
+        materialNumber: 'MAT-BB-4405-X',
+        description: 'Blueberries — Export surplus',
+        sku: 'SKU-BB-2403-X',
+        orderedQty: 450,
+        confirmedQty: 450,
+        unit: 'Cases',
+        unitPrice: 22.0,
+        currency: 'USD',
+        shelfLifeDays: 11,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-A',
+        netWeightKg: 900,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-BB-0805',
+      containerNumber: 'TGHU6633812',
+      shipDate: '2026-08-10',
+      eta: 'Aug 18, 2026 (on time)',
+      originalEta: 'Aug 18, 2026',
+      origin: 'Watsonville, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Midwest Reefer Lines',
+      bookingNumber: 'TGHU-6633812',
+      sealNumber: 'SL-6633812',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–2°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012403',
+          item: 'Blueberries — Premium Grade A',
+          quantity: 500,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0810-A',
+          harvestDate: '2026-08-08',
+          bestBefore: '2026-08-22',
+          palletCount: 10,
+          grossWeightKg: 1150,
+        },
+        {
+          poNumber: 'PO-4500012403',
+          item: 'Blueberries — Grade B',
+          quantity: 450,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0810-B',
+          harvestDate: '2026-08-08',
+          bestBefore: '2026-08-20',
+          palletCount: 9,
+          grossWeightKg: 1035,
+        },
+        {
+          poNumber: 'PO-4500012403',
+          item: 'Blueberries — Organic',
+          quantity: 350,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0810-O',
+          harvestDate: '2026-08-09',
+          bestBefore: '2026-08-21',
+          palletCount: 7,
+          grossWeightKg: 805,
+        },
+        {
+          poNumber: 'PO-4500012403',
+          item: 'Blueberries — Family Pack',
+          quantity: 450,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0810-F',
+          harvestDate: '2026-08-09',
+          bestBefore: '2026-08-20',
+          palletCount: 9,
+          grossWeightKg: 990,
+        },
+        {
+          poNumber: 'PO-4500012403',
+          item: 'Blueberries — Export surplus',
+          quantity: 450,
+          unit: 'Cases',
+          lotNumber: 'LOT-BB-0810-X',
+          harvestDate: '2026-08-10',
+          bestBefore: '2026-08-19',
+          palletCount: 9,
+          grossWeightKg: 990,
+        },
+      ],
+    },
+  },
 ];
 
 export const DEMO_SHIPMENTS: TrackShipment[] = [
@@ -599,6 +1308,42 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
     destination: 'Chicago DC',
     customsStatus: 'Cleared',
     stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-BB-MIX-01',
+    containerNumber: 'HLXU5520198',
+    asnNumber: 'ASN-2026-BB-0810',
+    linkedPos: ['PO-4500012401', 'PO-4500012402'],
+    item: 'Blueberries + Strawberries (7-line POs)',
+    supplier: SUPPLIER,
+    quantity: 6450,
+    unit: 'Cases',
+    eventStatus: 'delayed',
+    eta: 'Aug 25, 2026 (+1 day)',
+    originalEta: 'Aug 24, 2026',
+    origin: 'Valparaíso, Chile',
+    destination: 'Chicago DC',
+    customsStatus: 'Pending',
+    stage: 'ocean',
+    transportMode: 'ocean',
+  },
+  {
+    id: 'SHP-BB-RCV-01',
+    containerNumber: 'TGHU6633812',
+    asnNumber: 'ASN-2026-BB-0805',
+    linkedPos: ['PO-4500012403'],
+    item: 'Blueberries (5-line received)',
+    supplier: SUPPLIER,
+    quantity: 2200,
+    unit: 'Cases',
+    eventStatus: 'on-time',
+    eta: 'Aug 18, 2026',
+    originalEta: 'Aug 18, 2026',
+    origin: 'Watsonville, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'delivered',
     transportMode: 'road',
   },
 ];
@@ -734,6 +1479,8 @@ const SHIPMENT_ETA_ISO: Record<string, { original: string; revised: string }> = 
   'SHP-BB-DLY-01': { original: '2026-08-21', revised: '2026-08-23' },
   'SHP-ST-EARLY-01': { original: '2026-08-20', revised: '2026-08-19' },
   'SHP-BB-ONT-01': { original: '2026-08-21', revised: '2026-08-21' },
+  'SHP-BB-MIX-01': { original: '2026-08-24', revised: '2026-08-25' },
+  'SHP-BB-RCV-01': { original: '2026-08-18', revised: '2026-08-18' },
 };
 
 export function getStoreName(storeId: string): string {
@@ -759,6 +1506,8 @@ const SHIPMENT_ITEMS: Record<string, string[]> = {
   'SHP-BB-DLY-01': ['Blueberries', 'Strawberries'],
   'SHP-ST-EARLY-01': ['Blueberries'],
   'SHP-BB-ONT-01': ['Blueberries'],
+  'SHP-BB-MIX-01': ['Blueberries', 'Strawberries'],
+  'SHP-BB-RCV-01': ['Blueberries'],
 };
 
 export function getShipmentItems(shipment: TrackShipment): string[] {
@@ -1480,9 +2229,90 @@ export function formatTransportProposalSummary(impact: TransportImpact): string 
   );
 }
 
-const ACTIONS_KEY = 'freshguard-risk-actions-v7';
+const ACTIONS_KEY = 'freshguard-risk-actions-v8';
+
+function buildActionContextFromShipment(shipment: TrackShipment) {
+  const pos = shipment.linkedPos
+    .map((poNum) => DEMO_POS.find((p) => p.po === poNum))
+    .filter((p): p is SapPurchaseOrder => !!p);
+  const items = pos.length
+    ? [...new Set(pos.map((p) => p.item))]
+    : getShipmentItems(shipment);
+  return {
+    containerNumber: shipment.containerNumber,
+    asnNumber: shipment.asnNumber,
+    supplier: shipment.supplier,
+    linkedPos: [...shipment.linkedPos],
+    items,
+  };
+}
+
+export function getRiskActionContext(action: RiskAction): RiskActionContext | null {
+  const shipment = DEMO_SHIPMENTS.find((s) => s.id === action.shipmentId);
+  if (!shipment) {
+    if (!action.containerNumber && !action.linkedPos?.length) return null;
+    return {
+      shipmentId: action.shipmentId,
+      containerNumber: action.containerNumber ?? '—',
+      asnNumber: action.asnNumber,
+      supplier: action.supplier ?? '—',
+      linkedPos: action.linkedPos ?? [],
+      items: action.items ?? [],
+      totalQuantity: 0,
+      unit: 'Cases',
+      destination: '—',
+      eta: '—',
+      poSummaries: (action.linkedPos ?? []).map((po) => ({
+        po,
+        item: action.items?.[0] ?? '—',
+        supplier: action.supplier ?? '—',
+        orderedQty: 0,
+        unit: 'Cases' as const,
+        lineCount: 1,
+        lineDescriptions: [],
+      })),
+    };
+  }
+
+  const pos = shipment.linkedPos
+    .map((poNum) => DEMO_POS.find((p) => p.po === poNum))
+    .filter((p): p is SapPurchaseOrder => !!p);
+
+  const poSummaries: RiskActionPoSummary[] = pos.map((po) => {
+    const lines = getPoOrderLines(po);
+    return {
+      po: po.po,
+      item: po.item,
+      supplier: po.supplier,
+      orderedQty: po.orderedQty,
+      unit: po.unit,
+      lineCount: lines.length,
+      lineDescriptions: lines.map((l) => l.description),
+    };
+  });
+
+  const items =
+    poSummaries.length > 0
+      ? [...new Set(poSummaries.map((p) => p.item))]
+      : getShipmentItems(shipment);
+
+  return {
+    shipmentId: shipment.id,
+    containerNumber: shipment.containerNumber,
+    asnNumber: shipment.asnNumber,
+    supplier: shipment.supplier,
+    linkedPos: [...shipment.linkedPos],
+    items,
+    totalQuantity: shipment.quantity,
+    unit: shipment.unit,
+    destination: shipment.destination,
+    eta: shipment.eta,
+    poSummaries,
+  };
+}
 
 export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction[] {
+  const ctx = buildActionContextFromShipment(shipment);
   if (shipment.eventStatus === 'delayed') {
     const stockProposal = buildStockRiskProposal(shipment);
     const promotionProposal = buildPromotionRiskProposal(shipment);
@@ -1493,6 +2323,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-STOCK`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'delayed',
         category: 'stock',
         title: 'DC stock reallocation proposal',
@@ -1510,6 +2341,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-PROMO`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'delayed',
         category: 'promotion',
         title: 'Promotion reschedule & store mix review',
@@ -1527,6 +2359,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-SHELF`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'delayed',
         category: 'shelf_life',
         title: 'Revised shelf-life & markdown guidance',
@@ -1543,6 +2376,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-RCV`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'delayed',
         category: 'receiving',
         title: 'Replan receiving manpower',
@@ -1560,6 +2394,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-TRN`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'delayed',
         category: 'transport',
         title: 'Redeploy trucks booked for this container',
@@ -1582,6 +2417,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-OVER`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'early',
         category: 'overstock',
         title: 'Overstock & storage capacity check',
@@ -1596,6 +2432,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-RCV-E`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'early',
         category: 'receiving',
         title: 'Advance receiving staffing',
@@ -1609,6 +2446,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-TRN-E`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'early',
         category: 'transport',
         title: 'Pull-forward drayage & yard slots',
@@ -1622,6 +2460,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       {
         id: `ACT-${shipment.id}-DIST`,
         shipmentId: shipment.id,
+        ...ctx,
         eventStatus: 'early',
         category: 'distribution',
         title: 'Store distribution load planning',

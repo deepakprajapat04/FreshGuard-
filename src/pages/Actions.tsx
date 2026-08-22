@@ -33,7 +33,9 @@ import {
   loadRiskActions,
   canPersonaApproveAction,
   getActionStatusLabel,
+  getRiskActionContext,
   type RiskAction,
+  type RiskActionContext,
   type RiskCategory,
   PERSONA_LABELS,
 } from '../lib/trackingFlow';
@@ -64,6 +66,121 @@ function formatShortDate(iso: string) {
   const d = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(d.getTime())) return iso;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function ActionSourceContext({
+  ctx,
+  compact = false,
+}: {
+  ctx: RiskActionContext;
+  compact?: boolean;
+}) {
+  const poLabel =
+    ctx.poSummaries.length > 0
+      ? ctx.poSummaries.map((p) => p.po).join(', ')
+      : ctx.linkedPos.join(', ') || '—';
+  const itemLabel = ctx.items.length > 0 ? ctx.items.join(', ') : '—';
+
+  if (compact) {
+    return (
+      <div className="mt-1.5 space-y-0.5 leading-snug">
+        <div className="font-code text-xs font-semibold text-[#2F5472] dark:text-blue-300 truncate">
+          {poLabel}
+        </div>
+        <div className="truncate text-[10px] text-slate-500">
+          <span className="font-semibold text-slate-600 dark:text-slate-300">{ctx.supplier}</span>
+          <span className="text-slate-300 mx-1">·</span>
+          {itemLabel}
+        </div>
+        <div className="truncate text-xs font-code font-semibold text-slate-600 dark:text-slate-300">
+          {ctx.containerNumber}
+          {ctx.asnNumber ? (
+            <span className="font-normal text-[10px] text-slate-500"> · {ctx.asnNumber}</span>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg border border-[#4684AD]/25 bg-[#C0D5E5]/20 dark:bg-blue-950/20 px-4 py-3 space-y-3">
+      <div className="text-[10px] font-semibold uppercase text-[#2F5472] tracking-wide">
+        Source shipment
+      </div>
+      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">Supplier</dt>
+          <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{ctx.supplier}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">Container</dt>
+          <dd className="font-code font-semibold text-slate-800 dark:text-slate-100 mt-0.5">
+            {ctx.containerNumber}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">ASN</dt>
+          <dd className="font-code text-slate-700 dark:text-slate-200 mt-0.5">{ctx.asnNumber ?? '—'}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">Items</dt>
+          <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{itemLabel}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">Volume</dt>
+          <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5 tabular-nums">
+            {ctx.totalQuantity.toLocaleString()} {ctx.unit}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">Destination</dt>
+          <dd className="text-slate-700 dark:text-slate-200 mt-0.5">{ctx.destination}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">ETA</dt>
+          <dd className="text-slate-700 dark:text-slate-200 mt-0.5">{ctx.eta}</dd>
+        </div>
+        <div>
+          <dt className="text-[10px] font-bold uppercase text-slate-400">Shipment ID</dt>
+          <dd className="font-code text-slate-500 mt-0.5">{ctx.shipmentId}</dd>
+        </div>
+      </dl>
+      {ctx.poSummaries.length > 0 && (
+        <div className="space-y-2 pt-1 border-t border-[#4684AD]/15">
+          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            Linked purchase orders
+          </div>
+          <div className="space-y-2">
+            {ctx.poSummaries.map((po) => (
+              <div
+                key={po.po}
+                className="rounded-md border border-slate-200/80 dark:border-slate-700 bg-white/80 dark:bg-slate-900/60 px-3 py-2"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-code text-xs font-bold text-[#2F5472] dark:text-blue-300">
+                    {po.po}
+                  </span>
+                  <span className="text-[10px] font-semibold text-slate-500">
+                    {po.lineCount} line{po.lineCount === 1 ? '' : 's'} ·{' '}
+                    {po.orderedQty.toLocaleString()} {po.unit} {po.item}
+                  </span>
+                </div>
+                {po.lineDescriptions.length > 0 && (
+                  <ul className="mt-1.5 space-y-0.5 text-[11px] text-slate-600 dark:text-slate-300">
+                    {po.lineDescriptions.map((desc) => (
+                      <li key={`${po.po}-${desc}`} className="truncate">
+                        · {desc}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function StatusChip({ status }: { status: RiskAction['status'] }) {
@@ -200,10 +317,11 @@ function ActionDetailBody({ action }: { action: RiskAction }) {
     return (
       <SectionTable
         title="Items on this batch"
-        head={['Item', 'Expires', 'Store shelf', 'OOS gap', 'Pricing']}
+        head={['PO', 'Item', 'Expires', 'Store shelf', 'OOS gap', 'Pricing']}
       >
         {action.shelfLifeProposal.lines.map((line) => (
           <tr key={line.po}>
+            <td className="px-3 py-2.5 font-code text-[10px] text-[#2F5472]">{line.po}</td>
             <td className="px-3 py-2.5 font-semibold">{line.item}</td>
             <td className="px-3 py-2.5 tabular-nums text-slate-600">
               {formatShortDate(line.currentOnHandExpiresDate)}
@@ -363,11 +481,23 @@ export default function Actions() {
     return visible.filter((a) => {
       if (categoryFilter !== 'all' && a.category !== categoryFilter) return false;
       if (!q) return true;
+      const ctx = getRiskActionContext(a);
       const haystack = [
         a.title,
         a.shipmentId,
         a.id,
         a.proposal,
+        a.supplier,
+        a.containerNumber,
+        a.asnNumber,
+        ...(a.linkedPos ?? []),
+        ...(a.items ?? []),
+        ctx?.supplier,
+        ctx?.containerNumber,
+        ctx?.asnNumber,
+        ...(ctx?.linkedPos ?? []),
+        ...(ctx?.items ?? []),
+        ...(ctx?.poSummaries.map((p) => `${p.po} ${p.item} ${p.supplier}`) ?? []),
         CATEGORY_META[a.category].label,
       ]
         .join(' ')
@@ -387,6 +517,10 @@ export default function Actions() {
   }, [filteredVisible, visible.length, selectedId]);
 
   const selected = filteredVisible.find((a) => a.id === selectedId) ?? null;
+  const selectedContext = useMemo(
+    () => (selected ? getRiskActionContext(selected) : null),
+    [selected]
+  );
 
   useEffect(() => {
     if (!selected) setDetailExpanded(false);
@@ -463,7 +597,7 @@ export default function Actions() {
   };
 
   const resetDemo = () => {
-    localStorage.removeItem('freshguard-risk-actions-v7');
+    localStorage.removeItem('freshguard-risk-actions-v8');
     setActions(loadRiskActions());
   };
 
@@ -543,7 +677,7 @@ export default function Actions() {
                 type="text"
                 value={taskSearch}
                 onChange={(e) => setTaskSearch(e.target.value)}
-                placeholder="Search task, shipment ID…"
+                placeholder="Search PO, supplier, container…"
                 className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40 dark:border-slate-700 dark:bg-slate-950"
               />
             </div>
@@ -576,6 +710,7 @@ export default function Actions() {
                 const active = a.id === selectedId;
                 const pending =
                   a.status === 'pending_approval' || a.status === 'pending_category_approval';
+                const ctx = getRiskActionContext(a);
                 return (
                   <button
                     key={a.id}
@@ -605,7 +740,11 @@ export default function Actions() {
                     <div className="text-sm font-semibold mt-1.5 text-slate-800 dark:text-slate-100">
                       {a.title}
                     </div>
-                    <div className="text-[10px] font-code text-slate-400 mt-0.5">{a.shipmentId}</div>
+                    {ctx ? (
+                      <ActionSourceContext ctx={ctx} compact />
+                    ) : (
+                      <div className="text-[10px] font-code text-slate-400 mt-0.5">{a.shipmentId}</div>
+                    )}
                   </button>
                 );
               })
@@ -628,7 +767,20 @@ export default function Actions() {
             <>
               <div className="sticky top-0 z-20 flex flex-wrap items-start justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className="min-w-0">
-                  <span className="text-[10px] font-code text-slate-500">{selected.shipmentId}</span>
+                  {selectedContext ? (
+                    <div className="text-[10px] text-slate-500 leading-snug">
+                      <span className="font-code text-[#2F5472] dark:text-blue-300">
+                        {selectedContext.poSummaries.map((p) => p.po).join(' · ') ||
+                          selectedContext.linkedPos.join(' · ')}
+                      </span>
+                      <span className="mx-1.5 text-slate-300">|</span>
+                      {selectedContext.supplier}
+                      <span className="mx-1.5 text-slate-300">|</span>
+                      {selectedContext.items.join(', ')}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] font-code text-slate-500">{selected.shipmentId}</span>
+                  )}
                   <h2 className="text-base font-bold text-slate-900 dark:text-slate-100 mt-0.5">
                     {selected.title}
                   </h2>
@@ -655,6 +807,8 @@ export default function Actions() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {selectedContext && <ActionSourceContext ctx={selectedContext} />}
+
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/40 px-4 py-3">
                   <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
                     Proposal

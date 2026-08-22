@@ -24,6 +24,9 @@ import {
   DEMO_POS,
   buildPoRiskImpact,
   getPoDisplayStatus,
+  getPoLineCount,
+  getPoNetValue,
+  getPoOrderLines,
   type PoRiskImpact,
   type SapPurchaseOrder,
 } from '../lib/trackingFlow';
@@ -523,6 +526,11 @@ export default function Orders() {
                       {o.item}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
+                      {getPoLineCount(o) > 1 && (
+                        <span className="font-semibold text-[#4684AD]">
+                          {getPoLineCount(o)} lines ·{' '}
+                        </span>
+                      )}
                       {o.orderedQty.toLocaleString()} {o.unit} · {o.deliveryDate}
                     </div>
                     {risk && risk.severity !== 'none' && (
@@ -640,7 +648,7 @@ export default function Orders() {
                       <DetailField label="Created" value={selected.createdDate} />
                       <DetailField
                         label="Net value"
-                        value={`${selected.itemDetail.currency} ${(selected.itemDetail.unitPrice * selected.orderedQty).toLocaleString()}`}
+                        value={`${selected.itemDetail.currency} ${getPoNetValue(selected).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                       />
                   </dl>
                 </div>
@@ -648,30 +656,39 @@ export default function Orders() {
 
               {wizardStep === 'item' && (
                 <div className="space-y-4">
-                  <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    <DetailField label="Material number" value={selected.itemDetail.materialNumber} />
-                    <DetailField label="SKU" value={selected.itemDetail.sku} />
-                    <div className="col-span-full">
-                      <DetailField label="Description" value={selected.itemDetail.description} />
+                  {getPoOrderLines(selected).map((line) => (
+                    <div
+                      key={line.lineNumber}
+                      className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-950/40"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                        <span className="text-sm font-bold text-[#2F5472] dark:text-blue-300">
+                          Line {line.lineNumber} · {line.item}
+                        </span>
+                        <span className="font-code text-[10px] text-slate-400">{line.sku}</span>
+                      </div>
+                      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                        <DetailField label="Material number" value={line.materialNumber} />
+                        <div className="col-span-full sm:col-span-2 lg:col-span-3">
+                          <DetailField label="Description" value={line.description} />
+                        </div>
+                        <DetailField
+                          label="Ordered / confirmed"
+                          value={`${line.orderedQty.toLocaleString()} / ${line.confirmedQty.toLocaleString()} ${line.unit}`}
+                        />
+                        <DetailField
+                          label="Unit price"
+                          value={`${line.currency} ${line.unitPrice.toFixed(2)}`}
+                        />
+                        <DetailField label="Line value" value={`${line.currency} ${(line.unitPrice * line.orderedQty).toLocaleString()}`} />
+                        <DetailField label="Shelf life" value={`${line.shelfLifeDays} days`} />
+                        <DetailField label="Storage temp" value={line.storageTemp} />
+                        <DetailField label="Storage location" value={line.storageLocation} />
+                        <DetailField label="Net weight" value={`${line.netWeightKg.toLocaleString()} kg`} />
+                        <DetailField label="Country of origin" value={line.countryOfOrigin} />
+                      </dl>
                     </div>
-                    <DetailField
-                      label="Ordered / confirmed"
-                      value={`${selected.itemDetail.orderedQty.toLocaleString()} / ${selected.itemDetail.confirmedQty.toLocaleString()} ${selected.itemDetail.unit}`}
-                    />
-                    <DetailField
-                      label="Unit price"
-                      value={`${selected.itemDetail.currency} ${selected.itemDetail.unitPrice.toFixed(2)}`}
-                    />
-                    <DetailField label="Shelf life" value={`${selected.itemDetail.shelfLifeDays} days`} />
-                    <DetailField label="Storage temp" value={selected.itemDetail.storageTemp} />
-                    <DetailField label="Plant" value={selected.itemDetail.plant} />
-                    <DetailField label="Storage location" value={selected.itemDetail.storageLocation} />
-                    <DetailField
-                      label="Net weight"
-                      value={`${selected.itemDetail.netWeightKg.toLocaleString()} kg`}
-                    />
-                    <DetailField label="Country of origin" value={selected.itemDetail.countryOfOrigin} />
-                  </dl>
+                  ))}
                 </div>
               )}
 
