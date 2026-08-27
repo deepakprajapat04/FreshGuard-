@@ -73,7 +73,7 @@ export default function BusinessRules() {
       {
         id: `n-rules-${Date.now()}`,
         title: 'Business rules updated',
-        message: `Urgent > ${rules.urgentDelayDays}d · Warning > ${rules.warningExpectedDelayDays}d · Alert types ${rules.enabledAlertTypes.length} · Custom alerts ${rules.customAlerts.length}`,
+        message: `Urgent > ${rules.urgentDelayDays}d · Warning > ${rules.warningExpectedDelayDays}d · Alt ship ≤ ${rules.maxShipDaysForAltSupplier}d · Alert types ${rules.enabledAlertTypes.length} · Custom alerts ${rules.customAlerts.length}`,
         severity: 'success',
         category: 'Regular',
         timestamp: new Date().toISOString(),
@@ -281,6 +281,90 @@ export default function BusinessRules() {
             </label>
             <p className="text-[11px] text-slate-500 leading-relaxed">
               Forecasted ETA slip beyond this threshold raises a warning alert for buyers.
+            </p>
+          </div>
+        </section>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-3.5">
+        <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center gap-2">
+            <ShieldAlert className="w-4 h-4 text-[#4684AD]" />
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider">2b. Alternate supplier / new PO</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">
+                Offer fill-in PO when delay meets the day threshold
+              </p>
+            </div>
+          </div>
+          <div className="p-3.5 space-y-3">
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Delayed containers offer <strong>choose alternate supplier + create new PO</strong> when
+              delay ≥ <strong>Urgent delay</strong> threshold ({rules.urgentDelayDays}d) above.
+            </p>
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-600 dark:text-slate-300">
+                Max ship days for alt supplier
+              </span>
+              <input
+                type="number"
+                min={1}
+                value={rules.maxShipDaysForAltSupplier}
+                onChange={(e) =>
+                  setRules((r) => ({
+                    ...r,
+                    maxShipDaysForAltSupplier: Math.max(1, Number(e.target.value) || 1),
+                  }))
+                }
+                className="w-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm font-semibold text-right"
+              />
+            </label>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              Only short-lead bidders who can ship within this many days appear as alternates.
+            </p>
+            <label className="flex items-center justify-between gap-3 text-sm cursor-pointer">
+              <span className="font-medium text-slate-700 dark:text-slate-200">
+                Require stock shortage
+              </span>
+              <input
+                type="checkbox"
+                checked={rules.requireStockShortageForProposal}
+                onChange={(e) =>
+                  setRules((r) => ({ ...r, requireStockShortageForProposal: e.target.checked }))
+                }
+                className="w-4 h-4 rounded border-slate-300 text-[#4684AD] focus:ring-[#4684AD]"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md overflow-hidden">
+          <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-300" />
+            <div>
+              <h2 className="text-sm font-bold uppercase tracking-wider">2c. Cover threshold</h2>
+              <p className="text-[11px] text-slate-400 mt-0.5">Days of cover for shortage checks</p>
+            </div>
+          </div>
+          <div className="p-3.5 space-y-3">
+            <label className="flex items-center justify-between gap-3 text-sm">
+              <span className="text-slate-600 dark:text-slate-300">Min days of cover</span>
+              <input
+                type="number"
+                min={1}
+                value={rules.minDaysOfCoverThreshold}
+                onChange={(e) =>
+                  setRules((r) => ({
+                    ...r,
+                    minDaysOfCoverThreshold: Math.max(1, Number(e.target.value) || 1),
+                  }))
+                }
+                className="w-24 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm font-semibold text-right"
+              />
+            </label>
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              When require-shortage is on, alt-supplier PO is offered only if cover falls below this
+              or a case shortage is projected during the delay.
             </p>
           </div>
         </section>

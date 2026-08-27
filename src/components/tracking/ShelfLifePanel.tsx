@@ -24,6 +24,7 @@ type ShelfLifePanelProps = {
   shelfAction: RiskAction | undefined;
   persona: FreshGuardPersona;
   canApprove: boolean;
+  hideApproval?: boolean;
   onActionsUpdated: () => void;
   onApprove?: (actionId: string) => void;
 };
@@ -38,6 +39,7 @@ export function ShelfLifePanel({
   shelfAction,
   persona,
   canApprove,
+  hideApproval = false,
   onActionsUpdated,
   onApprove,
 }: ShelfLifePanelProps) {
@@ -258,7 +260,7 @@ export function ShelfLifePanel({
           </div>
         </div>
 
-        {shelfAction && (
+        {shelfAction && !hideApproval && (
           <div className="mx-4 mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">

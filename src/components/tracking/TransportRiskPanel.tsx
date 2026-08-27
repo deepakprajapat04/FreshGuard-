@@ -22,6 +22,7 @@ type TransportRiskPanelProps = {
   transportAction: RiskAction | undefined;
   persona: FreshGuardPersona;
   canApprove: boolean;
+  hideApproval?: boolean;
   onActionsUpdated: () => void;
   onApprove?: (actionId: string) => void;
 };
@@ -36,19 +37,84 @@ export function TransportRiskPanel({
   transportAction,
   persona,
   canApprove,
+  hideApproval = false,
   onActionsUpdated,
   onApprove,
 }: TransportRiskPanelProps) {
   const impact = useMemo(() => buildTransportImpact(shipment), [shipment]);
   const canAct = transportAction ? canPersonaApproveAction(transportAction, persona) : false;
   const late = impact.delayDays > 0;
+  const earlyShort = !late && impact.hasStorageCapacity === false;
+  const earlyBau = !late && impact.hasStorageCapacity === true;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
         <Truck className="w-4 h-4 text-[#2F5472]" />
-        Transport — truck redeployment
+        {earlyShort
+          ? 'Transport — inbound + early store haul'
+          : earlyBau
+            ? 'Transport — pull-forward inbound only'
+            : 'Transport — truck redeployment'}
       </div>
+
+      {impact.capacityNote && (
+        <div
+          className={cn(
+            'rounded-lg border px-4 py-3 text-xs leading-relaxed',
+            earlyShort
+              ? 'border-amber-300 bg-amber-50/70 text-amber-950'
+              : 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+            Tied to overstock decision
+          </div>
+          <p className="mt-1 font-medium">{impact.capacityNote}</p>
+        </div>
+      )}
+
+      {(earlyShort || earlyBau) && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-slate-800">
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Inbound trucks</div>
+              <div className="text-lg font-bold tabular-nums mt-0.5">{impact.trucksBooked}</div>
+              <div className="text-[10px] text-slate-400">pull to {formatShortDate(impact.revisedPickup)}</div>
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Store-haul trucks</div>
+              <div
+                className={cn(
+                  'text-lg font-bold tabular-nums mt-0.5',
+                  (impact.storeHaulTrucks ?? 0) > 0 ? 'text-amber-800' : 'text-slate-400'
+                )}
+              >
+                {impact.storeHaulTrucks ?? 0}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {(impact.storeHaulCases ?? 0) > 0
+                  ? `${impact.storeHaulCases!.toLocaleString()} overflow cases`
+                  : 'none — BAU'}
+              </div>
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Store legs</div>
+              <div className="text-lg font-bold tabular-nums mt-0.5">
+                {impact.storeHaulLegs?.length ?? 0}
+              </div>
+              <div className="text-[10px] text-slate-400">outbound routes</div>
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">From later loads</div>
+              <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
+                {impact.trucksReassigned}
+              </div>
+              <div className="text-[10px] text-slate-400">pulled forward</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
@@ -113,9 +179,41 @@ export function TransportRiskPanel({
         </div>
       </div>
 
+      {earlyShort && (impact.storeHaulLegs?.length ?? 0) > 0 && (
+        <section className="space-y-2">
+          <h4 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
+            Outbound — early store haul (overflow)
+          </h4>
+          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-slate-50 dark:bg-slate-950 text-left border-b border-slate-200 dark:border-slate-700">
+                  <th className="px-3 py-2.5 font-semibold text-slate-500">Store</th>
+                  <th className="px-3 py-2.5 font-semibold text-slate-500">Item</th>
+                  <th className="px-3 py-2.5 font-semibold text-slate-500 text-right">Cases</th>
+                  <th className="px-3 py-2.5 font-semibold text-slate-500 text-right">Trucks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {impact.storeHaulLegs!.map((l) => (
+                  <tr key={`${l.storeId}-${l.item}`}>
+                    <td className="px-3 py-2.5 font-semibold">{l.storeName}</td>
+                    <td className="px-3 py-2.5 text-slate-600">{l.item}</td>
+                    <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#2F5472]">
+                      {l.cases}
+                    </td>
+                    <td className="px-3 py-2.5 text-right tabular-nums">{l.trucks}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
       <section className="space-y-2">
         <h4 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
-          Reassign to — other inbound loads
+          {late ? 'Reassign to — other inbound loads' : 'Pull-forward from — later bookings'}
         </h4>
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
           <table className="w-full text-xs">
@@ -191,7 +289,7 @@ export function TransportRiskPanel({
           </table>
         </div>
 
-        {transportAction && (
+        {transportAction && !hideApproval && (
           <div className="mx-4 my-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">

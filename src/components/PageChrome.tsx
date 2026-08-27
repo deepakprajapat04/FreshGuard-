@@ -4,7 +4,7 @@ import { contentCanvasClass } from '../lib/sapTheme';
 
 /** Shared full-bleed page shell — SAP Fiori canvas */
 export const pageShellClass =
-  `p-3 sm:p-4 w-full mx-auto space-y-3.5 ${contentCanvasClass} min-h-full text-slate-900 dark:text-slate-100`;
+  `p-3 sm:p-4 w-full mx-auto space-y-3.5 ${contentCanvasClass} h-full min-h-0 overflow-y-auto text-slate-900 dark:text-slate-100`;
 
 /** Standard compact grid for KPI / stat cards */
 export const statGridClass =
@@ -104,33 +104,57 @@ export function StatCard({
   value,
   sub,
   tone = 'sap',
+  compact = false,
   className,
 }: {
   label: string;
   value: ReactNode;
   sub?: ReactNode;
   tone?: StatTone;
+  compact?: boolean;
   className?: string;
 }) {
   const t = STAT_TONES[tone] ?? STAT_TONES.sap;
   return (
     <div
       className={cn(
-        'relative overflow-hidden rounded-2xl border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 px-3.5 py-3 shadow-sm',
+        'relative overflow-hidden border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm',
+        compact ? 'rounded-xl px-3 py-2' : 'rounded-2xl px-3.5 py-3',
         className
       )}
     >
       <div className={cn('absolute inset-0 bg-gradient-to-br to-transparent', t.accent)} />
-      <div className="relative">
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-            {label}
+      {compact ? (
+        <div className="relative flex items-center justify-between gap-3 min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={cn('h-1 w-4 rounded-full shrink-0', t.bar)} />
+            <div className="min-w-0">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 truncate leading-tight">
+                {label}
+              </div>
+              {sub && (
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight">
+                  {sub}
+                </div>
+              )}
+            </div>
           </div>
-          <span className={cn('h-1 w-6 rounded-full shrink-0', t.bar)} />
+          <div className={cn('text-lg font-bold tabular-nums tracking-tight shrink-0 leading-none', t.value)}>
+            {value}
+          </div>
         </div>
-        <div className={cn('text-xl font-bold mt-1 tracking-tight', t.value)}>{value}</div>
-        {sub && <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>}
-      </div>
+      ) : (
+        <div className="relative">
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              {label}
+            </div>
+            <span className={cn('h-1 w-6 rounded-full shrink-0', t.bar)} />
+          </div>
+          <div className={cn('text-xl font-bold mt-1 tracking-tight', t.value)}>{value}</div>
+          {sub && <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>}
+        </div>
+      )}
     </div>
   );
 }

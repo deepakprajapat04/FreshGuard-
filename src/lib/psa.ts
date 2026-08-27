@@ -55,7 +55,10 @@ export interface ContainerUpdatePayload {
   voyageNumber: string;
   bookingNumber: string;
   psaTerminal: string;
+  /** Free-text ETA label (legacy / display) */
   eta: string;
+  /** Supplier-proposed delivery date YYYY-MM-DD */
+  etaDate: string;
   temp: string;
   origin: string;
   notes?: string;

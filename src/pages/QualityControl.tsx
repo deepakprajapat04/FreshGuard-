@@ -4,14 +4,14 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router';
-import {
-  Activity,
+import { 
+  Activity, 
   AlertTriangle,
   ArrowLeft,
   ArrowRight,
   Boxes,
   Check,
-  CheckCircle2,
+  CheckCircle2, 
   Camera,
   ChevronRight,
   ClipboardCheck,
@@ -26,8 +26,8 @@ import {
   XCircle,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { PageHeader, pageShellClass } from '../components/PageChrome';
-import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
+import { PageHeader } from '../components/PageChrome';
+import { btnPrimaryClass, btnSecondaryClass, contentCanvasClass } from '../lib/sapTheme';
 import {
   applyQcDecision,
   claimValue,
@@ -374,14 +374,19 @@ export default function QualityControl() {
   };
 
   return (
-    <div className={pageShellClass}>
+    <div
+      className={cn(
+        contentCanvasClass,
+        'p-3 sm:p-4 w-full h-full min-h-0 flex flex-col gap-3 overflow-hidden text-slate-900 dark:text-slate-100'
+      )}
+    >
       {toast && (
         <div className="fixed left-1/2 top-16 z-50 w-[min(92vw,34rem)] -translate-x-1/2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-semibold text-slate-800 shadow-lg dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
           {toast}
         </div>
       )}
 
-      <PageHeader title="Quality Control">
+      <PageHeader title="Quality Control" className="shrink-0">
         <button
           type="button"
           onClick={resetDemo}
@@ -391,14 +396,14 @@ export default function QualityControl() {
         </button>
       </PageHeader>
 
-      <div className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+      <div className="shrink-0 rounded-xl border border-slate-200 bg-white px-3 py-2.5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <StepBar current={currentStep} />
       </div>
 
-      <div className="grid items-start gap-3 lg:grid-cols-[minmax(280px,340px)_1fr]">
-        {/* Step 1 — purchase orders */}
-        <section className="sticky top-0 z-20 flex max-h-[calc(100vh-3.5rem)] flex-col self-start overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900">
-          <div className="border-b border-slate-200 px-4 py-3 dark:border-slate-800 bg-white dark:bg-slate-900">
+      <div className="flex-1 min-h-0 grid gap-3 grid-rows-1 lg:grid-cols-[minmax(280px,340px)_1fr]">
+        {/* Step 1 — purchase orders (pinned shell, list scrolls inside) */}
+        <section className="min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900">
+          <div className="shrink-0 border-b border-slate-200 px-4 py-3 dark:border-slate-800 bg-white dark:bg-slate-900">
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">Purchase orders</h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
               {filteredPos.length} of {pos.length} arrived with an ASN · select one to inspect
@@ -416,7 +421,7 @@ export default function QualityControl() {
               />
             </div>
           </div>
-          <div className="flex-1 overflow-y-auto p-2">
+          <div className="flex-1 min-h-0 overflow-y-auto p-2">
             {filteredPos.length === 0 ? (
               <p className="p-3 text-xs text-slate-500">No purchase orders match your search.</p>
             ) : (
@@ -448,7 +453,7 @@ export default function QualityControl() {
                     >
                       {checked}/{poLines.length} checked
                     </span>
-                  </div>
+                    </div>
                   <div className="mt-0.5 truncate text-[11px] text-slate-600 dark:text-slate-400">
                     {p.supplier}
                   </div>
@@ -456,22 +461,22 @@ export default function QualityControl() {
                     <Boxes className="h-3 w-3" />
                     {poLines.length} item lots · {p.orderedQty.toLocaleString()} {p.unit}
                   </div>
-                </button>
+                      </button>
               );
             })
             )}
-          </div>
+                    </div>
         </section>
 
-        {/* Steps 2–4 */}
-        <section className="min-h-[480px] rounded-xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900">
+        {/* Steps 2–4 (pinned chrome, body scrolls) */}
+        <section className="min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 bg-white shadow-md dark:border-slate-800 dark:bg-slate-900">
           {!po ? (
-            <div className="grid h-[420px] place-items-center text-center text-xs text-slate-500">
+            <div className="flex-1 grid place-items-center text-center text-xs text-slate-500 p-8">
               Select a purchase order to begin the receiving check.
             </div>
           ) : (
             <>
-              <div className="sticky top-0 z-20 flex flex-wrap items-start justify-between gap-3 rounded-t-xl border-b border-slate-200 bg-white px-4 py-3 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="shrink-0 flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-semibold">
                     <span>{po.po}</span>
@@ -497,7 +502,7 @@ export default function QualityControl() {
                 )}
               </div>
 
-              <div className="space-y-4 p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto space-y-4 p-4">
                 {!line ? (
                   /* Step 2 — item lots in this PO */
                   <>
@@ -573,7 +578,7 @@ export default function QualityControl() {
                       <Field label="Pallets" value={String(line.palletCount)} />
                       <Field label="Harvested" value={formatShortDate(line.harvestDate)} />
                       <Field label="Best before" value={formatShortDate(line.bestBefore)} />
-                    </div>
+                           </div>
 
                     {decidedRecord ? (
                       <DecisionSummary
@@ -621,7 +626,7 @@ export default function QualityControl() {
                                     className="h-12 w-12 rounded-lg border border-slate-200 object-cover"
                                   />
                                 ))}
-                              </div>
+                        </div>
                             )}
                           </>
                         ) : (
@@ -640,21 +645,21 @@ export default function QualityControl() {
                                 onUpload={onPhotoUpload}
                                 onRemove={removePhoto}
                               />
-                              <button
+                        <button 
                                 type="button"
                                 onClick={startCheck}
                                 className={btnPrimaryClass}
-                              >
+                        >
                                 <ClipboardCheck className="h-4 w-4" /> Run quality check
-                              </button>
-                            </div>
+                        </button>
+                      </div>
                           </>
                         )}
-                      </div>
-                    )}
+                    </div>
+                )}
                   </>
                 )}
-              </div>
+            </div>
             </>
           )}
         </section>
@@ -706,7 +711,7 @@ function CheckResult({
               Quality score
             </div>
             <div
-              className={cn(
+                className={cn(
                 'text-2xl font-bold tabular-nums',
                 result.score >= 85
                   ? 'text-emerald-600'
@@ -716,56 +721,56 @@ function CheckResult({
               )}
             >
               {result.score}/100
-            </div>
-          </div>
+                  </div>
+                </div>
           <div className="text-right text-[11px] text-slate-500">
             Receiving standard: 85 pass · 60–84 markdown · below 60 reject
-          </div>
+                    </div>
         </div>
         <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          <div
-            className={cn(
+                      <div 
+                        className={cn(
               'h-full rounded-full',
               result.score >= 85 ? 'bg-emerald-500' : result.score >= 60 ? 'bg-amber-500' : 'bg-rose-500'
-            )}
+                        )} 
             style={{ width: `${result.score}%` }}
           />
-        </div>
-      </div>
+                    </div>
+                  </div>
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <Thermometer className="h-3.5 w-3.5" /> Cold chain
-          </div>
+                      </div>
           <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
             Peak {result.tempMaxC.toFixed(1)}°C
-          </div>
+                      </div>
           <div className="text-[11px] text-slate-500">
             {result.excursionHours > 0
               ? `${result.excursionHours}h above ${line.storageTemp}`
               : `Held within ${line.storageTemp}`}
-          </div>
-        </div>
+                    </div>
+                      </div>
         <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <Package className="h-3.5 w-3.5" /> Shelf life left
-          </div>
+                      </div>
           <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
             {result.shelfLifeLeftDays} days
-          </div>
+                    </div>
           <div className="text-[11px] text-slate-500">Best before {formatShortDate(line.bestBefore)}</div>
-        </div>
+                  </div>
         <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-700">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             <AlertTriangle className="h-3.5 w-3.5" /> Defects
-          </div>
+                     </div>
           <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
             {result.defects.length === 0 ? 'None found' : `${result.defects.length} found`}
-          </div>
+                    </div>
           <div className="text-[11px] text-slate-500">Sampled {line.palletCount} pallets</div>
-        </div>
-      </div>
+                    </div>
+                  </div>
 
       {result.defects.length > 0 && (
         <ul className="space-y-1 rounded-xl border border-rose-200 bg-rose-50/60 p-3 text-xs text-rose-800 dark:border-rose-900/40 dark:bg-rose-950/20 dark:text-rose-300">
@@ -779,7 +784,7 @@ function CheckResult({
       )}
 
       <div
-        className={cn(
+                      className={cn(
           'rounded-xl border p-4',
           failed
             ? 'border-rose-200 bg-rose-50/60 dark:border-rose-900/40 dark:bg-rose-950/20'
@@ -790,15 +795,15 @@ function CheckResult({
       >
         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Recommendation
-        </div>
+                  </div>
         <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">
           {QC_DECISION_LABELS[result.recommendation]}
           {result.recommendation === 'markdown' && ` (${result.markdownPercent}%)`}
-        </div>
+                </div>
         <p className="mt-1 text-xs leading-relaxed text-slate-600 dark:text-slate-400">
           {result.reasoning}
         </p>
-      </div>
+        </div>
 
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
         <DecisionButton
@@ -823,7 +828,7 @@ function CheckResult({
           onClick={() => onDecide('reject')}
         />
       </div>
-    </div>
+          </div>
   );
 }
 
@@ -857,13 +862,13 @@ function DecisionButton({
         <span className="flex items-center gap-1.5 text-xs font-bold">
           <Icon className="h-4 w-4" />
           {title}
-        </span>
+          </span>
         {recommended && (
           <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
             Recommended
           </span>
         )}
-      </div>
+        </div>
       <div className="mt-1 text-[11px] opacity-80">{sub}</div>
     </button>
   );
@@ -884,10 +889,10 @@ function DecisionSummary({
 }) {
   const tone = DECISION_TONE[record.decision];
   const Icon = tone.icon;
-  return (
+            return (
     <div className="space-y-4">
-      <div
-        className={cn(
+              <div 
+                className={cn(
           'flex flex-wrap items-start justify-between gap-3 rounded-xl border p-4',
           tone.chip
         )}
@@ -898,15 +903,15 @@ function DecisionSummary({
             <div className="text-sm font-bold">
               {QC_DECISION_LABELS[record.decision]}
               {record.decision === 'markdown' && ` — ${record.markdownPercent}%`}
-            </div>
+                </div>
             <p className="mt-0.5 text-xs opacity-90">
               Lot {record.lotNumber} · {record.quantity.toLocaleString()} cases · scored{' '}
               {record.score}/100
             </p>
-          </div>
-        </div>
+                </div>
+              </div>
         <DecisionChip decision={record.decision} />
-      </div>
+            </div>
 
       <div className="rounded-xl border border-slate-200 p-4 text-xs dark:border-slate-700">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">

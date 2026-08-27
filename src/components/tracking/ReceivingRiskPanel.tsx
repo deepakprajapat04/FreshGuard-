@@ -22,6 +22,7 @@ type ReceivingRiskPanelProps = {
   receivingAction: RiskAction | undefined;
   persona: FreshGuardPersona;
   canApprove: boolean;
+  hideApproval?: boolean;
   onActionsUpdated: () => void;
   onApprove?: (actionId: string) => void;
 };
@@ -36,19 +37,84 @@ export function ReceivingRiskPanel({
   receivingAction,
   persona,
   canApprove,
+  hideApproval = false,
   onActionsUpdated,
   onApprove,
 }: ReceivingRiskPanelProps) {
   const impact = useMemo(() => buildReceivingImpact(shipment), [shipment]);
   const canAct = receivingAction ? canPersonaApproveAction(receivingAction, persona) : false;
   const late = impact.delayDays > 0;
+  const earlyShort = !late && impact.hasStorageCapacity === false;
+  const earlyBau = !late && impact.hasStorageCapacity === true;
 
   return (
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
         <Users className="w-4 h-4 text-[#2F5472]" />
-        Receiving — dock slot & crew replan
+        {earlyShort
+          ? 'Receiving — split put-away & cross-dock'
+          : earlyBau
+            ? 'Receiving — early gate-in (BAU put-away)'
+            : 'Receiving — dock slot & crew replan'}
       </div>
+
+      {impact.capacityNote && (
+        <div
+          className={cn(
+            'rounded-lg border px-4 py-3 text-xs leading-relaxed',
+            earlyShort
+              ? 'border-amber-300 bg-amber-50/70 text-amber-950'
+              : 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
+          )}
+        >
+          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+            Tied to overstock decision
+          </div>
+          <p className="mt-1 font-medium">{impact.capacityNote}</p>
+        </div>
+      )}
+
+      {(earlyShort || earlyBau) && (
+        <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-slate-800">
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Inbound</div>
+              <div className="text-lg font-bold tabular-nums mt-0.5">{impact.pallets}</div>
+              <div className="text-[10px] text-slate-400">pallets</div>
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Put away</div>
+              <div className="text-lg font-bold tabular-nums text-emerald-700 mt-0.5">
+                {impact.putAwayPallets ?? impact.pallets}
+              </div>
+              <div className="text-[10px] text-slate-400">to chilled slots</div>
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Cross-dock</div>
+              <div
+                className={cn(
+                  'text-lg font-bold tabular-nums mt-0.5',
+                  (impact.crossDockPallets ?? 0) > 0 ? 'text-amber-800' : 'text-slate-400'
+                )}
+              >
+                {impact.crossDockPallets ?? 0}
+              </div>
+              <div className="text-[10px] text-slate-400">
+                {(impact.crossDockCases ?? 0) > 0
+                  ? `${impact.crossDockCases!.toLocaleString()} cases → stores`
+                  : 'none — BAU'}
+              </div>
+            </div>
+            <div className="px-3 py-2.5">
+              <div className="text-[10px] font-semibold uppercase text-slate-500">Crew</div>
+              <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
+                {impact.crewFte} FTE
+              </div>
+              <div className="text-[10px] text-slate-400">~{impact.unloadHours}h · door {impact.doorId}</div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
@@ -145,7 +211,7 @@ export function ReceivingRiskPanel({
           </table>
         </div>
 
-        {receivingAction && (
+        {receivingAction && !hideApproval && (
           <div className="mx-4 my-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">

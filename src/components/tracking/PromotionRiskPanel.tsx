@@ -34,6 +34,7 @@ type PromotionRiskPanelProps = {
   shipment: TrackShipment;
   promoAction: RiskAction | undefined;
   persona: FreshGuardPersona;
+  hideApproval?: boolean;
   onActionsUpdated: () => void;
   onApprove?: (actionId: string) => void;
 };
@@ -98,6 +99,7 @@ export function PromotionRiskPanel({
   shipment,
   promoAction,
   persona,
+  hideApproval = false,
   onActionsUpdated,
   onApprove,
 }: PromotionRiskPanelProps) {
@@ -336,7 +338,7 @@ export function PromotionRiskPanel({
           />
         </div>
 
-        {promoAction && (
+        {promoAction && !hideApproval && (
           <div className="mx-4 mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">

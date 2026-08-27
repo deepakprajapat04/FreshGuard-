@@ -2,6 +2,12 @@
  * FreshGuard shipment tracking → risk → action flow (Blueberry / Strawberry demo).
  */
 
+import {
+  estimateShelfShortage,
+  loadBusinessRules,
+  type BusinessRulesConfig,
+} from './businessRules';
+
 export type FreshGuardPersona =
   | 'dc_purchasing'
   | 'supplier'
@@ -18,7 +24,9 @@ export type RiskCategory =
   | 'receiving'
   | 'transport'
   | 'overstock'
-  | 'distribution';
+  | 'distribution'
+  | 'clearance'
+  | 'sourcing';
 
 export type ActionStatus =
   | 'pending_approval'
@@ -305,6 +313,176 @@ export type ShelfLifeProposal = {
   lines: ShelfLifeLineAnalysis[];
 };
 
+/** Per-item guidance when an inbound batch arrives early. */
+export type EarlyArrivalBatchGuidance = {
+  item: string;
+  po: string;
+  inboundCases: number;
+  /** Remaining sellable days on the new inbound batch at DC gate-in */
+  newBatchShelfLifeDays: number;
+  /** Max days the new batch should sit in DC before store push */
+  maxDcHoldDays: number;
+  recommendedDcHoldDays: number;
+  markdownPercent: number | null;
+  markdownReason: string;
+  clearanceGuidance: string;
+};
+
+export type EarlyStorePush = {
+  storeId: string;
+  storeName: string;
+  item: string;
+  cases: number;
+  reason: string;
+  /** Store must arrange bay / clear ageing stock before early delivery */
+  notifyStore: boolean;
+};
+
+/**
+ * Early-arrival overstock check:
+ * capacity Yes → BAU (no stock action);
+ * capacity No → early replenishment + store notify + shelf-life / markdown guidance.
+ */
+export type OverstockPresentStock = {
+  item: string;
+  dcOnHandCases: number;
+  dcDailyDispatch: number;
+  storeOnHandCases: number;
+  storeCount: number;
+  onHandShelfLifeDays: number;
+  onHandExpiresDate: string;
+};
+
+export type OverstockProjectedStock = {
+  /** DC on-hand if early inbound is put away without pushing stores */
+  dcIfHeldCases: number;
+  overflowCases: number;
+  /** Days of DC cover after early put-away (vs daily dispatch) */
+  dcDaysCoverIfHeld: number;
+  /** What happens to the ageing batch already in DC/stores */
+  ageingBatchAction: string;
+};
+
+export type OverstockHandlingMeasure = {
+  id: string;
+  step: number;
+  title: string;
+  action: string;
+  why: string;
+  owner: string;
+};
+
+export type OverstockProposal = {
+  hasStorageCapacity: boolean;
+  capacityPct: number;
+  bayLabel: string;
+  freePalletSlots: number;
+  inboundPallets: number;
+  inboundCases: number;
+  decision: 'bau' | 'early_replenishment';
+  storageCostNote: string;
+  shelfLifeConsequence: string;
+  presentStock: OverstockPresentStock;
+  projectedStock: OverstockProjectedStock;
+  handlingMeasures: OverstockHandlingMeasure[];
+  batches: EarlyArrivalBatchGuidance[];
+  storePushes: EarlyStorePush[];
+  originalEta: string;
+  revisedEta: string;
+  earlyDays: number;
+};
+
+export type DistributionProposal = {
+  earlyDays: number;
+  revisedEta: string;
+  extraRoutes: number;
+  totalCases: number;
+  storeDeliveries: EarlyStorePush[];
+  notifyMessage: string;
+  hasStorageCapacity: boolean;
+  /** Ageing DC stock that must clear before / with early wave */
+  ageingDcCases: number;
+  ageingShelfLifeDays: number;
+  ageingExpiresDate: string;
+  markdownPercent: number | null;
+  overflowCases: number;
+  putAwayCases: number;
+  measures: OverstockHandlingMeasure[];
+};
+
+/** Clear ageing stock on early arrival — markdown OR schedule a promo (Category Manager). */
+export type EarlyClearanceOption = {
+  id: 'markdown' | 'schedule_promotion';
+  title: string;
+  recommended: boolean;
+  summary: string;
+  casesAffected: number;
+  item: string;
+  unitPrice: number;
+  currency: string;
+  estimatedRecoveryUsd: number;
+  markdownPercent?: number;
+  promoName?: string;
+  proposedStart?: string;
+  proposedEnd?: string;
+  stores?: { storeId: string; storeName: string }[];
+  reason: string;
+};
+
+export type EarlyClearanceProposal = {
+  item: string;
+  ageingDcCases: number;
+  ageingStoreCases: number;
+  onHandShelfLifeDays: number;
+  onHandExpiresDate: string;
+  earlyDays: number;
+  revisedEta: string;
+  options: EarlyClearanceOption[];
+  recommendedOptionId: 'markdown' | 'schedule_promotion';
+  /** User-chosen plan (defaults to recommended) */
+  selectedOptionId: 'markdown' | 'schedule_promotion';
+  requiresCategoryApproval: boolean;
+};
+
+/** Delayed inbound — choose alternate supplier and issue a fill-in PO. */
+export type AlternateSupplierOption = {
+  id: string;
+  supplierName: string;
+  bidId: string;
+  shipDays: number;
+  pricePerCase: number;
+  currency: string;
+  origin: string;
+  capacityCases: number;
+  recommended: boolean;
+  reason: string;
+};
+
+export type SourcingProposal = {
+  eligible: boolean;
+  ineligibleReason?: string;
+  delayDays: number;
+  /** From Business Rules — offer alt supplier when delay ≥ this */
+  minDelayDaysConfig: number;
+  /** From Business Rules — only suppliers who can ship within this */
+  maxShipDaysConfig: number;
+  item: string;
+  category: string;
+  primarySupplier: string;
+  primaryPo: string;
+  fillInCases: number;
+  unit: string;
+  unitPricePrimary: number;
+  currency: string;
+  shortageCases: number;
+  daysOfCover: number;
+  options: AlternateSupplierOption[];
+  selectedOptionId: string | null;
+  recommendedOptionId: string | null;
+  issuedPo?: string;
+  issuedAt?: string;
+};
+
 export type RiskAction = {
   id: string;
   shipmentId: string;
@@ -327,6 +505,10 @@ export type RiskAction = {
   stockProposal?: StockRiskProposal;
   promotionProposal?: PromotionRiskProposal;
   shelfLifeProposal?: ShelfLifeProposal;
+  overstockProposal?: OverstockProposal;
+  distributionProposal?: DistributionProposal;
+  clearanceProposal?: EarlyClearanceProposal;
+  sourcingProposal?: SourcingProposal;
   receivingImpact?: ReceivingImpact;
   transportImpact?: TransportImpact;
 };
@@ -749,6 +931,114 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       storageLocation: 'CH01-B',
       netWeightKg: 2250,
       countryOfOrigin: 'USA',
+    },
+  },
+  {
+    po: 'PO-4500012395',
+    item: 'Strawberries',
+    supplier: SUPPLIER,
+    orderedQty: 600,
+    unit: 'Cases',
+    deliveryDate: '2026-08-21',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: '2026-08-15',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-ST-2201',
+      description: 'Fresh Strawberries — Driscoll Select',
+      sku: 'SKU-ST-2395',
+      orderedQty: 600,
+      confirmedQty: 600,
+      unit: 'Cases',
+      unitPrice: 32.0,
+      currency: 'USD',
+      shelfLifeDays: 16,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-B',
+      netWeightKg: 900,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2201-A',
+        description: 'Strawberries — Driscoll Select',
+        sku: 'SKU-ST-2395-A',
+        orderedQty: 350,
+        confirmedQty: 350,
+        unit: 'Cases',
+        unitPrice: 33.5,
+        currency: 'USD',
+        shelfLifeDays: 16,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 525,
+        countryOfOrigin: 'USA',
+      },
+      {
+        lineNumber: 20,
+        item: 'Strawberries',
+        materialNumber: 'MAT-ST-2202',
+        description: 'Strawberries — Standard',
+        sku: 'SKU-ST-2395-B',
+        orderedQty: 250,
+        confirmedQty: 250,
+        unit: 'Cases',
+        unitPrice: 29.0,
+        currency: 'USD',
+        shelfLifeDays: 14,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-B',
+        netWeightKg: 375,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-ST-0812',
+      containerNumber: 'CAIU4402188',
+      shipDate: '2026-08-18',
+      eta: 'Aug 20, 2026 (−2 days early)',
+      originalEta: 'Aug 22, 2026',
+      origin: 'Oxnard, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Midwest Reefer Lines',
+      bookingNumber: 'CAIU-4402188',
+      sealNumber: 'SL-4402188',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–4°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500012395',
+          item: 'Strawberries — Driscoll Select',
+          quantity: 350,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0818-A',
+          harvestDate: '2026-08-16',
+          bestBefore: '2026-09-01',
+          palletCount: 7,
+          grossWeightKg: 595,
+        },
+        {
+          poNumber: 'PO-4500012395',
+          item: 'Strawberries — Standard',
+          quantity: 250,
+          unit: 'Cases',
+          lotNumber: 'LOT-ST-0818-B',
+          harvestDate: '2026-08-17',
+          bestBefore: '2026-08-30',
+          palletCount: 5,
+          grossWeightKg: 425,
+        },
+      ],
     },
   },
   {
@@ -1293,6 +1583,24 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
     transportMode: 'road',
   },
   {
+    id: 'SHP-ST-EARLY-02',
+    containerNumber: 'CAIU4402188',
+    asnNumber: 'ASN-2026-ST-0812',
+    linkedPos: ['PO-4500012395'],
+    item: 'Strawberries',
+    supplier: SUPPLIER,
+    quantity: 600,
+    unit: 'Cases',
+    eventStatus: 'early',
+    eta: 'Aug 20, 2026 (−2 days)',
+    originalEta: 'Aug 22, 2026',
+    origin: 'Oxnard, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
     id: 'SHP-BB-ONT-01',
     containerNumber: 'FGRU9900331',
     asnNumber: 'ASN-2026-BB-0803',
@@ -1478,6 +1786,7 @@ export const STORE_TRANSIT_BUFFER_DAYS = 2;
 const SHIPMENT_ETA_ISO: Record<string, { original: string; revised: string }> = {
   'SHP-BB-DLY-01': { original: '2026-08-21', revised: '2026-08-23' },
   'SHP-ST-EARLY-01': { original: '2026-08-20', revised: '2026-08-19' },
+  'SHP-ST-EARLY-02': { original: '2026-08-22', revised: '2026-08-20' },
   'SHP-BB-ONT-01': { original: '2026-08-21', revised: '2026-08-21' },
   'SHP-BB-MIX-01': { original: '2026-08-24', revised: '2026-08-25' },
   'SHP-BB-RCV-01': { original: '2026-08-18', revised: '2026-08-18' },
@@ -1505,6 +1814,7 @@ export function getShipmentEtaIso(shipment: TrackShipment): { original: string; 
 const SHIPMENT_ITEMS: Record<string, string[]> = {
   'SHP-BB-DLY-01': ['Blueberries', 'Strawberries'],
   'SHP-ST-EARLY-01': ['Blueberries'],
+  'SHP-ST-EARLY-02': ['Strawberries'],
   'SHP-BB-ONT-01': ['Blueberries'],
   'SHP-BB-MIX-01': ['Blueberries', 'Strawberries'],
   'SHP-BB-RCV-01': ['Blueberries'],
@@ -1713,9 +2023,11 @@ export function formatPromotionProposalSummary(proposal: PromotionRiskProposal):
 }
 
 export function getShipmentDelayDays(shipment: TrackShipment): number {
-  if (shipment.eventStatus === 'delayed') return 2;
   if (shipment.eventStatus === 'early') return -1;
-  return 0;
+  if (shipment.eventStatus !== 'delayed') return 0;
+  const eta = getShipmentEtaIso(shipment);
+  const delta = daysBetween(eta.original, eta.revised);
+  return Math.max(1, delta);
 }
 
 function parseDay(iso: string): number {
@@ -2029,6 +2341,14 @@ export type ReceivingImpact = {
   freedCrewHours: number;
   doorId: string;
   steps: ResourceStep[];
+  /** Early + overstock: pallets that fit chilled slots */
+  putAwayPallets?: number;
+  /** Early + overstock: pallets flagged for cross-dock / early store push */
+  crossDockPallets?: number;
+  /** Early + overstock: cases that must not sit in DC */
+  crossDockCases?: number;
+  hasStorageCapacity?: boolean;
+  capacityNote?: string;
 };
 
 export type TruckReassignment = {
@@ -2036,6 +2356,15 @@ export type TruckReassignment = {
   containerNumber: string;
   item: string;
   date: string;
+  trucks: number;
+  reason: string;
+};
+
+export type StoreHaulLeg = {
+  storeId: string;
+  storeName: string;
+  item: string;
+  cases: number;
   trucks: number;
   reason: string;
 };
@@ -2050,6 +2379,12 @@ export type TransportImpact = {
   idleTruckDays: number;
   reassignments: TruckReassignment[];
   steps: ResourceStep[];
+  /** Early + capacity short: extra outbound reefers for store push */
+  storeHaulTrucks?: number;
+  storeHaulCases?: number;
+  storeHaulLegs?: StoreHaulLeg[];
+  hasStorageCapacity?: boolean;
+  capacityNote?: string;
 };
 
 function getDockDoor(shipment: TrackShipment): string {
@@ -2066,42 +2401,105 @@ export function buildReceivingImpact(shipment: TrackShipment): ReceivingImpact {
   const unloadHours = Math.max(1, Math.round((cases / (CASES_PER_FTE_HOUR * crewFte)) * 10) / 10);
   const doorId = getDockDoor(shipment);
   const late = delayDays > 0;
+  const early = delayDays < 0;
 
-  const steps: ResourceStep[] = late
-    ? [
-        {
-          id: 'release-crew',
-          action: `Stand down ${crewFte} FTE on ${original}`,
-          detail: `Nothing to unload on the planned date — redeploy the crew to putaway backlog or another inbound door.`,
-          when: original,
-        },
-        {
-          id: 'rebook-slot',
-          action: `Rebook door ${doorId} for ${revised}`,
-          detail: `${crewFte} FTE for ~${unloadHours}h to move ${pallets} pallets (${cases.toLocaleString()} cases).`,
-          when: revised,
-        },
-        {
-          id: 'qc-window',
-          action: 'Book QC straight after unload',
-          detail: 'Shelf-life clock already lost days in transit — no overnight wait before inspection.',
-          when: revised,
-        },
-      ]
-    : [
-        {
-          id: 'advance-crew',
-          action: `Pull ${crewFte} FTE forward to ${revised}`,
-          detail: `Load arrives ${Math.abs(delayDays)}d early — cover door ${doorId} for ~${unloadHours}h.`,
-          when: revised,
-        },
-        {
-          id: 'pre-stage',
-          action: 'Pre-stage pre-cool lane',
-          detail: `${pallets} pallets need chilled space before the planned ${original} window.`,
-          when: revised,
-        },
-      ];
+  let putAwayPallets: number | undefined;
+  let crossDockPallets: number | undefined;
+  let crossDockCases: number | undefined;
+  let hasStorageCapacity: boolean | undefined;
+  let capacityNote: string | undefined;
+
+  let steps: ResourceStep[];
+
+  if (late) {
+    steps = [
+      {
+        id: 'release-crew',
+        action: `Stand down ${crewFte} FTE on ${original}`,
+        detail: `Nothing to unload on the planned date — redeploy the crew to putaway backlog or another inbound door.`,
+        when: original,
+      },
+      {
+        id: 'rebook-slot',
+        action: `Rebook door ${doorId} for ${revised}`,
+        detail: `${crewFte} FTE for ~${unloadHours}h to move ${pallets} pallets (${cases.toLocaleString()} cases).`,
+        when: revised,
+      },
+      {
+        id: 'qc-window',
+        action: 'Book QC straight after unload',
+        detail: 'Shelf-life clock already lost days in transit — no overnight wait before inspection.',
+        when: revised,
+      },
+    ];
+  } else if (early) {
+    const overstock = buildOverstockProposal(shipment);
+    hasStorageCapacity = overstock.hasStorageCapacity;
+    putAwayPallets = Math.min(overstock.freePalletSlots, pallets);
+    crossDockPallets = Math.max(0, pallets - putAwayPallets);
+    crossDockCases = crossDockPallets * CASES_PER_PALLET;
+    capacityNote = overstock.hasStorageCapacity
+      ? `Capacity OK — put away all ${pallets} pallets into ${overstock.bayLabel}.`
+      : `Overstock: only ${putAwayPallets} pallets fit chilled slots; flag ${crossDockPallets} pallets (${crossDockCases.toLocaleString()} cases) for cross-dock / early store push — do not put away into overflow.`;
+
+    steps = overstock.hasStorageCapacity
+      ? [
+          {
+            id: 'advance-crew',
+            action: `Pull ${crewFte} FTE forward to ${revised}`,
+            detail: `Early gate-in at door ${doorId} — ~${unloadHours}h for ${pallets} pallets (BAU put-away).`,
+            when: revised,
+          },
+          {
+            id: 'put-away-all',
+            action: `Put away all ${pallets} pallets to ${overstock.bayLabel}`,
+            detail: `${overstock.freePalletSlots} free slots cover inbound — no cross-dock required.`,
+            when: revised,
+          },
+          {
+            id: 'qc-bau',
+            action: 'QC then FEFO put-away',
+            detail: 'Ageing on-hand stays on FEFO; new batch behind it within max DC hold.',
+            when: revised,
+          },
+        ]
+      : [
+          {
+            id: 'advance-crew',
+            action: `Pull ${crewFte} FTE forward to ${revised}`,
+            detail: `Early arrival — door ${doorId} for ~${unloadHours}h on ${pallets} inbound pallets.`,
+            when: revised,
+          },
+          {
+            id: 'split-putaway',
+            action: `Put away only ${putAwayPallets} pallets (${overstock.freePalletSlots} free slots)`,
+            detail: `${overstock.bayLabel} at ${overstock.capacityPct}% — do not force remaining into overflow chill.`,
+            when: revised,
+          },
+          {
+            id: 'cross-dock',
+            action: `Flag ${crossDockPallets} pallets (${crossDockCases.toLocaleString()} cases) for cross-dock`,
+            detail:
+              'Stage on dock for immediate store haul — same-day early replenishment per overstock plan.',
+            when: revised,
+          },
+          {
+            id: 'notify-dist',
+            action: 'Hand off cross-dock list to distribution & transport',
+            detail: 'Receiving must not leave overflow on ambient dock overnight.',
+            when: revised,
+          },
+        ];
+  } else {
+    steps = [
+      {
+        id: 'advance-crew',
+        action: `Crew ${crewFte} FTE on ${revised}`,
+        detail: `Unload ${pallets} pallets at door ${doorId}.`,
+        when: revised,
+      },
+    ];
+  }
 
   return {
     delayDays,
@@ -2114,6 +2512,11 @@ export function buildReceivingImpact(shipment: TrackShipment): ReceivingImpact {
     freedCrewHours: late ? crewFte * DOCK_SHIFT_HOURS : 0,
     doorId,
     steps,
+    putAwayPallets,
+    crossDockPallets,
+    crossDockCases,
+    hasStorageCapacity,
+    capacityNote,
   };
 }
 
@@ -2123,69 +2526,177 @@ export function buildTransportImpact(shipment: TrackShipment): TransportImpact {
   const cases = shipment.quantity;
   const trucksBooked = Math.max(1, Math.ceil(cases / CASES_PER_TRUCK));
   const late = delayDays > 0;
+  const early = delayDays < 0;
 
-  // Trucks freed by the delay go to shipments already inbound in the original window.
-  let remaining = late ? trucksBooked : 0;
   const reassignments: TruckReassignment[] = [];
-  for (const other of DEMO_SHIPMENTS) {
-    if (other.id === shipment.id || remaining <= 0) continue;
-    const otherEta = getShipmentEtaIso(other).revised;
-    if (daysBetween(otherEta, original) < -1) continue;
-    const need = Math.max(1, Math.ceil(other.quantity / CASES_PER_TRUCK));
-    const trucks = Math.min(need, remaining);
-    remaining -= trucks;
-    reassignments.push({
-      shipmentId: other.id,
-      containerNumber: other.containerNumber,
-      item: other.item,
-      date: otherEta,
-      trucks,
-      reason:
-        other.eventStatus === 'early'
-          ? 'Arriving early — needs haulage sooner than booked'
-          : 'On-time load in the freed window',
-    });
+
+  if (late) {
+    // Trucks freed by the delay go to shipments already inbound in the original window.
+    let remaining = trucksBooked;
+    for (const other of DEMO_SHIPMENTS) {
+      if (other.id === shipment.id || remaining <= 0) continue;
+      const otherEta = getShipmentEtaIso(other).revised;
+      if (daysBetween(otherEta, original) < -1) continue;
+      const need = Math.max(1, Math.ceil(other.quantity / CASES_PER_TRUCK));
+      const trucks = Math.min(need, remaining);
+      remaining -= trucks;
+      reassignments.push({
+        shipmentId: other.id,
+        containerNumber: other.containerNumber,
+        item: other.item,
+        date: otherEta,
+        trucks,
+        reason:
+          other.eventStatus === 'early'
+            ? 'Arriving early — needs haulage sooner than booked'
+            : 'On-time load in the freed window',
+      });
+    }
+  } else if (early) {
+    // Early gate-in: pull reefers booked for later loads into this earlier window.
+    let remaining = trucksBooked;
+    for (const other of DEMO_SHIPMENTS) {
+      if (other.id === shipment.id || remaining <= 0) continue;
+      if (other.eventStatus === 'early') continue;
+      const otherEta = getShipmentEtaIso(other).revised;
+      if (daysBetween(revised, otherEta) < 0) continue;
+      const need = Math.max(1, Math.ceil(other.quantity / CASES_PER_TRUCK));
+      const trucks = Math.min(need, remaining);
+      remaining -= trucks;
+      reassignments.push({
+        shipmentId: other.id,
+        containerNumber: other.containerNumber,
+        item: other.item,
+        date: otherEta,
+        trucks,
+        reason: `Pull forward from ${otherEta} booking to cover early arrival ${revised}`,
+      });
+    }
   }
 
   const trucksReassigned = reassignments.reduce((n, r) => n + r.trucks, 0);
 
-  const steps: ResourceStep[] = late
-    ? [
-        {
-          id: 'release-drayage',
-          action: `Release ${trucksBooked} reefers held for ${original}`,
-          detail: `Container ${shipment.containerNumber} will not gate in — cancel before detention starts.`,
-          when: original,
-        },
-        {
-          id: 'reassign',
-          action:
-            trucksReassigned > 0
-              ? `Reassign ${trucksReassigned} of them to inbound loads`
-              : 'No inbound load to absorb the freed trucks',
-          detail:
-            trucksReassigned > 0
-              ? reassignments
-                  .map((r) => `${r.trucks} → ${r.containerNumber} (${r.date})`)
-                  .join(' · ')
-              : 'Park the assets rather than run them empty.',
-          when: original,
-        },
-        {
-          id: 'rebook-pickup',
-          action: `Rebook pickup for ${revised}`,
-          detail: 'Hold the booking until the carrier confirms the revised arrival.',
-          when: revised,
-        },
-      ]
-    : [
-        {
-          id: 'pull-forward',
-          action: `Move pickup to ${revised}`,
-          detail: `${trucksBooked} reefers needed ${Math.abs(delayDays)}d earlier than booked.`,
-          when: revised,
-        },
-      ];
+  let storeHaulTrucks: number | undefined;
+  let storeHaulCases: number | undefined;
+  let storeHaulLegs: StoreHaulLeg[] | undefined;
+  let hasStorageCapacity: boolean | undefined;
+  let capacityNote: string | undefined;
+
+  let steps: ResourceStep[];
+
+  if (late) {
+    steps = [
+      {
+        id: 'release-drayage',
+        action: `Release ${trucksBooked} reefers held for ${original}`,
+        detail: `Container ${shipment.containerNumber} will not gate in — cancel before detention starts.`,
+        when: original,
+      },
+      {
+        id: 'reassign',
+        action:
+          trucksReassigned > 0
+            ? `Reassign ${trucksReassigned} of them to inbound loads`
+            : 'No inbound load to absorb the freed trucks',
+        detail:
+          trucksReassigned > 0
+            ? reassignments
+                .map((r) => `${r.trucks} → ${r.containerNumber} (${r.date})`)
+                .join(' · ')
+            : 'Park the assets rather than run them empty.',
+        when: original,
+      },
+      {
+        id: 'rebook-pickup',
+        action: `Rebook pickup for ${revised}`,
+        detail: 'Hold the booking until the carrier confirms the revised arrival.',
+        when: revised,
+      },
+    ];
+  } else if (early) {
+    const overstock = buildOverstockProposal(shipment);
+    hasStorageCapacity = overstock.hasStorageCapacity;
+    capacityNote = overstock.hasStorageCapacity
+      ? 'Capacity OK — only pull inbound haulage forward; no extra store routes.'
+      : 'Overstock capacity short — add outbound reefers for cross-dock overflow to stores.';
+
+    if (!overstock.hasStorageCapacity) {
+      storeHaulLegs = overstock.storePushes.map((s) => ({
+        storeId: s.storeId,
+        storeName: s.storeName,
+        item: s.item,
+        cases: s.cases,
+        trucks: Math.max(1, Math.ceil(s.cases / CASES_PER_TRUCK)),
+        reason: s.reason,
+      }));
+      storeHaulCases = storeHaulLegs.reduce((n, l) => n + l.cases, 0);
+      storeHaulTrucks = storeHaulLegs.reduce((n, l) => n + l.trucks, 0);
+    }
+
+    steps = overstock.hasStorageCapacity
+      ? [
+          {
+            id: 'pull-forward',
+            action: `Move inbound pickup to ${revised}`,
+            detail: `${trucksBooked} reefers for ${shipment.containerNumber} — BAU put-away, no extra store haul.`,
+            when: revised,
+          },
+          {
+            id: 'borrow-assets',
+            action:
+              trucksReassigned > 0
+                ? `Reschedule ${trucksReassigned} truck(s) from later shipments`
+                : 'Confirm spare reefer for early gate-in',
+            detail:
+              trucksReassigned > 0
+                ? reassignments
+                    .map((r) => `${r.trucks} from ${r.containerNumber}`)
+                    .join(' · ')
+                : 'Yard pool if needed.',
+            when: revised,
+          },
+        ]
+      : [
+          {
+            id: 'pull-forward',
+            action: `Move inbound pickup to ${revised}`,
+            detail: `${trucksBooked} reefers for gate-in of ${shipment.containerNumber}.`,
+            when: revised,
+          },
+          {
+            id: 'store-haul',
+            action: `Book ${storeHaulTrucks ?? 0} outbound reefer(s) for early store push`,
+            detail: `${(storeHaulCases ?? 0).toLocaleString()} overflow cases cross-dock same day — do not leave on DC dock.`,
+            when: revised,
+          },
+          {
+            id: 'store-legs',
+            action: 'Dispatch store routes from receiving cross-dock',
+            detail:
+              storeHaulLegs && storeHaulLegs.length
+                ? storeHaulLegs
+                    .map((l) => `${l.storeName}: ${l.cases} cases (${l.trucks} truck)`)
+                    .join(' · ')
+                : 'Await distribution store split.',
+            when: revised,
+          },
+          {
+            id: 'notify-dispatch',
+            action: 'Notify transport dispatch & drivers',
+            detail: 'Inbound pull-forward + outbound early replenishment must share the same gate-in window.',
+            when: revised,
+          },
+        ];
+  } else {
+    steps = [
+      {
+        id: 'on-plan',
+        action: `Pickup on ${revised}`,
+        detail: `${trucksBooked} reefers as booked.`,
+        when: revised,
+      },
+    ];
+  }
 
   return {
     delayDays,
@@ -2197,6 +2708,11 @@ export function buildTransportImpact(shipment: TrackShipment): TransportImpact {
     idleTruckDays: late ? trucksBooked * delayDays : 0,
     reassignments,
     steps,
+    storeHaulTrucks,
+    storeHaulCases,
+    storeHaulLegs,
+    hasStorageCapacity,
+    capacityNote,
   };
 }
 
@@ -2208,28 +2724,862 @@ export function formatReceivingProposalSummary(impact: ReceivingImpact): string 
       `rebook ${impact.crewFte} FTE for ~${impact.unloadHours}h to unload ${impact.pallets} pallets.`
     );
   }
+  if (impact.hasStorageCapacity === false && impact.crossDockPallets != null) {
+    return (
+      `Early gate-in door ${impact.doorId} on ${impact.revisedSlot}: put away ${impact.putAwayPallets} pallets into free chilled slots; ` +
+      `cross-dock ${impact.crossDockPallets} pallets (${impact.crossDockCases?.toLocaleString()} cases) for early store push — do not hold overflow.`
+    );
+  }
   return (
-    `Pull door ${impact.doorId} forward to ${impact.revisedSlot}. ` +
-    `${impact.crewFte} FTE for ~${impact.unloadHours}h on ${impact.pallets} pallets.`
+    `Notify receiving: pull door ${impact.doorId} forward to ${impact.revisedSlot}. ` +
+    `BAU put-away of all ${impact.pallets} pallets (${impact.crewFte} FTE · ~${impact.unloadHours}h).`
   );
 }
 
 export function formatTransportProposalSummary(impact: TransportImpact): string {
-  if (impact.delayDays <= 0) {
-    return `Move pickup from ${impact.plannedPickup} to ${impact.revisedPickup} — ${impact.trucksBooked} reefers needed earlier.`;
+  if (impact.delayDays > 0) {
+    const moves = impact.reassignments.length
+      ? impact.reassignments
+          .map((r) => `${r.trucks} to ${r.containerNumber} on ${r.date}`)
+          .join(', ')
+      : 'no inbound load to absorb them';
+    return (
+      `Release ${impact.trucksBooked} reefers booked for ${impact.plannedPickup} (${impact.idleTruckDays} idle truck-days). ` +
+      `Reassign ${moves}. Rebook this pickup for ${impact.revisedPickup}.`
+    );
   }
-  const moves = impact.reassignments.length
-    ? impact.reassignments
-        .map((r) => `${r.trucks} to ${r.containerNumber} on ${r.date}`)
-        .join(', ')
-    : 'no inbound load to absorb them';
+  if (impact.hasStorageCapacity === false && (impact.storeHaulTrucks ?? 0) > 0) {
+    return (
+      `Pull inbound pickup to ${impact.revisedPickup} (${impact.trucksBooked} reefers). ` +
+      `Add ${impact.storeHaulTrucks} outbound truck(s) for ${(impact.storeHaulCases ?? 0).toLocaleString()} overflow cases to stores (cross-dock from receiving).`
+    );
+  }
   return (
-    `Release ${impact.trucksBooked} reefers booked for ${impact.plannedPickup} (${impact.idleTruckDays} idle truck-days). ` +
-    `Reassign ${moves}. Rebook this pickup for ${impact.revisedPickup}.`
+    `Move pickup from ${impact.plannedPickup} to ${impact.revisedPickup} — ${impact.trucksBooked} reefers for early gate-in. ` +
+    `No extra store haul (capacity OK / BAU).`
   );
 }
 
-const ACTIONS_KEY = 'freshguard-risk-actions-v8';
+/** Max DC hold so store still gets a usable sell window (rule-of-thumb: keep ≥60% of shelf life for store). */
+function maxDcHoldForShelfLife(shelfLifeDays: number): number {
+  return Math.max(1, Math.min(5, Math.floor(shelfLifeDays * 0.25)));
+}
+
+export function buildOverstockProposal(shipment: TrackShipment): OverstockProposal {
+  const { original, revised } = getShipmentEtaIso(shipment);
+  const earlyDays = Math.max(0, -daysBetween(original, revised));
+  const inboundCases = shipment.quantity;
+  const inboundPallets = Math.ceil(inboundCases / CASES_PER_PALLET);
+
+  // Two early demos: EARLY-01 capacity short; EARLY-02 capacity OK (BAU path).
+  const isCapacityShortDemo = shipment.id === 'SHP-ST-EARLY-01' || (shipment.eventStatus === 'early' && shipment.id !== 'SHP-ST-EARLY-02');
+  const capacityPct = isCapacityShortDemo ? 92 : shipment.eventStatus === 'early' ? 61 : 68;
+  const freePalletSlots = isCapacityShortDemo ? 8 : shipment.eventStatus === 'early' ? 36 : 48;
+  const hasStorageCapacity = freePalletSlots >= inboundPallets;
+  const decision: OverstockProposal['decision'] = hasStorageCapacity
+    ? 'bau'
+    : 'early_replenishment';
+
+  const items = getShipmentItems(shipment);
+  const primaryItem = items[0] || 'Blueberries';
+  const dcRows = DC_INVENTORY.filter((d) => items.includes(d.item));
+  const storeRows = STORE_DEMAND.filter((s) => items.includes(s.item));
+  const dcOnHandCases = dcRows.reduce((n, d) => n + d.availableStock, 0);
+  const dcDailyDispatch = Math.max(
+    1,
+    dcRows.reduce((n, d) => n + d.dailyDispatchRate, 0)
+  );
+  const storeOnHandCases = storeRows.reduce((n, s) => n + s.onHand, 0);
+  const ageingShelf = storeRows[0]?.onHandShelfLifeDays ?? 3;
+  const ageingExpires = storeRows[0]?.onHandExpiresDate ?? addDaysIso(DEMO_TODAY, ageingShelf);
+
+  const presentStock: OverstockPresentStock = {
+    item: primaryItem,
+    dcOnHandCases,
+    dcDailyDispatch,
+    storeOnHandCases,
+    storeCount: storeRows.length || 1,
+    onHandShelfLifeDays: ageingShelf,
+    onHandExpiresDate: ageingExpires,
+  };
+
+  const dcIfHeldCases = dcOnHandCases + inboundCases;
+  const overflowCases = Math.max(0, (inboundPallets - freePalletSlots) * CASES_PER_PALLET);
+  const projectedStock: OverstockProjectedStock = {
+    dcIfHeldCases,
+    overflowCases,
+    dcDaysCoverIfHeld: Math.round((dcIfHeldCases / dcDailyDispatch) * 10) / 10,
+    ageingBatchAction: hasStorageCapacity
+      ? `Keep existing ${primaryItem} (${dcOnHandCases} DC + ${storeOnHandCases} store cases, ${ageingShelf}d life left) on normal FEFO — new early batch put away behind it.`
+      : `Existing ${primaryItem} already occupies chilled space (${dcOnHandCases} DC cases, ${ageingShelf}d life → expires ${ageingExpires}). Do not stack early inbound on top — markdown/clear ageing batch and push early qty to stores.`,
+  };
+
+  const linkedPos = shipment.linkedPos
+    .map((poNum) => DEMO_POS.find((p) => p.po === poNum))
+    .filter((p): p is SapPurchaseOrder => !!p);
+
+  const batches: EarlyArrivalBatchGuidance[] = [];
+  if (linkedPos.length) {
+    for (const po of linkedPos) {
+      const shelf = po.itemDetail.shelfLifeDays;
+      const maxDcHoldDays = maxDcHoldForShelfLife(shelf);
+      const recommendedDcHoldDays = hasStorageCapacity
+        ? Math.min(maxDcHoldDays, earlyDays + 1)
+        : Math.min(2, maxDcHoldDays);
+      const needClearance = !hasStorageCapacity;
+      const markdownPercent = needClearance ? (shelf <= 14 ? 15 : 10) : null;
+      batches.push({
+        item: po.item,
+        po: po.po,
+        inboundCases: po.orderedQty,
+        newBatchShelfLifeDays: shelf,
+        maxDcHoldDays,
+        recommendedDcHoldDays,
+        markdownPercent,
+        markdownReason: needClearance
+          ? `Clear ageing ${po.item} (already on hand, ${ageingShelf}d left) before early push — new batch has ${shelf}d life; hold ≤${maxDcHoldDays}d in DC.`
+          : `BAU put-away — new batch shelf life ${shelf}d; recommended DC hold ${recommendedDcHoldDays}d (max ${maxDcHoldDays}d).`,
+        clearanceGuidance: needClearance
+          ? `Markdown ${markdownPercent}% on prior ${po.item} batch OR arrange overflow bay; then push ${po.orderedQty.toLocaleString()} cases early to stores.`
+          : 'No clearance required — chilled capacity confirmed for inbound.',
+      });
+    }
+  } else {
+    const shelf = 14;
+    const maxDcHoldDays = maxDcHoldForShelfLife(shelf);
+    batches.push({
+      item: primaryItem,
+      po: shipment.linkedPos[0] || shipment.id,
+      inboundCases,
+      newBatchShelfLifeDays: shelf,
+      maxDcHoldDays,
+      recommendedDcHoldDays: hasStorageCapacity ? Math.min(maxDcHoldDays, earlyDays + 1) : 2,
+      markdownPercent: hasStorageCapacity ? null : 15,
+      markdownReason: hasStorageCapacity
+        ? `BAU — new batch shelf life ${shelf}d.`
+        : `Clear prior batch before early push — new batch ${shelf}d life.`,
+      clearanceGuidance: hasStorageCapacity
+        ? 'No clearance required.'
+        : 'Markdown 15% on prior batch or arrange overflow space.',
+    });
+  }
+
+  const storePushes: EarlyStorePush[] = [];
+  if (!hasStorageCapacity) {
+    const surplus = storeRows.filter((s) => s.daysCover < 4 || s.stockoutRiskDays != null);
+    const targets =
+      surplus.length > 0 ? surplus.slice(0, 4) : storeRows.slice(0, 4);
+    const list = targets.length
+      ? targets
+      : STORE_DEMAND.filter((s) => s.item === primaryItem).slice(0, 4);
+    const pushPool = Math.max(overflowCases, Math.ceil(inboundCases * 0.65));
+    const base = Math.floor(pushPool / Math.max(1, list.length));
+    let remainder = pushPool - base * Math.max(1, list.length);
+    for (const s of list.length ? list : STORE_DEMAND.slice(0, 2)) {
+      const extra = remainder > 0 ? 10 : 0;
+      if (remainder > 0) remainder -= 10;
+      const cases = Math.max(40, base + extra);
+      storePushes.push({
+        storeId: s.storeId,
+        storeName: s.name,
+        item: s.item || primaryItem,
+        cases,
+        reason: `Early replenishment — overflow ${overflowCases.toLocaleString()} cases cannot sit in DC. Store holds ${s.onHand} cases (${s.onHandShelfLifeDays}d life). Clear/markdown ageing stock or arrange backroom before early delivery.`,
+        notifyStore: true,
+      });
+    }
+  }
+
+  const handlingMeasures: OverstockHandlingMeasure[] = hasStorageCapacity
+    ? [
+        {
+          id: 'confirm-capacity',
+          step: 1,
+          title: 'Confirm chilled capacity',
+          action: `Put away ${inboundCases.toLocaleString()} early cases into ${freePalletSlots} free slots (${capacityPct}% bay util).`,
+          why: 'Free slots cover inbound — no overflow, no forced store push.',
+          owner: 'Receiving / DC ops',
+        },
+        {
+          id: 'fefo-hold',
+          step: 2,
+          title: 'Keep existing stock on FEFO',
+          action: `Leave ${dcOnHandCases} DC + ${storeOnHandCases} store cases of ${primaryItem} on normal rotation (expires ${ageingExpires}).`,
+          why: 'Early arrival does not force clearance when capacity is available.',
+          owner: 'DC purchasing',
+        },
+        {
+          id: 'dc-hold-limit',
+          step: 3,
+          title: 'Cap new-batch DC hold',
+          action: `Hold new batch ≤${batches[0]?.maxDcHoldDays ?? 3}d in DC (reco ${batches[0]?.recommendedDcHoldDays ?? 2}d), then replenish on plan.`,
+          why: `Preserves store sell window from ${batches[0]?.newBatchShelfLifeDays ?? 14}d inbound shelf life.`,
+          owner: 'DC purchasing',
+        },
+        {
+          id: 'bau-notify',
+          step: 4,
+          title: 'Notify receiving only',
+          action: 'No store markdown or early wave. Receiving pulls door forward for early gate-in.',
+          why: 'BAU stock path — only manpower/slot timing changes.',
+          owner: 'Receiving',
+        },
+      ]
+    : [
+        {
+          id: 'capacity-fail',
+          step: 1,
+          title: 'Capacity short — do not hold all inbound',
+          action: `Only ${freePalletSlots} free slots for ${inboundPallets} inbound pallets (${overflowCases.toLocaleString()} cases would overflow).`,
+          why: `Holding overflow costs ~$${((inboundPallets - freePalletSlots) * 18).toFixed(0)}/day and burns shelf life.`,
+          owner: 'DC purchasing',
+        },
+        {
+          id: 'clear-ageing',
+          step: 2,
+          title: 'Clear stock already on hand',
+          action: `Markdown ${batches[0]?.markdownPercent ?? 15}% or push/clear ${dcOnHandCases} DC cases of ${primaryItem} (only ${ageingShelf}d life left → ${ageingExpires}).`,
+          why: 'Ageing batch must move first so early inbound does not sit behind dying stock.',
+          owner: 'Category / stores',
+        },
+        {
+          id: 'early-push',
+          step: 3,
+          title: 'Early replenish to stores',
+          action: `Push ${storePushes.reduce((n, s) => n + s.cases, 0).toLocaleString() || inboundCases.toLocaleString()} cases early to ${Math.max(1, storePushes.length)} store(s); notify each to arrange space.`,
+          why: 'Frees DC slots and places new batch where sell-through is needed.',
+          owner: 'Distribution',
+        },
+        {
+          id: 'new-batch-hold',
+          step: 4,
+          title: 'Limit new-batch DC dwell',
+          action: `Any residual new batch at DC: max hold ${batches[0]?.maxDcHoldDays ?? 3}d (reco ${batches[0]?.recommendedDcHoldDays ?? 2}d) from ${batches[0]?.newBatchShelfLifeDays ?? 14}d life.`,
+          why: 'Stops early arrival from becoming dead stock in overflow chill.',
+          owner: 'DC purchasing',
+        },
+      ];
+
+  return {
+    hasStorageCapacity,
+    capacityPct,
+    bayLabel: isCapacityShortDemo ? 'Bay 3–4 (chilled)' : 'Bay 5–6 (chilled)',
+    freePalletSlots,
+    inboundPallets,
+    inboundCases,
+    decision,
+    storageCostNote: hasStorageCapacity
+      ? 'No incremental storage cost — inbound fits existing chilled slots.'
+      : `Holding ${inboundPallets - freePalletSlots} overflow pallets would add ~$${(
+          (inboundPallets - freePalletSlots) *
+          18
+        ).toFixed(0)}/day in overflow / 3PL chill cost.`,
+    shelfLifeConsequence: hasStorageCapacity
+      ? `New batch may sit up to ${batches[0]?.maxDcHoldDays ?? 3}d in DC without cutting store sell window. Existing on-hand (${ageingShelf}d left) stays on FEFO.`
+      : `Without early push, overflow hold burns ${earlyDays + 1}–${batches[0]?.maxDcHoldDays ?? 3}d of the new batch, while ageing on-hand (${ageingShelf}d left) expires unused.`,
+    presentStock,
+    projectedStock,
+    handlingMeasures,
+    batches,
+    storePushes,
+    originalEta: original,
+    revisedEta: revised,
+    earlyDays,
+  };
+}
+
+export function buildDistributionProposal(shipment: TrackShipment): DistributionProposal {
+  const overstock = buildOverstockProposal(shipment);
+  const { revised } = getShipmentEtaIso(shipment);
+  const putAwayCases = Math.min(
+    overstock.freePalletSlots * CASES_PER_PALLET,
+    overstock.inboundCases
+  );
+  const overflowCases = overstock.projectedStock.overflowCases;
+  const md = overstock.batches.find((b) => b.markdownPercent != null)?.markdownPercent ?? null;
+
+  const storeDeliveries = !overstock.hasStorageCapacity ? overstock.storePushes : [];
+  const totalCases = storeDeliveries.reduce((n, s) => n + s.cases, 0);
+  const extraRoutes = overstock.hasStorageCapacity
+    ? 0
+    : Math.max(1, Math.ceil(Math.max(totalCases, overflowCases) / 400));
+
+  const measures: OverstockHandlingMeasure[] = overstock.hasStorageCapacity
+    ? [
+        {
+          id: 'dist-standby',
+          step: 1,
+          title: 'No early wave required',
+          action: 'Stand by — capacity covers inbound put-away.',
+          why: 'Overstock decision is BAU; stores keep normal replenishment.',
+          owner: 'Distribution',
+        },
+        {
+          id: 'dist-monitor',
+          step: 2,
+          title: 'Monitor after receiving',
+          action: 'If bay utilisation spikes after put-away, trigger optional early wave.',
+          why: 'Safety net if capacity flips post gate-in.',
+          owner: 'DC purchasing',
+        },
+      ]
+    : [
+        {
+          id: 'clear-ageing',
+          step: 1,
+          title: 'Clear ageing DC / store stock',
+          action: `Markdown ${md ?? 15}% or push ${overstock.presentStock.dcOnHandCases} DC cases of ${overstock.presentStock.item} (only ${overstock.presentStock.onHandShelfLifeDays}d life → ${overstock.presentStock.onHandExpiresDate}).`,
+          why: 'Ageing batch must sell before early inbound takes shelf space.',
+          owner: 'Category / stores',
+        },
+        {
+          id: 'split-overflow',
+          step: 2,
+          title: 'Split overflow to stores',
+          action: `Allocate ${overflowCases.toLocaleString()} overflow cases (${totalCases.toLocaleString()} planned on this wave) across ${storeDeliveries.length} stores.`,
+          why: 'Matches receiving cross-dock volume so overflow never enters chilled bay.',
+          owner: 'Distribution',
+        },
+        {
+          id: 'notify-stores',
+          step: 3,
+          title: 'Notify each store',
+          action: 'Alert stores to clear ageing stock or arrange backroom before early delivery.',
+          why: 'Stores already hold stock — early inbound needs space on arrival.',
+          owner: 'Store ops',
+        },
+        {
+          id: 'extra-routes',
+          step: 4,
+          title: 'Add transport load',
+          action: `Book ${extraRoutes} extra store route(s) on ${revised} with transport.`,
+          why: 'Same-day cross-dock haul tied to early gate-in.',
+          owner: 'Transport',
+        },
+      ];
+
+  return {
+    earlyDays: overstock.earlyDays,
+    revisedEta: revised,
+    extraRoutes,
+    totalCases: overstock.hasStorageCapacity ? 0 : totalCases || overflowCases,
+    storeDeliveries,
+    notifyMessage: overstock.hasStorageCapacity
+      ? 'Capacity OK — no mandatory early store wave. Distribution stands by if overflow develops after put-away.'
+      : `Overstock short: put away ${putAwayCases.toLocaleString()} cases at DC; push ${overflowCases.toLocaleString()} overflow cases early to ${storeDeliveries.length} store(s). Clear ageing ${overstock.presentStock.dcOnHandCases} DC cases (${md ?? 15}% markdown). Add ${extraRoutes} route(s) on ${revised}.`,
+    hasStorageCapacity: overstock.hasStorageCapacity,
+    ageingDcCases: overstock.presentStock.dcOnHandCases,
+    ageingShelfLifeDays: overstock.presentStock.onHandShelfLifeDays,
+    ageingExpiresDate: overstock.presentStock.onHandExpiresDate,
+    markdownPercent: md,
+    overflowCases,
+    putAwayCases,
+    measures,
+  };
+}
+
+export function formatOverstockProposalSummary(p: OverstockProposal): string {
+  const present = `Present stock: ${p.presentStock.dcOnHandCases} DC + ${p.presentStock.storeOnHandCases} store cases (${p.presentStock.onHandShelfLifeDays}d life left).`;
+  if (p.hasStorageCapacity) {
+    return (
+      `${present} Capacity OK (${p.bayLabel} ${p.capacityPct}% · ${p.freePalletSlots} ≥ ${p.inboundPallets} slots). ` +
+      `BAU — put away early inbound; keep ageing batch on FEFO. New batch life ${p.batches[0]?.newBatchShelfLifeDays ?? '—'}d; max DC hold ${p.batches[0]?.maxDcHoldDays ?? '—'}d.`
+    );
+  }
+  const stores = p.storePushes.map((s) => `${s.storeName} (${s.cases})`).join(', ');
+  const md = p.batches.find((b) => b.markdownPercent != null);
+  return (
+    `${present} If held, DC becomes ${p.projectedStock.dcIfHeldCases.toLocaleString()} cases ` +
+    `(${p.projectedStock.overflowCases.toLocaleString()} overflow). ` +
+    `Capacity short — clear ageing stock, then early push to ${stores}. ` +
+    (md ? `Markdown ${md.markdownPercent}% on prior ${md.item}. ` : '') +
+    `New batch life ${p.batches[0]?.newBatchShelfLifeDays}d — max DC hold ${p.batches[0]?.maxDcHoldDays}d.`
+  );
+}
+
+export function formatDistributionProposalSummary(p: DistributionProposal): string {
+  return p.notifyMessage;
+}
+
+export function buildEarlyClearanceProposal(
+  shipment: TrackShipment
+): EarlyClearanceProposal | null {
+  const overstock = buildOverstockProposal(shipment);
+  if (shipment.eventStatus !== 'early' || overstock.hasStorageCapacity) return null;
+
+  const item = overstock.presentStock.item;
+  const linkedPo = shipment.linkedPos
+    .map((poNum) => DEMO_POS.find((p) => p.po === poNum))
+    .find((p) => p && p.item === item);
+  const unitPrice = linkedPo?.itemDetail.unitPrice ?? 28.5;
+  const currency = linkedPo?.itemDetail.currency ?? 'USD';
+  const mdPct =
+    overstock.batches.find((b) => b.markdownPercent != null)?.markdownPercent ??
+    (overstock.presentStock.onHandShelfLifeDays <= 3 ? 20 : 15);
+  const ageingCases =
+    overstock.presentStock.dcOnHandCases + overstock.presentStock.storeOnHandCases;
+  const dcCases = overstock.presentStock.dcOnHandCases;
+
+  const promoStores = overstock.storePushes.slice(0, 3).map((s) => ({
+    storeId: s.storeId,
+    storeName: s.storeName,
+  }));
+  if (promoStores.length === 0) {
+    STORE_DEMAND.filter((s) => s.item === item)
+      .slice(0, 3)
+      .forEach((s) => promoStores.push({ storeId: s.storeId, storeName: s.name }));
+  }
+
+  const promoStart = overstock.revisedEta;
+  const promoEnd = addDaysIso(overstock.revisedEta, Math.max(2, overstock.presentStock.onHandShelfLifeDays - 1));
+  const promoName = `${item} Early Clearance Flash`;
+  const markdownRecovery = Math.round(dcCases * unitPrice * (1 - mdPct / 100));
+  const promoRecovery = Math.round(ageingCases * unitPrice * 0.85);
+
+  // Prefer promo when ageing volume is material; otherwise plain markdown is enough.
+  const recommendPromo = ageingCases >= 200;
+
+  const options: EarlyClearanceOption[] = [
+    {
+      id: 'markdown',
+      title: `Markdown ${mdPct}% on ageing ${item}`,
+      recommended: !recommendPromo,
+      summary: `Apply ${mdPct}% markdown on ${dcCases.toLocaleString()} DC cases (and store facing units) so ageing stock sells before early inbound hits shelf.`,
+      casesAffected: dcCases,
+      item,
+      unitPrice,
+      currency,
+      estimatedRecoveryUsd: markdownRecovery,
+      markdownPercent: mdPct,
+      reason: `On-hand batch has only ${overstock.presentStock.onHandShelfLifeDays}d left (expires ${overstock.presentStock.onHandExpiresDate}). Early inbound ${overstock.earlyDays}d early would sit behind dying stock without clearance.`,
+    },
+    {
+      id: 'schedule_promotion',
+      title: `Schedule “${promoName}” for Category Manager`,
+      recommended: recommendPromo,
+      summary: `Run a short clearance promo ${promoStart} → ${promoEnd} at ${promoStores.map((s) => s.storeName).join(', ')} to burn through ageing ${item} before early put-away / store push.`,
+      casesAffected: ageingCases,
+      item,
+      unitPrice,
+      currency,
+      estimatedRecoveryUsd: promoRecovery,
+      promoName,
+      proposedStart: promoStart,
+      proposedEnd: promoEnd,
+      stores: promoStores,
+      reason: `Category-owned promo clears ${ageingCases.toLocaleString()} cases faster than shelf markdown alone and frees bay + store space for the early batch.`,
+    },
+  ];
+
+  return {
+    item,
+    ageingDcCases: overstock.presentStock.dcOnHandCases,
+    ageingStoreCases: overstock.presentStock.storeOnHandCases,
+    onHandShelfLifeDays: overstock.presentStock.onHandShelfLifeDays,
+    onHandExpiresDate: overstock.presentStock.onHandExpiresDate,
+    earlyDays: overstock.earlyDays,
+    revisedEta: overstock.revisedEta,
+    options,
+    recommendedOptionId: recommendPromo ? 'schedule_promotion' : 'markdown',
+    selectedOptionId: recommendPromo ? 'schedule_promotion' : 'markdown',
+    requiresCategoryApproval: true,
+  };
+}
+
+export function formatEarlyClearanceProposalSummary(p: EarlyClearanceProposal): string {
+  const chosen =
+    p.options.find((o) => o.id === (p.selectedOptionId ?? p.recommendedOptionId)) ?? p.options[0];
+  const alt = p.options.find((o) => o.id !== chosen.id);
+  return (
+    `Clear ageing ${p.item} (${p.ageingDcCases} DC + ${p.ageingStoreCases} store cases, ${p.onHandShelfLifeDays}d life left). ` +
+    `Selected: ${chosen.title}. ` +
+    (alt ? `Other option: ${alt.title}. ` : '') +
+    `Needs Category Manager sign-off.`
+  );
+}
+
+export function selectClearanceOption(
+  actionId: string,
+  optionId: 'markdown' | 'schedule_promotion'
+): RiskAction | null {
+  const list = loadRiskActions();
+  let updated: RiskAction | null = null;
+  const next = list.map((a) => {
+    if (a.id !== actionId || a.category !== 'clearance' || !a.clearanceProposal) return a;
+    if (a.status !== 'pending_approval' && a.status !== 'pending_category_approval') return a;
+    if (!a.clearanceProposal.options.some((o) => o.id === optionId)) return a;
+    const clearanceProposal: EarlyClearanceProposal = {
+      ...a.clearanceProposal,
+      selectedOptionId: optionId,
+    };
+    updated = {
+      ...a,
+      clearanceProposal,
+      proposal: formatEarlyClearanceProposalSummary(clearanceProposal),
+    };
+    return updated;
+  });
+  if (updated) saveRiskActions(next);
+  return updated;
+}
+
+/** Ranked short-lead alternates for delayed berry fill-in POs. */
+const ALT_SUPPLIER_CATALOG: Omit<AlternateSupplierOption, 'recommended' | 'reason'>[] = [
+  {
+    id: 'alt-agrigro',
+    supplierName: 'AgriGro Wholesale',
+    bidId: 'QUOTE-BB-002',
+    shipDays: 2,
+    pricePerCase: 29.4,
+    currency: 'USD',
+    origin: 'Mexico',
+    capacityCases: 2000,
+  },
+  {
+    id: 'alt-freshpack',
+    supplierName: 'FreshPack Co.',
+    bidId: 'QUOTE-BB-004',
+    shipDays: 3,
+    pricePerCase: 28.9,
+    currency: 'USD',
+    origin: 'USA — CA',
+    capacityCases: 1600,
+  },
+  {
+    id: 'alt-pacific',
+    supplierName: 'Pacific Berry Traders',
+    bidId: 'QUOTE-BB-007',
+    shipDays: 1,
+    pricePerCase: 31.2,
+    currency: 'USD',
+    origin: 'USA — WA',
+    capacityCases: 900,
+  },
+  {
+    id: 'alt-andes',
+    supplierName: 'Andes Fresh Export',
+    bidId: 'QUOTE-BB-011',
+    shipDays: 5,
+    pricePerCase: 27.5,
+    currency: 'USD',
+    origin: 'Peru',
+    capacityCases: 2400,
+  },
+];
+
+export function buildSourcingProposal(shipment: TrackShipment): SourcingProposal | null {
+  if (shipment.eventStatus !== 'delayed') return null;
+
+  const rules: BusinessRulesConfig = loadBusinessRules();
+  const delayDays = getShipmentDelayDays(shipment);
+  const minDelayDaysConfig = rules.urgentDelayDays;
+  const maxShipDaysConfig = rules.maxShipDaysForAltSupplier;
+
+  const linkedPos = shipment.linkedPos
+    .map((poNum) => DEMO_POS.find((p) => p.po === poNum))
+    .filter((p): p is SapPurchaseOrder => !!p);
+  const primaryPo = linkedPos[0];
+  const item = primaryPo?.item ?? getShipmentItems(shipment)[0] ?? 'Blueberries';
+  const primarySupplier = primaryPo?.supplier ?? shipment.supplier;
+  const unitPricePrimary = primaryPo?.itemDetail.unitPrice ?? 28.5;
+  const currency = primaryPo?.itemDetail.currency ?? 'USD';
+  const unit = primaryPo?.unit ?? 'Cases';
+  const inboundCases = linkedPos.reduce((n, p) => n + p.orderedQty, 0) || shipment.quantity;
+
+  const storeRows = STORE_DEMAND.filter((s) => s.item === item);
+  const storeOnHand = storeRows.reduce((n, s) => n + s.onHand, 0);
+  const dailyDemand = Math.max(
+    1,
+    Math.round(storeRows.reduce((n, s) => n + s.onHand / Math.max(0.5, s.daysCover), 0))
+  );
+  const stock = estimateShelfShortage({
+    storeOnHandCases: storeOnHand,
+    dailyDemandCases: dailyDemand,
+    delayDays,
+    inboundCases,
+    minDaysOfCoverThreshold: rules.minDaysOfCoverThreshold,
+  });
+
+  const fillInCases = Math.min(
+    inboundCases,
+    Math.max(stock.shortageCases, Math.round(inboundCases * 0.35), 400)
+  );
+
+  const base: Omit<SourcingProposal, 'eligible' | 'options' | 'selectedOptionId' | 'recommendedOptionId'> & {
+    ineligibleReason?: string;
+  } = {
+    delayDays,
+    minDelayDaysConfig,
+    maxShipDaysConfig,
+    item,
+    category: 'Fresh Produce',
+    primarySupplier,
+    primaryPo: primaryPo?.po ?? shipment.linkedPos[0] ?? '—',
+    fillInCases,
+    unit,
+    unitPricePrimary,
+    currency,
+    shortageCases: stock.shortageCases,
+    daysOfCover: stock.daysOfCover,
+  };
+
+  if (delayDays < minDelayDaysConfig) {
+    return {
+      ...base,
+      eligible: false,
+      ineligibleReason: `Delay is ${delayDays}d — alternate supplier opens when delay ≥ ${minDelayDaysConfig}d (Business Rules → Urgent delay threshold).`,
+      options: [],
+      selectedOptionId: null,
+      recommendedOptionId: null,
+    };
+  }
+
+  if (rules.requireStockShortageForProposal && !stock.willShortage && stock.shortageCases <= 0) {
+    return {
+      ...base,
+      eligible: false,
+      ineligibleReason: `No shelf shortage projected (${stock.daysOfCover}d cover). Turn off “require stock shortage” in Business Rules, or wait until cover falls below ${rules.minDaysOfCoverThreshold}d.`,
+      options: [],
+      selectedOptionId: null,
+      recommendedOptionId: null,
+    };
+  }
+
+  const qualified = ALT_SUPPLIER_CATALOG.filter((s) => s.shipDays <= maxShipDaysConfig).map(
+    (s) => ({
+      ...s,
+      recommended: false,
+      reason:
+        s.shipDays <= 2
+          ? `Can cover fill-in before delayed container arrives (+${delayDays}d).`
+          : `Ships within configured max ${maxShipDaysConfig}d lead time.`,
+    })
+  );
+
+  if (qualified.length === 0) {
+    return {
+      ...base,
+      eligible: false,
+      ineligibleReason: `No alternate can ship within ${maxShipDaysConfig}d (Business Rules → Max ship days for alt supplier).`,
+      options: [],
+      selectedOptionId: null,
+      recommendedOptionId: null,
+    };
+  }
+
+  // Prefer fastest ship, then lowest price
+  const ranked = [...qualified].sort(
+    (a, b) => a.shipDays - b.shipDays || a.pricePerCase - b.pricePerCase
+  );
+  ranked[0] = { ...ranked[0], recommended: true };
+  const recommendedOptionId = ranked[0].id;
+
+  return {
+    ...base,
+    eligible: true,
+    options: ranked,
+    selectedOptionId: recommendedOptionId,
+    recommendedOptionId,
+  };
+}
+
+export function formatSourcingProposalSummary(p: SourcingProposal): string {
+  if (!p.eligible) {
+    return p.ineligibleReason ?? 'Alternate supplier not offered for this delay.';
+  }
+  const sel =
+    p.options.find((o) => o.id === (p.selectedOptionId ?? p.recommendedOptionId)) ?? p.options[0];
+  return (
+    `Delay ${p.delayDays}d (≥ ${p.minDelayDaysConfig}d rule). Fill-in ${p.fillInCases.toLocaleString()} ${p.unit} of ${p.item} ` +
+    `from ${sel.supplierName} (${sel.shipDays}d ship) → new PO. Replaces part of ${p.primaryPo} (${p.primarySupplier}).`
+  );
+}
+
+export function selectSourcingSupplier(actionId: string, optionId: string): RiskAction | null {
+  const list = loadRiskActions();
+  let updated: RiskAction | null = null;
+  const next = list.map((a) => {
+    if (a.id !== actionId || a.category !== 'sourcing' || !a.sourcingProposal) return a;
+    if (a.status !== 'pending_approval') return a;
+    if (!a.sourcingProposal.options.some((o) => o.id === optionId)) return a;
+    updated = {
+      ...a,
+      sourcingProposal: { ...a.sourcingProposal, selectedOptionId: optionId },
+      proposal: formatSourcingProposalSummary({
+        ...a.sourcingProposal,
+        selectedOptionId: optionId,
+      }),
+    };
+    return updated;
+  });
+  if (updated) saveRiskActions(next);
+  return updated;
+}
+
+export function issueSourcingPurchaseOrder(action: RiskAction): RiskAction {
+  const p = action.sourcingProposal;
+  if (!p?.eligible) return action;
+  const selected =
+    p.options.find((o) => o.id === (p.selectedOptionId ?? p.recommendedOptionId)) ?? p.options[0];
+  if (!selected) return action;
+  const suffix = action.shipmentId.replace(/\D/g, '').slice(-3) || '100';
+  const issuedPo = `PO-4500${String(9100 + (Number(suffix) % 800) || 9101)}`;
+  const sourcingProposal: SourcingProposal = {
+    ...p,
+    selectedOptionId: selected.id,
+    issuedPo,
+    issuedAt: new Date().toISOString(),
+  };
+  const updated: RiskAction = {
+    ...action,
+    status: 'approved',
+    sourcingProposal,
+    proposal: `Issued ${issuedPo} to ${selected.supplierName} for ${p.fillInCases.toLocaleString()} ${p.unit} ${p.item} (${selected.shipDays}d ship).`,
+    detail: `New PO replaces delayed fill-in against ${p.primaryPo}. Primary supplier ${p.primarySupplier} remains on original container.`,
+  };
+  persistFillInPurchaseOrder(updated, selected);
+  return updated;
+}
+
+const ISSUED_FILLIN_POS_KEY = 'freshguard-issued-fillin-pos-v1';
+
+export type FillInPoMeta = {
+  fillIn: true;
+  sourceShipmentId: string;
+  sourceActionId: string;
+  replacesPo: string;
+  primarySupplier: string;
+  altBidId: string;
+  shipDays: number;
+};
+
+function buildFillInPurchaseOrder(
+  action: RiskAction,
+  selected: AlternateSupplierOption
+): SapPurchaseOrder | null {
+  const p = action.sourcingProposal;
+  if (!p?.issuedPo) return null;
+  const item = (p.item === 'Strawberries' ? 'Strawberries' : 'Blueberries') as
+    | 'Blueberries'
+    | 'Strawberries';
+  const shipDate = new Date();
+  const eta = new Date(shipDate);
+  eta.setDate(eta.getDate() + selected.shipDays);
+  const shipIso = shipDate.toISOString().slice(0, 10);
+  const etaIso = eta.toISOString().slice(0, 10);
+  const unitPrice = selected.pricePerCase;
+  const qty = p.fillInCases;
+
+  return {
+    po: p.issuedPo,
+    item,
+    supplier: selected.supplierName,
+    orderedQty: qty,
+    unit: 'Cases',
+    deliveryDate: etaIso,
+    status: 'Acknowledged',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'Sarah Mitchell',
+    createdDate: shipIso,
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: item === 'Blueberries' ? 'MAT-BB-FILL' : 'MAT-ST-FILL',
+      description: `Fresh ${item} — fill-in (alt supplier)`,
+      sku: item === 'Blueberries' ? 'SKU-BB-FILL' : 'SKU-ST-FILL',
+      orderedQty: qty,
+      confirmedQty: qty,
+      unit: 'Cases',
+      unitPrice,
+      currency: selected.currency || 'USD',
+      shelfLifeDays: 14,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-A',
+      netWeightKg: Math.round(qty * 2),
+      countryOfOrigin: selected.origin,
+    },
+    shipmentDetail: {
+      asnNumber: `ASN-FILL-${p.issuedPo.slice(-4)}`,
+      containerNumber: `FILL-${selected.id.slice(-4).toUpperCase()}`,
+      shipDate: shipIso,
+      eta: etaIso,
+      origin: selected.origin,
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Short-haul reefer',
+      incoterms: 'DAP',
+      customsStatus: 'Domestic / cleared',
+      tempRange: '0–2°C',
+      cargoLines: [
+        {
+          poNumber: p.issuedPo,
+          item,
+          quantity: qty,
+          unit: 'Cases',
+          lotNumber: `LOT-FILL-${p.issuedPo.slice(-4)}`,
+          harvestDate: shipIso,
+          bestBefore: addDaysIso(shipIso, 14),
+          palletCount: Math.max(1, Math.ceil(qty / 50)),
+          grossWeightKg: Math.round(qty * 2.2),
+        },
+      ],
+    },
+  };
+}
+
+function persistFillInPurchaseOrder(action: RiskAction, selected: AlternateSupplierOption) {
+  const po = buildFillInPurchaseOrder(action, selected);
+  if (!po) return;
+  const list = loadIssuedFillInPos();
+  const next = [po, ...list.filter((p) => p.po !== po.po)];
+  localStorage.setItem(ISSUED_FILLIN_POS_KEY, JSON.stringify(next));
+}
+
+export function loadIssuedFillInPos(): SapPurchaseOrder[] {
+  try {
+    const raw = localStorage.getItem(ISSUED_FILLIN_POS_KEY);
+    if (raw) return JSON.parse(raw) as SapPurchaseOrder[];
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+/** Rebuild fill-in POs from approved sourcing actions (covers already-approved demos). */
+export function syncIssuedFillInPosFromActions(): SapPurchaseOrder[] {
+  const fromStore = loadIssuedFillInPos();
+  const byPo = new Map(fromStore.map((p) => [p.po, p]));
+  for (const action of loadRiskActions()) {
+    const p = action.sourcingProposal;
+    if (action.category !== 'sourcing' || !p?.issuedPo || action.status !== 'approved') continue;
+    if (byPo.has(p.issuedPo)) continue;
+    const selected =
+      p.options.find((o) => o.id === (p.selectedOptionId ?? p.recommendedOptionId)) ?? p.options[0];
+    if (!selected) continue;
+    const built = buildFillInPurchaseOrder(action, selected);
+    if (built) byPo.set(built.po, built);
+  }
+  const merged = Array.from(byPo.values());
+  localStorage.setItem(ISSUED_FILLIN_POS_KEY, JSON.stringify(merged));
+  return merged;
+}
+
+export function getAllPurchaseOrders(): SapPurchaseOrder[] {
+  const fillIns = syncIssuedFillInPosFromActions();
+  const fillInIds = new Set(fillIns.map((p) => p.po));
+  return [...fillIns, ...DEMO_POS.filter((p) => !fillInIds.has(p.po))];
+}
+
+export function isFillInPurchaseOrder(po: SapPurchaseOrder): boolean {
+  return (
+    po.shipmentDetail?.asnNumber?.startsWith('ASN-FILL-') === true ||
+    po.itemDetail.description.toLowerCase().includes('fill-in')
+  );
+}
+
+const ACTIONS_KEY = 'freshguard-risk-actions-v13';
 
 function buildActionContextFromShipment(shipment: TrackShipment) {
   const pos = shipment.linkedPos
@@ -2317,9 +3667,10 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
     const stockProposal = buildStockRiskProposal(shipment);
     const promotionProposal = buildPromotionRiskProposal(shipment);
     const shelfLifeProposal = buildShelfLifeProposal(shipment);
+    const sourcingProposal = buildSourcingProposal(shipment);
     const receivingImpact = buildReceivingImpact(shipment);
     const transportImpact = buildTransportImpact(shipment);
-    return [
+    const actions: RiskAction[] = [
       {
         id: `ACT-${shipment.id}-STOCK`,
         shipmentId: shipment.id,
@@ -2338,6 +3689,35 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
           'Loop Market stockout in ~2 days. Oak Park in ~3 days. Evanston & Lincoln Park have surplus cover for inter-store moves.',
         stockProposal,
       },
+    ];
+
+    if (sourcingProposal) {
+      const rec = sourcingProposal.options.find(
+        (o) => o.id === sourcingProposal.recommendedOptionId
+      );
+      actions.push({
+        id: `ACT-${shipment.id}-SRC`,
+        shipmentId: shipment.id,
+        ...ctx,
+        eventStatus: 'delayed',
+        category: 'sourcing',
+        title: sourcingProposal.eligible
+          ? 'Alternate supplier — create fill-in PO'
+          : 'Alternate supplier — not offered (check days config)',
+        summary: formatSourcingProposalSummary(sourcingProposal),
+        ownerPersona: 'dc_purchasing',
+        approverPersona: 'dc_purchasing',
+        notifyPersonas: ['supplier', 'receiving'],
+        status: 'pending_approval',
+        proposal: formatSourcingProposalSummary(sourcingProposal),
+        detail: sourcingProposal.eligible
+          ? `Choose a short-lead alternate (≤ ${sourcingProposal.maxShipDaysConfig}d). Approval creates a new PO for ${sourcingProposal.fillInCases.toLocaleString()} ${sourcingProposal.unit}. Recommended: ${rec?.supplierName ?? '—'}.`
+          : sourcingProposal.ineligibleReason,
+        sourcingProposal,
+      });
+    }
+
+    actions.push(
       {
         id: `ACT-${shipment.id}-PROMO`,
         shipmentId: shipment.id,
@@ -2408,40 +3788,87 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         detail:
           'Release before detention accrues; hold the new booking until the carrier confirms the revised arrival.',
         transportImpact,
-      },
-    ];
+      }
+    );
+
+    return actions;
   }
 
   if (shipment.eventStatus === 'early') {
-    return [
+    const overstockProposal = buildOverstockProposal(shipment);
+    const distributionProposal = buildDistributionProposal(shipment);
+    const clearanceProposal = buildEarlyClearanceProposal(shipment);
+    const receivingImpact = buildReceivingImpact(shipment);
+    const transportImpact = buildTransportImpact(shipment);
+    const actions: RiskAction[] = [
       {
         id: `ACT-${shipment.id}-OVER`,
         shipmentId: shipment.id,
         ...ctx,
         eventStatus: 'early',
         category: 'overstock',
-        title: 'Overstock & storage capacity check',
-        summary: 'Early arrival may exceed chilled bay capacity.',
+        title: overstockProposal.hasStorageCapacity
+          ? 'Overstock check — capacity OK (BAU)'
+          : 'Overstock risk — clear ageing stock & early push',
+        summary: overstockProposal.hasStorageCapacity
+          ? `Present ${overstockProposal.presentStock.item}: ${overstockProposal.presentStock.dcOnHandCases} DC + ${overstockProposal.presentStock.storeOnHandCases} store cases already held. Capacity covers early inbound — keep existing stock on FEFO, put away new batch, no forced markdown.`
+          : `Present ${overstockProposal.presentStock.item}: ${overstockProposal.presentStock.dcOnHandCases} DC + ${overstockProposal.presentStock.storeOnHandCases} store cases (${overstockProposal.presentStock.onHandShelfLifeDays}d life left). Early inbound would push DC to ${overstockProposal.projectedStock.dcIfHeldCases.toLocaleString()} cases with overflow — clear ageing batch, markdown if needed, then early replenish stores.`,
         ownerPersona: 'dc_purchasing',
         approverPersona: 'dc_purchasing',
-        notifyPersonas: ['receiving', 'transport'],
+        notifyPersonas: overstockProposal.hasStorageCapacity
+          ? ['receiving']
+          : ['receiving', 'transport', 'category_manager'],
         status: 'pending_approval',
-        proposal:
-          'Bay 3–4 at 92% capacity. Option A: BAU if partial put-away to overflow. Option B: accelerate store push + 10% clearance on existing Blueberry batch.',
+        proposal: formatOverstockProposalSummary(overstockProposal),
+        detail: overstockProposal.hasStorageCapacity
+          ? overstockProposal.shelfLifeConsequence
+          : `${overstockProposal.storageCostNote} ${overstockProposal.shelfLifeConsequence}`,
+        overstockProposal,
       },
+    ];
+
+    if (clearanceProposal) {
+      const rec =
+        clearanceProposal.options.find((o) => o.id === clearanceProposal.recommendedOptionId) ??
+        clearanceProposal.options[0];
+      actions.push({
+        id: `ACT-${shipment.id}-CLR`,
+        shipmentId: shipment.id,
+        ...ctx,
+        eventStatus: 'early',
+        category: 'clearance',
+        title: 'Clearance proposal — markdown or schedule promo',
+        summary: formatEarlyClearanceProposalSummary(clearanceProposal),
+        ownerPersona: 'dc_purchasing',
+        approverPersona: 'dc_purchasing',
+        notifyPersonas: ['category_manager'],
+        status: 'pending_approval',
+        proposal: formatEarlyClearanceProposalSummary(clearanceProposal),
+        detail: `Recommended: ${rec.title}. DC Purchasing endorses; Category Manager confirms markdown depth or promo calendar.`,
+        clearanceProposal,
+      });
+    }
+
+    actions.push(
       {
         id: `ACT-${shipment.id}-RCV-E`,
         shipmentId: shipment.id,
         ...ctx,
         eventStatus: 'early',
         category: 'receiving',
-        title: 'Advance receiving staffing',
-        summary: 'Bring forward labor for early gate-in.',
+        title: overstockProposal.hasStorageCapacity
+          ? 'Receiving — early gate-in (BAU put-away)'
+          : 'Receiving — split put-away & cross-dock',
+        summary: overstockProposal.hasStorageCapacity
+          ? `Pull crew forward for early gate-in. Put away all ${receivingImpact.pallets} pallets — capacity covers inbound.`
+          : `Overstock short: put away only ${receivingImpact.putAwayPallets} of ${receivingImpact.pallets} pallets into free slots; flag ${receivingImpact.crossDockPallets} pallets (${receivingImpact.crossDockCases?.toLocaleString()} cases) for same-day cross-dock to stores.`,
         ownerPersona: 'receiving',
         approverPersona: 'dc_purchasing',
         notifyPersonas: ['receiving'],
         status: 'pending_approval',
-        proposal: 'Add 3 FTE Aug 19 PM shift. Pre-stage pallets in pre-cool lane 2.',
+        proposal: formatReceivingProposalSummary(receivingImpact),
+        detail: receivingImpact.capacityNote,
+        receivingImpact,
       },
       {
         id: `ACT-${shipment.id}-TRN-E`,
@@ -2449,13 +3876,19 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         ...ctx,
         eventStatus: 'early',
         category: 'transport',
-        title: 'Pull-forward drayage & yard slots',
-        summary: 'Transport must advance pickup window.',
+        title: overstockProposal.hasStorageCapacity
+          ? 'Transport — pull-forward inbound only'
+          : 'Transport — inbound + early store haul',
+        summary: overstockProposal.hasStorageCapacity
+          ? 'Pull reefers forward for early gate-in. No extra store routes while capacity is OK.'
+          : `Pull inbound pickup forward and book ${transportImpact.storeHaulTrucks ?? 0} outbound truck(s) for ${(transportImpact.storeHaulCases ?? 0).toLocaleString()} overflow cases from receiving cross-dock to stores.`,
         ownerPersona: 'transport',
         approverPersona: 'dc_purchasing',
         notifyPersonas: ['transport'],
         status: 'pending_approval',
-        proposal: 'Move drayage from Aug 20 → Aug 19 14:00. Cancel idle hold on 2 chassis.',
+        proposal: formatTransportProposalSummary(transportImpact),
+        detail: transportImpact.capacityNote,
+        transportImpact,
       },
       {
         id: `ACT-${shipment.id}-DIST`,
@@ -2463,30 +3896,57 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         ...ctx,
         eventStatus: 'early',
         category: 'distribution',
-        title: 'Store distribution load planning',
-        summary: 'Additional qty available earlier — adjust store delivery waves.',
+        title: overstockProposal.hasStorageCapacity
+          ? 'Distribution stand-by (capacity OK)'
+          : 'Distribution — clear ageing & split overflow',
+        summary: overstockProposal.hasStorageCapacity
+          ? 'No mandatory early store wave. Stand by if bay utilisation spikes after put-away.'
+          : `Clear ageing ${distributionProposal.ageingDcCases} DC cases (${distributionProposal.markdownPercent ?? 15}% markdown). Split ${distributionProposal.overflowCases.toLocaleString()} overflow cases to ${distributionProposal.storeDeliveries.length} stores; add ${distributionProposal.extraRoutes} route(s).`,
         ownerPersona: 'dc_purchasing',
         approverPersona: 'dc_purchasing',
         notifyPersonas: ['transport', 'receiving'],
         status: 'pending_approval',
-        proposal: 'Add supplemental delivery wave to ST-204 & ST-422 on Aug 20. Increase transport load by 1 route.',
-      },
-    ];
+        proposal: formatDistributionProposalSummary(distributionProposal),
+        detail: overstockProposal.hasStorageCapacity
+          ? 'Stores are not notified unless capacity flips after receiving.'
+          : 'Each store on the early wave is notified to clear existing stock or arrange backroom space before delivery.',
+        distributionProposal,
+      }
+    );
+
+    return actions;
   }
 
   return [];
 }
 
 export function loadRiskActions(): RiskAction[] {
+  const fresh = DEMO_SHIPMENTS.flatMap(buildRiskActionsForShipment);
   try {
     const raw = localStorage.getItem(ACTIONS_KEY);
-    if (raw) return JSON.parse(raw) as RiskAction[];
+    if (raw) {
+      const existing = JSON.parse(raw) as RiskAction[];
+      const existingById = new Map(existing.map((a) => [a.id, a]));
+      let added = 0;
+      for (const a of fresh) {
+        if (!existingById.has(a.id)) {
+          existingById.set(a.id, a);
+          added += 1;
+        }
+      }
+      // Keep user progress on known ids; append any brand-new action types (e.g. sourcing).
+      const ordered = [
+        ...fresh.map((f) => existingById.get(f.id)!),
+        ...existing.filter((e) => !fresh.some((f) => f.id === e.id)),
+      ];
+      if (added > 0) saveRiskActions(ordered);
+      return ordered;
+    }
   } catch {
     /* ignore */
   }
-  const all = DEMO_SHIPMENTS.flatMap(buildRiskActionsForShipment);
-  saveRiskActions(all);
-  return all;
+  saveRiskActions(fresh);
+  return fresh;
 }
 
 export function saveRiskActions(actions: RiskAction[]) {
@@ -2504,12 +3964,20 @@ export function getActionStatusLabel(status: ActionStatus): string {
   return labels[status];
 }
 
+/** Promotion / early-clearance both need DC Purchasing → Category Manager. */
+export function isCategoryTwoStepAction(action: RiskAction): boolean {
+  return action.category === 'promotion' || action.category === 'clearance';
+}
+
 /** Whether this persona can approve/reject the action in its current state. */
 export function canPersonaApproveAction(action: RiskAction, persona: FreshGuardPersona): boolean {
   if (action.status === 'approved' || action.status === 'rejected' || action.status === 'notified') {
     return false;
   }
-  if (action.category === 'promotion') {
+  if (action.category === 'sourcing' && action.sourcingProposal && !action.sourcingProposal.eligible) {
+    return false;
+  }
+  if (isCategoryTwoStepAction(action)) {
     if (action.status === 'pending_approval') return persona === 'dc_purchasing';
     if (action.status === 'pending_category_approval') return persona === 'category_manager';
     return false;
@@ -2522,8 +3990,10 @@ export function approveRiskAction(id: string, persona: FreshGuardPersona): RiskA
   let updated: RiskAction | null = null;
   const next = list.map((a) => {
     if (a.id !== id || !canPersonaApproveAction(a, persona)) return a;
-    if (a.category === 'promotion' && persona === 'dc_purchasing') {
+    if (isCategoryTwoStepAction(a) && persona === 'dc_purchasing') {
       updated = { ...a, status: 'pending_category_approval' as const };
+    } else if (a.category === 'sourcing' && persona === 'dc_purchasing') {
+      updated = issueSourcingPurchaseOrder(a);
     } else {
       updated = { ...a, status: 'approved' as const };
     }

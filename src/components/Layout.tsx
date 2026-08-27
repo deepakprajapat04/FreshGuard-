@@ -262,7 +262,13 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className={cn('flex-1 overflow-auto transition-colors duration-300', contentCanvasClass, 'dark:bg-[#1d2d3e]')}>
+        <main
+          className={cn(
+            'flex-1 min-h-0 overflow-hidden flex flex-col transition-colors duration-300',
+            contentCanvasClass,
+            'dark:bg-[#1d2d3e]'
+          )}
+        >
           {children}
         </main>
       </div>

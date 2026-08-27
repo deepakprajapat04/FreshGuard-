@@ -86,7 +86,7 @@ export default function Logistics() {
   const [alertDetailsOpen, setAlertDetailsOpen] = useState(false);
   const [containerForm, setContainerForm] = useState<ContainerUpdatePayload>({
     containerNumber: '', vesselName: '', voyageNumber: '', bookingNumber: '',
-    psaTerminal: '', eta: '', temp: '', origin: '', notes: '',
+    psaTerminal: '', eta: '', etaDate: '', temp: '', origin: '', notes: '',
   });
 
   const { persona } = usePersona();
@@ -129,6 +129,9 @@ export default function Logistics() {
             incoterms: p.incoterms || seed.incoterms,
             shippingMethod: p.shippingMethod || seed.shippingMethod,
             etaDate: p.etaDate || seed.etaDate,
+            deliveryDateLog: p.deliveryDateLog?.length
+              ? p.deliveryDateLog
+              : seed.deliveryDateLog,
             cargoLines: p.cargoLines?.length ? p.cargoLines : seed.cargoLines,
             storeOnHandCases: p.storeOnHandCases ?? seed.storeOnHandCases,
             dailyDemandCases: p.dailyDemandCases ?? seed.dailyDemandCases,
@@ -196,6 +199,7 @@ export default function Logistics() {
       bookingNumber: selectedShipment.bookingNumber || '',
       psaTerminal: selectedShipment.psaTerminal || '',
       eta: selectedShipment.eta || '',
+      etaDate: selectedShipment.etaDate || '',
       temp: selectedShipment.temp || '',
       origin: selectedShipment.origin || '',
       notes: '',
@@ -531,6 +535,94 @@ export default function Logistics() {
     setTimeout(() => {
       const updated = shipments.map((s) => {
         if (s.id !== selectedShipmentId) return s;
+
+        const nextEtaDate = containerForm.etaDate.trim() || s.etaDate || '';
+        const prevEtaDate = s.etaDate || '';
+        const dateChanged =
+          Boolean(nextEtaDate) && nextEtaDate !== prevEtaDate;
+
+        let etaLabel = containerForm.eta.trim() || s.eta;
+        if (nextEtaDate) {
+          const d = new Date(`${nextEtaDate}T12:00:00`);
+          const base = d.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+          });
+          if (prevEtaDate && dateChanged) {
+            const delta = Math.round(
+              (d.getTime() - new Date(`${prevEtaDate}T12:00:00`).getTime()) / 86400000
+            );
+            etaLabel =
+              delta > 0
+                ? `${base} (+${delta}d vs prior)`
+                : delta < 0
+                  ? `${base} (${delta}d vs prior)`
+                  : base;
+          } else if (!containerForm.eta.trim()) {
+            etaLabel = base;
+          }
+        }
+
+        const poNumbers = [
+          ...new Set(
+            (s.cargoLines || [])
+              .map((l) => l.poNumber)
+              .filter(Boolean)
+              .concat(s.id.startsWith('PO-') ? [s.id] : [])
+          ),
+        ];
+
+        const events = [...(s.psaEvents || [])];
+        const deliveryDateLog = [...(s.deliveryDateLog || [])];
+
+        if (dateChanged && nextEtaDate) {
+          deliveryDateLog.push({
+            id: `DDL-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            at: new Date().toISOString(),
+            fromDate: prevEtaDate || undefined,
+            toDate: nextEtaDate,
+            toLabel: etaLabel,
+            source: 'Supplier',
+            note: containerForm.notes?.trim() || undefined,
+            poNumbers,
+            by: s.vendor || 'Supplier',
+          });
+          events.push(
+            createPsaEvent('ETA_REVISED', containerForm.psaTerminal || s.psaTerminal || 'PSA', {
+              source: 'Supplier',
+              details: prevEtaDate
+                ? `Supplier revised delivery ${prevEtaDate} → ${nextEtaDate}${
+                    containerForm.notes?.trim() ? ` · ${containerForm.notes.trim()}` : ''
+                  }`
+                : `Supplier set delivery date ${nextEtaDate}${
+                    containerForm.notes?.trim() ? ` · ${containerForm.notes.trim()}` : ''
+                  }`,
+              lat: containerForm.currentLat ?? s.currentLat,
+              lng: containerForm.currentLng ?? s.currentLng,
+            })
+          );
+        }
+
+        events.push(
+          createPsaEvent('SUPPLIER_UPDATE', containerForm.psaTerminal || s.psaTerminal || 'PSA', {
+            source: 'Supplier',
+            details: containerForm.notes?.trim()
+              || (dateChanged
+                ? `Container details + delivery date updated to ${nextEtaDate}`
+                : 'Container shipment details updated by supplier'),
+            lat: containerForm.currentLat ?? s.currentLat,
+            lng: containerForm.currentLng ?? s.currentLng,
+          })
+        );
+
+        const nextStatus =
+          dateChanged && prevEtaDate && nextEtaDate > prevEtaDate
+            ? ('delayed' as const)
+            : dateChanged && prevEtaDate && nextEtaDate < prevEtaDate && s.status === 'delayed'
+              ? s.status
+              : s.status;
+
         return {
           ...s,
           containerNumber: containerForm.containerNumber.trim() || s.containerNumber,
@@ -538,26 +630,26 @@ export default function Logistics() {
           voyageNumber: containerForm.voyageNumber.trim() || s.voyageNumber,
           bookingNumber: containerForm.bookingNumber.trim() || s.bookingNumber,
           psaTerminal: containerForm.psaTerminal.trim() || s.psaTerminal,
-          eta: containerForm.eta.trim() || s.eta,
+          eta: etaLabel,
+          etaDate: nextEtaDate || s.etaDate,
           temp: containerForm.temp.trim() || s.temp,
           origin: containerForm.origin.trim() || s.origin,
+          status: nextStatus,
+          deliveryDateLog,
           psaSyncStatus: 'synced' as const,
           psaLastSyncAt: new Date().toISOString(),
-          psaEvents: [
-            ...(s.psaEvents || []),
-            createPsaEvent('SUPPLIER_UPDATE', containerForm.psaTerminal || s.psaTerminal || 'PSA', {
-              source: 'Supplier',
-              details: containerForm.notes || 'Container shipment details updated by supplier',
-              lat: containerForm.currentLat ?? s.currentLat,
-              lng: containerForm.currentLng ?? s.currentLng,
-            }),
-          ],
+          psaEvents: events,
         };
       });
       setShipments(updated);
       saveShipments(updated);
       setSavingContainer(false);
-      setSuccessToast('Container details pushed to PSA Portnet®. Retail buyers will see the update on next sync.');
+      const changed = updated.find((s) => s.id === selectedShipmentId);
+      setSuccessToast(
+        changed?.etaDate
+          ? `Delivery date ${changed.etaDate} pushed to PSA Portnet®. Log updated for linked POs.`
+          : 'Container details pushed to PSA Portnet®. Retail buyers will see the update on next sync.'
+      );
       setTimeout(() => setSuccessToast(null), 5000);
     }, 800);
   };

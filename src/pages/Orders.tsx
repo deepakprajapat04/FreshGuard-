@@ -17,16 +17,17 @@ import {
   Filter,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { PageHeader, pageShellClass } from '../components/PageChrome';
+import { PageHeader } from '../components/PageChrome';
 import { usePersona } from '../context/PersonaContext';
-import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
+import { btnPrimaryClass, btnSecondaryClass, contentCanvasClass } from '../lib/sapTheme';
 import {
-  DEMO_POS,
   buildPoRiskImpact,
   getPoDisplayStatus,
   getPoLineCount,
   getPoNetValue,
   getPoOrderLines,
+  getAllPurchaseOrders,
+  isFillInPurchaseOrder,
   type PoRiskImpact,
   type SapPurchaseOrder,
 } from '../lib/trackingFlow';
@@ -149,10 +150,14 @@ function RiskStat({
 export default function Orders() {
   const { persona } = usePersona();
   const isSupplier = persona === 'supplier';
-  const [orders, setOrders] = useState<SapPurchaseOrder[]>(() => [...DEMO_POS]);
-  const [selectedPo, setSelectedPo] = useState<string | null>(
-    () => DEMO_POS.find((o) => o.shipmentDetail)?.po ?? null
-  );
+  const [orders, setOrders] = useState<SapPurchaseOrder[]>(() => getAllPurchaseOrders());
+  const [selectedPo, setSelectedPo] = useState<string | null>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('po');
+    if (fromQuery) return fromQuery;
+    const all = getAllPurchaseOrders();
+    return all.find((o) => isFillInPurchaseOrder(o))?.po ?? all.find((o) => o.shipmentDetail)?.po ?? null;
+  });
   const [wizardStep, setWizardStep] = useState<WizardStep>('details');
   const [asnOpen, setAsnOpen] = useState(false);
   const [linkedPoIds, setLinkedPoIds] = useState<string[]>([]);
@@ -170,6 +175,13 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PoStatusFilter>('all');
   const [riskFilter, setRiskFilter] = useState<PoRiskFilter>('all');
+
+  useEffect(() => {
+    setOrders(getAllPurchaseOrders());
+    const params = new URLSearchParams(window.location.search);
+    const fromQuery = params.get('po');
+    if (fromQuery) setSelectedPo(fromQuery);
+  }, []);
 
   const visibleOrders = useMemo(
     () => (isSupplier ? orders.filter((o) => o.supplier === SUPPLIER_NAME) : orders),
@@ -393,9 +405,14 @@ export default function Orders() {
   };
 
   return (
-    <div className={pageShellClass}>
+    <div
+      className={cn(
+        contentCanvasClass,
+        'p-3 sm:p-4 w-full h-full min-h-0 flex flex-col gap-3 overflow-hidden text-slate-900 dark:text-slate-100'
+      )}
+    >
       {!detailExpanded && (
-        <PageHeader title="Purchase Order">
+        <PageHeader title="Purchase Order" className="shrink-0">
           {isSupplier && (
             <button
               type="button"
@@ -421,14 +438,14 @@ export default function Orders() {
 
       <div
         className={cn(
-          'grid grid-cols-1 gap-3 items-start',
-          detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[calc(100vh-12rem)] lg:grid-cols-[minmax(220px,280px)_1fr]'
+          'flex-1 min-h-0 grid gap-3 grid-rows-1',
+          detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(220px,280px)_1fr]'
         )}
       >
-        {/* Panel 1 — PO list */}
+        {/* Panel 1 — PO list (pinned shell, list scrolls inside) */}
         <section
           className={cn(
-            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md flex flex-col overflow-hidden sticky top-0 self-start max-h-[calc(100vh-3.5rem)]',
+            'min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
             detailExpanded && 'hidden'
           )}
         >
@@ -520,18 +537,28 @@ export default function Orders() {
                       <span className="font-code text-xs font-bold text-[#2F5472] dark:text-blue-300">
                         {o.po}
                       </span>
-                      {statusBadge(getPoDisplayStatus(o))}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isFillInPurchaseOrder(o) && (
+                          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            Fill-in
+                          </span>
+                        )}
+                        {statusBadge(getPoDisplayStatus(o))}
+                      </div>
                     </div>
                     <div className="text-sm font-semibold mt-1 text-slate-800 dark:text-slate-100">
                       {o.item}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-0.5">
+                      {isFillInPurchaseOrder(o) && (
+                        <span className="font-semibold text-emerald-700">Alt supplier · </span>
+                      )}
                       {getPoLineCount(o) > 1 && (
                         <span className="font-semibold text-[#4684AD]">
                           {getPoLineCount(o)} lines ·{' '}
                         </span>
                       )}
-                      {o.orderedQty.toLocaleString()} {o.unit} · {o.deliveryDate}
+                      {o.orderedQty.toLocaleString()} {o.unit} · {o.supplier}
                     </div>
                     {risk && risk.severity !== 'none' && (
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
@@ -550,29 +577,30 @@ export default function Orders() {
           </div>
         </section>
 
-        {/* Panel 2 — PO detail */}
-        <section
-          className={cn(
-            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md flex flex-col overflow-hidden',
-            detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[480px]'
-          )}
-        >
+        {/* Panel 2 — PO detail (pinned chrome, tab body scrolls) */}
+        <section className="min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md">
           {!selected ? (
             <div className="flex-1 flex items-center justify-center p-8 text-sm text-slate-400">
               Select a PO from the list
             </div>
           ) : (
             <>
-              <div className="sticky top-0 z-20 shrink-0 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200/80 dark:border-slate-700">
+              <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-700">
                 <div className="px-4 py-3 flex items-start justify-between gap-3 bg-white dark:bg-slate-900">
                   <div className="min-w-0">
                     <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">PO detail</h2>
                     <p className="font-code text-sm font-bold mt-0.5">{selected.po}</p>
                     <p className="text-[10px] text-slate-500 mt-0.5 truncate">
                       {selected.item} · {selected.supplier}
+                      {isFillInPurchaseOrder(selected) && ' · Alt-supplier fill-in'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    {isFillInPurchaseOrder(selected) && (
+                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                        Fill-in
+                      </span>
+                    )}
                     {statusBadge(getPoDisplayStatus(selected))}
                     {selectedRisk && selectedRisk.severity !== 'none' && (
                       <button
@@ -630,7 +658,7 @@ export default function Orders() {
                 </div>
               </div>
 
-              <div className="flex-1 overflow-y-auto p-4">
+              <div className="flex-1 min-h-0 overflow-y-auto p-4">
               {wizardStep === 'details' && (
                 <div className="space-y-4">
                   <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">

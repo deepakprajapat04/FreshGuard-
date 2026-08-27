@@ -13,22 +13,26 @@ import {
   AlertTriangle,
   ClipboardList,
   TrendingDown,
-  TrendingUp,
   Truck,
   Route,
   Maximize2,
   Minimize2,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
-import { PageHeader, StatCard, pageShellClass } from '../components/PageChrome';
+import { PageHeader, StatCard } from '../components/PageChrome';
 import { usePersona, canApproveActions } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
-import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
+import { contentCanvasClass } from '../lib/sapTheme';
 import { StockRiskPanel } from '../components/tracking/StockRiskPanel';
+import { SourcingRiskPanel } from '../components/tracking/SourcingRiskPanel';
 import { PromotionRiskPanel } from '../components/tracking/PromotionRiskPanel';
 import { ShelfLifePanel } from '../components/tracking/ShelfLifePanel';
 import { ReceivingRiskPanel } from '../components/tracking/ReceivingRiskPanel';
 import { TransportRiskPanel } from '../components/tracking/TransportRiskPanel';
+import { OverstockRiskPanel } from '../components/tracking/OverstockRiskPanel';
+import { EarlyClearanceRiskPanel } from '../components/tracking/EarlyClearanceRiskPanel';
+import { DistributionRiskPanel } from '../components/tracking/DistributionRiskPanel';
+import { RiskActionFooter } from '../components/tracking/RiskActionFooter';
 import {
   DEMO_SHIPMENTS,
   EVENT_COLORS,
@@ -36,6 +40,10 @@ import {
   loadRiskActions,
   getShipmentDelayDays,
   approveRiskAction,
+  rejectRiskAction,
+  selectClearanceOption,
+  selectSourcingSupplier,
+  isCategoryTwoStepAction,
   type RiskAction,
   type TrackShipment,
   type FreshGuardPersona,
@@ -55,11 +63,14 @@ const STAGE_LABELS: Record<TrackShipment['stage'], string> = {
 type DetailStep = 'event' | 'route' | 'risks' | 'actions';
 type RiskSubStep =
   | 'stock'
+  | 'sourcing'
   | 'promotion'
   | 'shelf_life'
   | 'overstock'
+  | 'clearance'
   | 'receiving'
-  | 'transport';
+  | 'transport'
+  | 'distribution';
 type EventFilter = 'all' | ShipmentEventStatus;
 
 const DETAIL_STEPS: { id: DetailStep; label: string; icon: typeof Package }[] = [
@@ -72,12 +83,14 @@ const DETAIL_STEPS: { id: DetailStep; label: string; icon: typeof Package }[] = 
 const ORIGINAL_ETA_ISO: Record<string, string> = {
   'SHP-BB-DLY-01': '2026-08-21',
   'SHP-ST-EARLY-01': '2026-08-20',
+  'SHP-ST-EARLY-02': '2026-08-22',
   'SHP-BB-ONT-01': '2026-08-21',
 };
 
 const REVISED_ETA_ISO: Record<string, string> = {
   'SHP-BB-DLY-01': '2026-08-23',
   'SHP-ST-EARLY-01': '2026-08-19',
+  'SHP-ST-EARLY-02': '2026-08-20',
   'SHP-BB-ONT-01': '2026-08-21',
 };
 
@@ -85,6 +98,7 @@ function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: str
   if (shipment.eventStatus === 'delayed') {
     return [
       { id: 'stock', label: 'Stock risk' },
+      { id: 'sourcing', label: 'Alt supplier' },
       { id: 'promotion', label: 'Promotion risk' },
       { id: 'shelf_life', label: 'Shelf life' },
       { id: 'receiving', label: 'Receiving' },
@@ -94,8 +108,10 @@ function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: str
   if (shipment.eventStatus === 'early') {
     return [
       { id: 'overstock', label: 'Overstock risk' },
+      { id: 'clearance', label: 'Clearance' },
       { id: 'receiving', label: 'Receiving' },
       { id: 'transport', label: 'Transport' },
+      { id: 'distribution', label: 'Distribution' },
     ];
   }
   return [];
@@ -149,10 +165,14 @@ export default function TrackingHub() {
 
   const shipmentActions = actions.filter((a) => a.shipmentId === selected.id);
   const stockAction = shipmentActions.find((a) => a.category === 'stock');
+  const sourcingAction = shipmentActions.find((a) => a.category === 'sourcing');
   const promoAction = shipmentActions.find((a) => a.category === 'promotion');
   const shelfAction = shipmentActions.find((a) => a.category === 'shelf_life');
+  const overstockAction = shipmentActions.find((a) => a.category === 'overstock');
+  const clearanceAction = shipmentActions.find((a) => a.category === 'clearance');
   const receivingAction = shipmentActions.find((a) => a.category === 'receiving');
   const transportAction = shipmentActions.find((a) => a.category === 'transport');
+  const distributionAction = shipmentActions.find((a) => a.category === 'distribution');
   const delayDays = getShipmentDelayDays(selected);
   const riskSubSteps = getRiskSubSteps(selected);
 
@@ -163,7 +183,7 @@ export default function TrackingHub() {
         return false;
       }
       if (a.status === 'pending_category_approval') {
-        return persona === 'category_manager' && a.category === 'promotion';
+        return persona === 'category_manager' && isCategoryTwoStepAction(a);
       }
       return false;
     });
@@ -198,12 +218,50 @@ export default function TrackingHub() {
     setTimeout(() => setFlash(null), 5000);
   };
 
+  const handleSourcingApprove = (actionId: string) => {
+    const updated = approveRiskAction(actionId, persona);
+    if (!updated) return;
+    refreshActions();
+    const po = updated.sourcingProposal?.issuedPo;
+    const alt = updated.sourcingProposal?.options.find(
+      (o) => o.id === updated.sourcingProposal?.selectedOptionId
+    );
+    upsertMany(
+      updated.notifyPersonas.map((p) => ({
+        id: `n-${updated.id}-${p}`,
+        title: po
+          ? `New PO issued: ${po}`
+          : `Alternate supplier approved: ${updated.title}`,
+        message: po
+          ? `${po} created for ${alt?.supplierName ?? 'alternate'} — ${updated.proposal}`
+          : updated.proposal,
+        severity: 'success' as const,
+        category: 'Regular' as const,
+        timestamp: new Date().toISOString(),
+        read: false,
+        module: 'System' as const,
+        href: po ? `/orders?po=${encodeURIComponent(po)}` : '/orders',
+      }))
+    );
+    setFlash(
+      po
+        ? `New PO ${po} created — open SAP Purchase Orders to track it.`
+        : 'Alternate supplier proposal approved.'
+    );
+    setTimeout(() => setFlash(null), 5000);
+  };
+
   const notifyCategoryManagerForReview = (action: RiskAction) => {
+    const isClearance = action.category === 'clearance';
     upsertMany([
       {
         id: `n-${action.id}-category-review`,
-        title: `Promo change ready for approval: ${action.title}`,
-        message: `${action.proposal} — Please review and approve reschedule & store mix updates.`,
+        title: isClearance
+          ? `Clearance ready for approval: ${action.title}`
+          : `Promo change ready for approval: ${action.title}`,
+        message: isClearance
+          ? `${action.proposal} — Please choose markdown or schedule promotion.`
+          : `${action.proposal} — Please review and approve reschedule & store mix updates.`,
         severity: 'info' as const,
         category: 'Regular' as const,
         timestamp: new Date().toISOString(),
@@ -218,6 +276,7 @@ export default function TrackingHub() {
     const updated = approveRiskAction(actionId, persona);
     if (!updated) return;
     refreshActions();
+    const isClearance = updated.category === 'clearance';
     if (updated.status === 'pending_category_approval') {
       notifyCategoryManagerForReview(updated);
       setFlash('Sent to Category Manager for approval.');
@@ -225,8 +284,12 @@ export default function TrackingHub() {
       upsertMany([
         {
           id: `n-${updated.id}-confirmed`,
-          title: `Promo changes confirmed: ${updated.title}`,
-          message: `${updated.proposal} — Updates applied to promo calendar & store allocations.`,
+          title: isClearance
+            ? `Clearance confirmed: ${updated.title}`
+            : `Promo changes confirmed: ${updated.title}`,
+          message: isClearance
+            ? `${updated.proposal} — Apply markdown and/or schedule promo on calendar.`
+            : `${updated.proposal} — Updates applied to promo calendar & store allocations.`,
           severity: 'success' as const,
           category: 'Regular' as const,
           timestamp: new Date().toISOString(),
@@ -235,7 +298,11 @@ export default function TrackingHub() {
           href: '/actions',
         },
       ]);
-      setFlash('Promo changes approved — POS & marketing updates confirmed.');
+      setFlash(
+        isClearance
+          ? 'Clearance plan approved — apply markdown and/or schedule promo.'
+          : 'Promo changes approved — POS & marketing updates confirmed.'
+      );
     }
     setTimeout(() => setFlash(null), 5000);
   };
@@ -296,53 +363,151 @@ export default function TrackingHub() {
     }
   };
 
+  const activeRiskAction = useMemo((): RiskAction | undefined => {
+    if (detailStep !== 'risks') return undefined;
+    const byStep: Record<RiskSubStep, RiskAction | undefined> = {
+      stock: stockAction,
+      sourcing: sourcingAction,
+      promotion: promoAction,
+      shelf_life: shelfAction,
+      overstock: overstockAction,
+      clearance: clearanceAction,
+      receiving: receivingAction,
+      transport: transportAction,
+      distribution: distributionAction,
+    };
+    return byStep[riskSubStep];
+  }, [
+    detailStep,
+    riskSubStep,
+    stockAction,
+    sourcingAction,
+    promoAction,
+    shelfAction,
+    overstockAction,
+    clearanceAction,
+    receivingAction,
+    transportAction,
+    distributionAction,
+  ]);
+
+  const handleActiveRiskApprove = (actionId: string) => {
+    const action = activeRiskAction;
+    if (!action || action.id !== actionId) return;
+
+    if (action.category === 'sourcing' && action.sourcingProposal) {
+      const optionId =
+        action.sourcingProposal.selectedOptionId ?? action.sourcingProposal.recommendedOptionId;
+      if (optionId) selectSourcingSupplier(actionId, optionId);
+    }
+    if (action.category === 'clearance' && action.clearanceProposal) {
+      const optionId =
+        action.clearanceProposal.selectedOptionId ?? action.clearanceProposal.recommendedOptionId;
+      selectClearanceOption(actionId, optionId);
+    }
+
+    switch (action.category) {
+      case 'stock':
+        handleStockApprove(actionId);
+        break;
+      case 'sourcing':
+        handleSourcingApprove(actionId);
+        break;
+      case 'promotion':
+      case 'clearance':
+        handlePromoApprove(actionId);
+        break;
+      case 'shelf_life':
+        handleShelfApprove(actionId);
+        break;
+      default:
+        handleResourceApprove(actionId);
+        break;
+    }
+  };
+
+  const handleActiveRiskReject = (actionId: string) => {
+    rejectRiskAction(actionId, persona);
+    refreshActions();
+  };
+
+  const activeRiskOwnerNote = useMemo(() => {
+    if (!activeRiskAction) return undefined;
+    if (activeRiskAction.category === 'sourcing' && activeRiskAction.sourcingProposal?.eligible) {
+      return 'Approving creates the new PO to the selected supplier';
+    }
+    if (activeRiskAction.category === 'clearance' && activeRiskAction.clearanceProposal) {
+      const plan =
+        activeRiskAction.clearanceProposal.selectedOptionId ??
+        activeRiskAction.clearanceProposal.recommendedOptionId;
+      return `Plan: ${plan === 'markdown' ? 'Markdown' : 'Schedule promotion'}`;
+    }
+    return undefined;
+  }, [activeRiskAction]);
+
   return (
-    <div className={pageShellClass}>
-      {!detailExpanded && (
-        <PageHeader title="FreshGuard · Shipment intelligence">
-          <Link
-            to="/logistics"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-semibold hover:bg-white dark:hover:bg-slate-800"
-          >
-            <Truck className="w-4 h-4" />
-            Full logistics map
-          </Link>
-        </PageHeader>
+    <div
+      className={cn(
+        contentCanvasClass,
+        'w-full h-full min-h-0 overflow-y-auto text-slate-900 dark:text-slate-100'
       )}
+    >
+      {/* Scrolls away: title + KPIs */}
+      <div className="px-3 sm:px-4 pt-3 sm:pt-4 space-y-3">
+        {!detailExpanded && (
+          <PageHeader title="FreshGuard · Shipment intelligence">
+            <Link
+              to="/logistics"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-300 dark:border-slate-600 text-sm font-semibold hover:bg-white dark:hover:bg-slate-800"
+            >
+              <Truck className="w-4 h-4" />
+              Full logistics map
+            </Link>
+          </PageHeader>
+        )}
 
-      {flash && (
-        <div className="rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-900 px-4 py-3 text-sm">
-          {flash}
-        </div>
-      )}
+        {flash && (
+          <div className="rounded-lg border border-emerald-300 bg-emerald-50 text-emerald-900 px-4 py-3 text-sm">
+            {flash}
+          </div>
+        )}
 
-      {!detailExpanded && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <StatCard label="Active lots" value={String(DEMO_SHIPMENTS.length)} tone="sap" />
-          <StatCard
-            label="Delayed"
-            value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'delayed').length)}
-            tone="amber"
-          />
-          <StatCard
-            label="Early"
-            value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'early').length)}
-            tone="cyan"
-          />
-          <StatCard label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
-        </div>
-      )}
+        {!detailExpanded && (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <StatCard compact label="Active lots" value={String(DEMO_SHIPMENTS.length)} tone="sap" />
+            <StatCard
+              compact
+              label="Delayed"
+              value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'delayed').length)}
+              tone="amber"
+            />
+            <StatCard
+              compact
+              label="Early"
+              value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'early').length)}
+              tone="cyan"
+            />
+            <StatCard compact label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
+          </div>
+        )}
+      </div>
 
+      {/*
+        Sticky workspace: after KPIs scroll away, this pins under the app bar
+        and fills the remaining viewport. Padding is inside the sticky box so
+        height matches the scrollport and content is not clipped.
+      */}
       <div
         className={cn(
-          'grid gap-3 items-start',
+          'sticky top-0 z-20 box-border px-3 sm:px-4 pt-3 pb-3 sm:pb-4',
+          'h-[calc(100dvh-3.5rem)] max-h-[calc(100dvh-3.5rem)]',
+          'grid gap-3 grid-rows-1',
           detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(280px,340px)_1fr]'
         )}
       >
-        {/* Master — container list (whole panel sticks with list) */}
         <section
           className={cn(
-            'sticky top-0 self-start z-20 flex flex-col max-h-[calc(100vh-3.5rem)] overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
+            'min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
             detailExpanded && 'hidden'
           )}
         >
@@ -416,23 +581,28 @@ export default function TrackingHub() {
           </div>
         </section>
 
-        {/* Detail — step wizard */}
-        <section
-          className={cn(
-            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
-            detailExpanded ? 'min-h-[calc(100vh-5rem)]' : 'min-h-[480px]'
-          )}
-        >
-          {/* Sticky chrome — sticks when page scrolls past header/stats */}
-          <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200/80 dark:border-slate-700">
-            <div className="px-4 py-3 flex items-start justify-between gap-3 bg-white dark:bg-slate-900">
-              <div>
-                <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">Container detail</h2>
-                <p className="font-code text-sm font-bold mt-0.5">{selected.containerNumber}</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">{selected.item} · {selected.supplier}</p>
+        {/* Detail — same sticky row; chrome fixed, body scrolls inside */}
+        <section className="min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md">
+          <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-700">
+            <div className="px-3 py-2.5 flex items-center justify-between gap-3 bg-white dark:bg-slate-900">
+              <div className="min-w-0">
+                <h2 className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Container detail
+                </h2>
+                <p className="font-code text-sm font-bold leading-snug truncate">
+                  {selected.containerNumber}
+                </p>
+                <p className="text-[11px] text-slate-500 truncate leading-snug">
+                  {selected.item} · {selected.supplier}
+                </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <span className={cn('text-[10px] font-bold uppercase px-2 py-1 rounded border', EVENT_COLORS[selected.eventStatus])}>
+                <span
+                  className={cn(
+                    'text-[10px] font-bold uppercase px-2 py-0.5 rounded border',
+                    EVENT_COLORS[selected.eventStatus]
+                  )}
+                >
                   {EVENT_LABELS[selected.eventStatus]}
                 </span>
                 <button
@@ -458,7 +628,7 @@ export default function TrackingHub() {
                   type="button"
                   onClick={() => setDetailStep(step.id)}
                   className={cn(
-                    'flex items-center gap-2 px-4 py-3 text-xs font-bold uppercase tracking-wide border-b-2 whitespace-nowrap transition-colors',
+                    'flex items-center gap-1.5 px-3 py-2 text-[11px] font-bold uppercase tracking-wide border-b-2 whitespace-nowrap transition-colors',
                     detailStep === step.id
                       ? 'border-[#4684AD] text-[#4684AD] bg-[#C0D5E5]/40'
                       : 'border-transparent text-slate-400 hover:text-slate-600'
@@ -466,7 +636,7 @@ export default function TrackingHub() {
                 >
                   <span
                     className={cn(
-                      'w-5 h-5 rounded-full flex items-center justify-center text-[10px]',
+                      'w-[1.125rem] h-[1.125rem] rounded-full flex items-center justify-center text-[10px]',
                       detailStep === step.id ? 'bg-[#4684AD] text-white' : 'bg-slate-200 text-slate-500'
                     )}
                   >
@@ -479,21 +649,21 @@ export default function TrackingHub() {
             </div>
 
             {detailStep === 'risks' && riskSubSteps.length > 0 && (
-              <div className="px-4 py-2.5 border-b border-slate-200 dark:border-slate-700 bg-slate-50/95 dark:bg-slate-950/95">
-                <div className="flex flex-wrap gap-1">
+              <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50/95 dark:bg-slate-950/95">
+                <div className="flex flex-wrap gap-1.5">
                   {riskSubSteps.map((sub, idx) => (
                     <button
                       key={sub.id}
                       type="button"
                       onClick={() => setRiskSubStep(sub.id)}
                       className={cn(
-                        'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors',
+                        'flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-bold transition-colors',
                         riskSubStep === sub.id
                           ? 'bg-[#4684AD] text-white shadow-sm'
                           : 'bg-white dark:bg-slate-900 text-slate-600 border border-slate-200 dark:border-slate-700 hover:border-[#4684AD]/40'
                       )}
                     >
-                      <span className="text-[10px] opacity-80">{idx + 1}.</span>
+                      <span className="opacity-80">{idx + 1}.</span>
                       {sub.label}
                     </button>
                   ))}
@@ -502,7 +672,8 @@ export default function TrackingHub() {
             )}
           </div>
 
-          <div className="p-4">
+          <div className="flex-1 min-h-0 flex flex-col overflow-hidden">
+            <div className="flex-1 min-h-0 overflow-y-auto p-4">
             {/* Step 1 — Event */}
             {detailStep === 'event' && (
               <div className="space-y-4 max-w-2xl">
@@ -618,8 +789,21 @@ export default function TrackingHub() {
                         originalEta={ORIGINAL_ETA_ISO[selected.id]}
                         revisedEta={REVISED_ETA_ISO[selected.id]}
                         canApprove={canApprove}
+                        hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleStockApprove}
+                      />
+                    )}
+
+                    {riskSubStep === 'sourcing' && (
+                      <SourcingRiskPanel
+                        shipment={selected}
+                        sourcingAction={sourcingAction}
+                        persona={persona}
+                        canApprove={canApprove}
+                        hideApproval
+                        onActionsUpdated={refreshActions}
+                        onApprove={handleSourcingApprove}
                       />
                     )}
 
@@ -628,6 +812,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         promoAction={promoAction}
                         persona={persona}
+                        hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handlePromoApprove}
                       />
@@ -639,6 +824,7 @@ export default function TrackingHub() {
                         shelfAction={shelfAction}
                         persona={persona}
                         canApprove={canApprove}
+                        hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleShelfApprove}
                       />
@@ -650,6 +836,7 @@ export default function TrackingHub() {
                         receivingAction={receivingAction}
                         persona={persona}
                         canApprove={canApprove}
+                        hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleResourceApprove}
                       />
@@ -661,18 +848,45 @@ export default function TrackingHub() {
                         transportAction={transportAction}
                         persona={persona}
                         canApprove={canApprove}
+                        hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleResourceApprove}
                       />
                     )}
 
                     {riskSubStep === 'overstock' && (
-                      <div className="space-y-3 max-w-lg">
-                        <div className="flex items-center gap-2 text-sm font-bold text-blue-900">
-                          <TrendingUp className="w-4 h-4" />
-                          Possible overstock
-                        </div>
-                      </div>
+                      <OverstockRiskPanel
+                        shipment={selected}
+                        overstockAction={overstockAction}
+                        persona={persona}
+                        canApprove={canApprove}
+                        hideApproval
+                        onActionsUpdated={refreshActions}
+                        onApprove={handleResourceApprove}
+                      />
+                    )}
+
+                    {riskSubStep === 'clearance' && (
+                      <EarlyClearanceRiskPanel
+                        shipment={selected}
+                        clearanceAction={clearanceAction}
+                        persona={persona}
+                        hideApproval
+                        onActionsUpdated={refreshActions}
+                        onApprove={handlePromoApprove}
+                      />
+                    )}
+
+                    {riskSubStep === 'distribution' && (
+                      <DistributionRiskPanel
+                        shipment={selected}
+                        distributionAction={distributionAction}
+                        persona={persona}
+                        canApprove={canApprove}
+                        hideApproval
+                        onActionsUpdated={refreshActions}
+                        onApprove={handleResourceApprove}
+                      />
                     )}
                   </>
                 )}
@@ -729,6 +943,17 @@ export default function TrackingHub() {
                   </div>
                 )}
               </div>
+            )}
+            </div>
+
+            {detailStep === 'risks' && activeRiskAction && (
+              <RiskActionFooter
+                action={activeRiskAction}
+                persona={persona}
+                onApprove={handleActiveRiskApprove}
+                onReject={handleActiveRiskReject}
+                ownerNote={activeRiskOwnerNote}
+              />
             )}
           </div>
         </section>

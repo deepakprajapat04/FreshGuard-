@@ -17,6 +17,23 @@ export interface ContainerCargoLine {
   lineStatus?: 'shipped' | 'partial' | 'held';
 }
 
+/** Audit row when supplier (or PSA) revises expected delivery date. */
+export interface DeliveryDateLogEntry {
+  id: string;
+  at: string;
+  /** Previous ISO date (if known) */
+  fromDate?: string;
+  /** New ISO delivery / ETA date */
+  toDate: string;
+  /** Human label shown alongside (e.g. "Aug 25, 2026 (+2d)") */
+  toLabel: string;
+  source: 'Supplier' | 'PSA Portnet' | 'FreshGuard';
+  note?: string;
+  /** PO numbers on this container at time of change */
+  poNumbers: string[];
+  by?: string;
+}
+
 export interface Shipment {
   id: string;
   vendor: string;
@@ -35,6 +52,11 @@ export interface Shipment {
   date: string;
   /** Expected delivery / ETA calendar date (ISO). Prefer this for calendar views. */
   etaDate?: string;
+  /**
+   * Supplier / PSA log of delivery date changes for this container (and linked POs).
+   * Newest entries last.
+   */
+  deliveryDateLog?: DeliveryDateLogEntry[];
   hasAnomaly?: boolean;
   /** Forecast delay ahead — paints orange remaining route on the map */
   expectedDelay?: boolean;

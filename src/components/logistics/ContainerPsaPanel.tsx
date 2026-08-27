@@ -125,10 +125,29 @@ export function ContainerPsaPanel({
     ['voyageNumber', 'Voyage number'],
     ['bookingNumber', 'Booking number'],
     ['psaTerminal', 'PSA terminal'],
-    ['eta', 'ETA'],
     ['temp', 'Reefer temp'],
     ['origin', 'Origin / load point'],
   ] as const;
+
+  const deliveryLog = [...(selectedShipment?.deliveryDateLog || [])].slice().reverse();
+
+  function formatLogWhen(iso: string) {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  }
+
+  function formatIsoDate(iso?: string) {
+    if (!iso) return '—';
+    const d = new Date(`${iso}T12:00:00`);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
 
   return (
     <div className="w-full grid lg:grid-cols-12 gap-5">
@@ -346,6 +365,50 @@ export function ContainerPsaPanel({
                         />
                       </label>
                     ))}
+
+                    <label className="block space-y-1">
+                      <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                        Expected delivery date
+                      </span>
+                      <input
+                        type="date"
+                        value={containerForm.etaDate}
+                        onChange={(e) => {
+                          const etaDate = e.target.value;
+                          const d = etaDate ? new Date(`${etaDate}T12:00:00`) : null;
+                          const autoLabel =
+                            d && !Number.isNaN(d.getTime())
+                              ? d.toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })
+                              : containerForm.eta;
+                          onFormChange({
+                            ...containerForm,
+                            etaDate,
+                            eta: autoLabel,
+                          });
+                        }}
+                        className="w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
+                      />
+                      <span className="text-[10px] text-slate-500 leading-relaxed block">
+                        Set the date you believe the container will arrive — logged against linked POs.
+                      </span>
+                    </label>
+
+                    <label className="block space-y-1">
+                      <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                        ETA display label
+                      </span>
+                      <input
+                        value={containerForm.eta}
+                        onChange={(e) => onFormChange({ ...containerForm, eta: e.target.value })}
+                        className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
+                        placeholder="e.g. Aug 25, 2026 (+2 delay)"
+                      />
+                    </label>
+
                     <label className="block space-y-1 sm:col-span-2">
                       <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
                         Update notes
@@ -355,7 +418,7 @@ export function ContainerPsaPanel({
                         onChange={(e) => onFormChange({ ...containerForm, notes: e.target.value })}
                         rows={2}
                         className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-xs font-medium focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
-                        placeholder="Optional note for PSA event ledger…"
+                        placeholder="Why the delivery date changed (optional — saved in the log)…"
                       />
                     </label>
                   </div>
@@ -390,7 +453,13 @@ export function ContainerPsaPanel({
                     ['Voyage', selectedShipment.voyageNumber],
                     ['Booking', selectedShipment.bookingNumber],
                     ['Terminal', selectedShipment.psaTerminal],
-                    ['ETA', selectedShipment.eta],
+                    ['ETA label', selectedShipment.eta],
+                    [
+                      'Delivery date',
+                      selectedShipment.etaDate
+                        ? formatIsoDate(selectedShipment.etaDate)
+                        : '—',
+                    ],
                     ['Temp', selectedShipment.temp],
                     ['Origin', selectedShipment.origin],
                   ].map(([k, v]) => (
@@ -407,6 +476,57 @@ export function ContainerPsaPanel({
                 </dl>
               </div>
             )}
+
+            {/* Delivery date change log (supplier + retail) */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 dark:border-slate-800">
+                <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900 dark:text-white">
+                  Delivery date log
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                  History of supplier ETA / delivery date updates for orders on this container.
+                </p>
+              </div>
+              {deliveryLog.length === 0 ? (
+                <p className="px-5 py-6 text-xs text-slate-400">
+                  No delivery date changes yet. Supplier can set a date above and push to PSA.
+                </p>
+              ) : (
+                <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {deliveryLog.map((entry) => (
+                    <li key={entry.id} className="px-5 py-3.5 text-xs">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-bold text-slate-900 dark:text-slate-100">
+                              {formatIsoDate(entry.fromDate)} → {formatIsoDate(entry.toDate)}
+                            </span>
+                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                              {entry.source}
+                            </span>
+                          </div>
+                          <p className="text-slate-500 mt-1">{entry.toLabel}</p>
+                          {entry.note && (
+                            <p className="text-slate-600 dark:text-slate-300 mt-1 italic">
+                              “{entry.note}”
+                            </p>
+                          )}
+                          {entry.poNumbers.length > 0 && (
+                            <p className="text-[11px] text-[#2F5472] font-semibold mt-1.5 font-mono">
+                              POs: {entry.poNumbers.join(', ')}
+                            </p>
+                          )}
+                        </div>
+                        <div className="text-right text-[10px] text-slate-400 shrink-0">
+                          <div>{formatLogWhen(entry.at)}</div>
+                          {entry.by && <div className="mt-0.5">{entry.by}</div>}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
 
             {/* Multi-PO cargo manifest */}
             <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-md overflow-hidden">
