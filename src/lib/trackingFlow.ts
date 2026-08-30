@@ -7,13 +7,70 @@ import {
   loadBusinessRules,
   type BusinessRulesConfig,
 } from './businessRules';
+import { getRfqAlternateSupplierOptions } from './fruitsRfqFlow';
+
+export type DcPurchasingPersona = 'dc_purchasing_fruits' | 'dc_purchasing_vegetables';
 
 export type FreshGuardPersona =
-  | 'dc_purchasing'
+  | DcPurchasingPersona
   | 'supplier'
   | 'transport'
   | 'receiving'
   | 'category_manager';
+
+export const DC_PURCHASING_PERSONAS: DcPurchasingPersona[] = [
+  'dc_purchasing_fruits',
+  'dc_purchasing_vegetables',
+];
+
+export function isDcPurchasingPersona(persona: FreshGuardPersona): persona is DcPurchasingPersona {
+  return persona === 'dc_purchasing_fruits' || persona === 'dc_purchasing_vegetables';
+}
+
+export type PurchasingLane = 'fruits' | 'vegetables';
+
+const VEGETABLE_ITEM_PATTERN =
+  /\b(lettuce|broccoli|tomato|pepper|carrot|celery|spinach|kale|cucumber|vegetable|romaine|cauliflower|iceberg)\b/i;
+
+export function getPurchasingLaneForShipment(shipment: TrackShipment): PurchasingLane {
+  if (shipment.purchasingLane) return shipment.purchasingLane;
+  return VEGETABLE_ITEM_PATTERN.test(shipment.item) ? 'vegetables' : 'fruits';
+}
+
+export function getPurchasingLaneForPo(po: SapPurchaseOrder): PurchasingLane {
+  if (po.buyer === 'David Okonkwo') return 'vegetables';
+  if (po.buyer === 'Sarah Mitchell') return 'fruits';
+  const hay = `${po.item} ${po.itemDetail?.description ?? ''}`;
+  return VEGETABLE_ITEM_PATTERN.test(hay) ? 'vegetables' : 'fruits';
+}
+
+export function getPurchasingPersonaForLane(lane: PurchasingLane): DcPurchasingPersona {
+  return lane === 'vegetables' ? 'dc_purchasing_vegetables' : 'dc_purchasing_fruits';
+}
+
+export function getShipmentPurchasingPersona(shipment: TrackShipment): DcPurchasingPersona {
+  return getPurchasingPersonaForLane(getPurchasingLaneForShipment(shipment));
+}
+
+/** DC buyers only see shipments in their lane; ops personas see all. */
+export function shipmentVisibleToPersona(
+  shipment: TrackShipment,
+  persona: FreshGuardPersona
+): boolean {
+  if (!isDcPurchasingPersona(persona)) return true;
+  return getShipmentPurchasingPersona(shipment) === persona;
+}
+
+/** DC buyers only see POs in their lane. */
+export function poVisibleToPersona(po: SapPurchaseOrder, persona: FreshGuardPersona): boolean {
+  if (!isDcPurchasingPersona(persona)) return true;
+  return getPurchasingPersonaForLane(getPurchasingLaneForPo(po)) === persona;
+}
+
+/** Vegetables lane — shipment intel is status-only (no risk actions / approvals). */
+export function isVegetablesStatusOnlyIntel(persona: FreshGuardPersona): boolean {
+  return persona === 'dc_purchasing_vegetables';
+}
 
 export type ShipmentEventStatus = 'on-time' | 'delayed' | 'early';
 
@@ -55,7 +112,7 @@ export type SapPoItemDetail = {
 /** SAP-style PO line item (multi-line purchase orders). */
 export type SapPoOrderLine = {
   lineNumber: number;
-  item: 'Blueberries' | 'Strawberries';
+  item: string;
   materialNumber: string;
   description: string;
   sku: string;
@@ -109,7 +166,7 @@ export type SapPoShipmentDetail = {
 
 export type SapPurchaseOrder = {
   po: string;
-  item: 'Blueberries' | 'Strawberries';
+  item: string;
   supplier: string;
   orderedQty: number;
   unit: 'Cases';
@@ -175,6 +232,8 @@ export type TrackShipment = {
   customsStatus: 'Pending' | 'Cleared' | 'Inspection';
   stage: 'origin' | 'ocean' | 'customs' | 'inland' | 'dc_arrival' | 'delivered';
   transportMode: 'ocean' | 'road';
+  /** Fruits vs vegetables procurement lane — drives buyer approval routing. */
+  purchasingLane?: PurchasingLane;
 };
 
 export type StoreDemand = {
@@ -456,6 +515,8 @@ export type AlternateSupplierOption = {
   capacityCases: number;
   recommended: boolean;
   reason: string;
+  /** Request for Quote reference when sourced from RFQ module */
+  rfqId?: string;
 };
 
 export type SourcingProposal = {
@@ -1543,11 +1604,634 @@ export const DEMO_POS: SapPurchaseOrder[] = [
       ],
     },
   },
+  {
+    po: 'PO-4500022101',
+    item: 'Romaine Lettuce',
+    supplier: 'Green Valley Produce',
+    orderedQty: 1800,
+    unit: 'Cases',
+    deliveryDate: '2026-08-22',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-11',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-RL-3301',
+      description: 'Romaine Lettuce — Hearts',
+      sku: 'SKU-RL-2210',
+      orderedQty: 1800,
+      confirmedQty: 1800,
+      unit: 'Cases',
+      unitPrice: 18.5,
+      currency: 'USD',
+      shelfLifeDays: 12,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 2700,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Romaine Lettuce',
+        materialNumber: 'MAT-RL-3301',
+        description: 'Romaine Lettuce — Hearts',
+        sku: 'SKU-RL-2210',
+        orderedQty: 1800,
+        confirmedQty: 1800,
+        unit: 'Cases',
+        unitPrice: 18.5,
+        currency: 'USD',
+        shelfLifeDays: 12,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 2700,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0815',
+      containerNumber: 'TCLU9920188',
+      shipDate: '2026-08-14',
+      eta: 'Aug 24, 2026 (+2 days delay)',
+      originalEta: 'Aug 22, 2026',
+      origin: 'Salinas, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Midwest Reefer Lines',
+      bookingNumber: 'TCLU-9920188',
+      sealNumber: 'SL-9920188',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–4°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022101',
+          item: 'Romaine Lettuce — Hearts',
+          quantity: 1800,
+          unit: 'Cases',
+          lotNumber: 'LOT-RL-0814-A',
+          harvestDate: '2026-08-12',
+          bestBefore: '2026-08-24',
+          palletCount: 36,
+          grossWeightKg: 2700,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022110',
+    item: 'Broccoli',
+    supplier: 'Green Valley Produce',
+    orderedQty: 950,
+    unit: 'Cases',
+    deliveryDate: '2026-08-20',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-12',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-BR-4401',
+      description: 'Broccoli Crowns — Iceless',
+      sku: 'SKU-BR-2110',
+      orderedQty: 950,
+      confirmedQty: 950,
+      unit: 'Cases',
+      unitPrice: 22.0,
+      currency: 'USD',
+      shelfLifeDays: 10,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 1425,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Broccoli',
+        materialNumber: 'MAT-BR-4401',
+        description: 'Broccoli Crowns — Iceless',
+        sku: 'SKU-BR-2110',
+        orderedQty: 950,
+        confirmedQty: 950,
+        unit: 'Cases',
+        unitPrice: 22.0,
+        currency: 'USD',
+        shelfLifeDays: 10,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 1425,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0818',
+      containerNumber: 'FGRU7700442',
+      shipDate: '2026-08-16',
+      eta: 'Aug 19, 2026 (−1 day)',
+      originalEta: 'Aug 20, 2026',
+      origin: 'Yuma, AZ',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'FreshGuard Midwest',
+      bookingNumber: 'FGRU-7700442',
+      sealNumber: 'SL-7700442',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–2°C continuous',
+      freightForwarder: 'FreshGuard Logistics',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022110',
+          item: 'Broccoli Crowns — Iceless',
+          quantity: 950,
+          unit: 'Cases',
+          lotNumber: 'LOT-BR-0816-A',
+          harvestDate: '2026-08-14',
+          bestBefore: '2026-08-24',
+          palletCount: 19,
+          grossWeightKg: 1425,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022120',
+    item: 'Baby Spinach',
+    supplier: 'Coastal Greens Co.',
+    orderedQty: 720,
+    unit: 'Cases',
+    deliveryDate: '2026-08-21',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-13',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-SP-2201',
+      description: 'Baby Spinach — Clamshell',
+      sku: 'SKU-SP-2120',
+      orderedQty: 720,
+      confirmedQty: 720,
+      unit: 'Cases',
+      unitPrice: 24.0,
+      currency: 'USD',
+      shelfLifeDays: 8,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 720,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Baby Spinach',
+        materialNumber: 'MAT-SP-2201',
+        description: 'Baby Spinach — Clamshell',
+        sku: 'SKU-SP-2120',
+        orderedQty: 720,
+        confirmedQty: 720,
+        unit: 'Cases',
+        unitPrice: 24.0,
+        currency: 'USD',
+        shelfLifeDays: 8,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 720,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0819',
+      containerNumber: 'MSCU8810233',
+      shipDate: '2026-08-15',
+      eta: 'Aug 22, 2026 (+1 day delay)',
+      originalEta: 'Aug 21, 2026',
+      origin: 'Salinas, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Midwest Reefer Lines',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–4°C continuous',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022120',
+          item: 'Baby Spinach — Clamshell',
+          quantity: 720,
+          unit: 'Cases',
+          lotNumber: 'LOT-SP-0815',
+          harvestDate: '2026-08-13',
+          bestBefore: '2026-08-21',
+          palletCount: 14,
+          grossWeightKg: 720,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022125',
+    item: 'Roma Tomatoes',
+    supplier: 'Sunbelt Produce',
+    orderedQty: 1400,
+    unit: 'Cases',
+    deliveryDate: '2026-08-22',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-12',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-TM-3301',
+      description: 'Roma Tomatoes — Vine Ripened',
+      sku: 'SKU-TM-2125',
+      orderedQty: 1400,
+      confirmedQty: 1400,
+      unit: 'Cases',
+      unitPrice: 16.5,
+      currency: 'USD',
+      shelfLifeDays: 9,
+      storageTemp: '10–12°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 2100,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Roma Tomatoes',
+        materialNumber: 'MAT-TM-3301',
+        description: 'Roma Tomatoes — Vine Ripened',
+        sku: 'SKU-TM-2125',
+        orderedQty: 1400,
+        confirmedQty: 1400,
+        unit: 'Cases',
+        unitPrice: 16.5,
+        currency: 'USD',
+        shelfLifeDays: 9,
+        storageTemp: '10–12°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 2100,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0820',
+      containerNumber: 'HLXU5590144',
+      shipDate: '2026-08-14',
+      eta: 'Aug 25, 2026 (+3 days)',
+      originalEta: 'Aug 22, 2026',
+      origin: 'Immokalee, FL',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'FreshGuard Midwest',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '10–12°C continuous',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022125',
+          item: 'Roma Tomatoes — Vine Ripened',
+          quantity: 1400,
+          unit: 'Cases',
+          lotNumber: 'LOT-TM-0814',
+          harvestDate: '2026-08-12',
+          bestBefore: '2026-08-21',
+          palletCount: 28,
+          grossWeightKg: 2100,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022130',
+    item: 'Cucumbers',
+    supplier: 'Imperial Valley Greens',
+    orderedQty: 1100,
+    unit: 'Cases',
+    deliveryDate: '2026-08-21',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-13',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-CU-4401',
+      description: 'English Cucumbers — Film Wrapped',
+      sku: 'SKU-CU-2130',
+      orderedQty: 1100,
+      confirmedQty: 1100,
+      unit: 'Cases',
+      unitPrice: 14.0,
+      currency: 'USD',
+      shelfLifeDays: 11,
+      storageTemp: '10–12°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 1100,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Cucumbers',
+        materialNumber: 'MAT-CU-4401',
+        description: 'English Cucumbers — Film Wrapped',
+        sku: 'SKU-CU-2130',
+        orderedQty: 1100,
+        confirmedQty: 1100,
+        unit: 'Cases',
+        unitPrice: 14.0,
+        currency: 'USD',
+        shelfLifeDays: 11,
+        storageTemp: '10–12°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 1100,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0821',
+      containerNumber: 'CAIU6601288',
+      shipDate: '2026-08-16',
+      eta: 'Aug 20, 2026 (−2 days)',
+      originalEta: 'Aug 22, 2026',
+      origin: 'El Centro, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Desert Haul Reefer',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '10–12°C continuous',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022130',
+          item: 'English Cucumbers — Film Wrapped',
+          quantity: 1100,
+          unit: 'Cases',
+          lotNumber: 'LOT-CU-0816',
+          harvestDate: '2026-08-14',
+          bestBefore: '2026-08-25',
+          palletCount: 22,
+          grossWeightKg: 1100,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022135',
+    item: 'Iceberg Lettuce',
+    supplier: 'Green Valley Produce',
+    orderedQty: 1600,
+    unit: 'Cases',
+    deliveryDate: '2026-08-22',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-14',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-IL-5501',
+      description: 'Iceberg Lettuce — 24ct',
+      sku: 'SKU-IL-2135',
+      orderedQty: 1600,
+      confirmedQty: 1600,
+      unit: 'Cases',
+      unitPrice: 15.75,
+      currency: 'USD',
+      shelfLifeDays: 14,
+      storageTemp: '0–4°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 1920,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Iceberg Lettuce',
+        materialNumber: 'MAT-IL-5501',
+        description: 'Iceberg Lettuce — 24ct',
+        sku: 'SKU-IL-2135',
+        orderedQty: 1600,
+        confirmedQty: 1600,
+        unit: 'Cases',
+        unitPrice: 15.75,
+        currency: 'USD',
+        shelfLifeDays: 14,
+        storageTemp: '0–4°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 1920,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0822',
+      containerNumber: 'TGHU7720399',
+      shipDate: '2026-08-17',
+      eta: 'Aug 22, 2026',
+      originalEta: 'Aug 22, 2026',
+      origin: 'Salinas, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Midwest Reefer Lines',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–4°C continuous',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022135',
+          item: 'Iceberg Lettuce — 24ct',
+          quantity: 1600,
+          unit: 'Cases',
+          lotNumber: 'LOT-IL-0817',
+          harvestDate: '2026-08-15',
+          bestBefore: '2026-08-29',
+          palletCount: 32,
+          grossWeightKg: 1920,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022140',
+    item: 'Cauliflower',
+    supplier: 'Coastal Greens Co.',
+    orderedQty: 840,
+    unit: 'Cases',
+    deliveryDate: '2026-08-23',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-15',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-CF-6601',
+      description: 'Cauliflower — 9ct Wrapped',
+      sku: 'SKU-CF-2140',
+      orderedQty: 840,
+      confirmedQty: 840,
+      unit: 'Cases',
+      unitPrice: 20.0,
+      currency: 'USD',
+      shelfLifeDays: 12,
+      storageTemp: '0–2°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 1260,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Cauliflower',
+        materialNumber: 'MAT-CF-6601',
+        description: 'Cauliflower — 9ct Wrapped',
+        sku: 'SKU-CF-2140',
+        orderedQty: 840,
+        confirmedQty: 840,
+        unit: 'Cases',
+        unitPrice: 20.0,
+        currency: 'USD',
+        shelfLifeDays: 12,
+        storageTemp: '0–2°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 1260,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0823',
+      containerNumber: 'FGRU8830155',
+      shipDate: '2026-08-18',
+      eta: 'Aug 23, 2026',
+      originalEta: 'Aug 23, 2026',
+      origin: 'Santa Maria, CA',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'FreshGuard Midwest',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '0–2°C continuous',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022140',
+          item: 'Cauliflower — 9ct Wrapped',
+          quantity: 840,
+          unit: 'Cases',
+          lotNumber: 'LOT-CF-0818',
+          harvestDate: '2026-08-16',
+          bestBefore: '2026-08-28',
+          palletCount: 17,
+          grossWeightKg: 1260,
+        },
+      ],
+    },
+  },
+  {
+    po: 'PO-4500022145',
+    item: 'Bell Peppers',
+    supplier: 'Sunbelt Produce',
+    orderedQty: 1250,
+    unit: 'Cases',
+    deliveryDate: '2026-08-24',
+    status: 'In Transit',
+    destination: 'Chicago DC',
+    companyCode: '1000',
+    purchasingOrg: 'PORG-US01',
+    buyer: 'David Okonkwo',
+    createdDate: '2026-08-16',
+    paymentTerms: 'Net 30',
+    itemDetail: {
+      materialNumber: 'MAT-BP-7701',
+      description: 'Tri-Color Bell Peppers',
+      sku: 'SKU-BP-2145',
+      orderedQty: 1250,
+      confirmedQty: 1250,
+      unit: 'Cases',
+      unitPrice: 26.0,
+      currency: 'USD',
+      shelfLifeDays: 10,
+      storageTemp: '7–10°C',
+      plant: 'PL-CHI-01',
+      storageLocation: 'CH01-V',
+      netWeightKg: 1875,
+      countryOfOrigin: 'USA',
+    },
+    orderLines: [
+      {
+        lineNumber: 10,
+        item: 'Bell Peppers',
+        materialNumber: 'MAT-BP-7701',
+        description: 'Tri-Color Bell Peppers',
+        sku: 'SKU-BP-2145',
+        orderedQty: 1250,
+        confirmedQty: 1250,
+        unit: 'Cases',
+        unitPrice: 26.0,
+        currency: 'USD',
+        shelfLifeDays: 10,
+        storageTemp: '7–10°C',
+        storageLocation: 'CH01-V',
+        netWeightKg: 1875,
+        countryOfOrigin: 'USA',
+      },
+    ],
+    shipmentDetail: {
+      asnNumber: 'ASN-2026-VG-0824',
+      containerNumber: 'TRHU9940266',
+      shipDate: '2026-08-19',
+      eta: 'Aug 24, 2026',
+      originalEta: 'Aug 24, 2026',
+      origin: 'Nogales, AZ',
+      destination: 'Chicago DC',
+      transportMode: 'road',
+      carrier: 'Desert Haul Reefer',
+      incoterms: 'DAP Chicago DC',
+      customsStatus: 'Cleared',
+      tempRange: '7–10°C continuous',
+      cargoLines: [
+        {
+          poNumber: 'PO-4500022145',
+          item: 'Tri-Color Bell Peppers',
+          quantity: 1250,
+          unit: 'Cases',
+          lotNumber: 'LOT-BP-0819',
+          harvestDate: '2026-08-17',
+          bestBefore: '2026-08-27',
+          palletCount: 25,
+          grossWeightKg: 1875,
+        },
+      ],
+    },
+  },
 ];
 
 export const DEMO_SHIPMENTS: TrackShipment[] = [
   {
     id: 'SHP-BB-DLY-01',
+    purchasingLane: 'fruits',
     containerNumber: 'TRHU8820144',
     asnNumber: 'ASN-2026-BB-0801',
     linkedPos: ['PO-4500012345', 'PO-4500012346'],
@@ -1566,6 +2250,7 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
   },
   {
     id: 'SHP-ST-EARLY-01',
+    purchasingLane: 'fruits',
     containerNumber: 'MSCU7710092',
     asnNumber: 'ASN-2026-ST-0802',
     linkedPos: ['PO-4500012388'],
@@ -1584,6 +2269,7 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
   },
   {
     id: 'SHP-ST-EARLY-02',
+    purchasingLane: 'fruits',
     containerNumber: 'CAIU4402188',
     asnNumber: 'ASN-2026-ST-0812',
     linkedPos: ['PO-4500012395'],
@@ -1602,6 +2288,7 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
   },
   {
     id: 'SHP-BB-ONT-01',
+    purchasingLane: 'fruits',
     containerNumber: 'FGRU9900331',
     asnNumber: 'ASN-2026-BB-0803',
     linkedPos: ['PO-4500012345'],
@@ -1620,6 +2307,7 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
   },
   {
     id: 'SHP-BB-MIX-01',
+    purchasingLane: 'fruits',
     containerNumber: 'HLXU5520198',
     asnNumber: 'ASN-2026-BB-0810',
     linkedPos: ['PO-4500012401', 'PO-4500012402'],
@@ -1638,6 +2326,7 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
   },
   {
     id: 'SHP-BB-RCV-01',
+    purchasingLane: 'fruits',
     containerNumber: 'TGHU6633812',
     asnNumber: 'ASN-2026-BB-0805',
     linkedPos: ['PO-4500012403'],
@@ -1652,6 +2341,158 @@ export const DEMO_SHIPMENTS: TrackShipment[] = [
     destination: 'Chicago DC',
     customsStatus: 'Cleared',
     stage: 'delivered',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-DLY-01',
+    purchasingLane: 'vegetables',
+    containerNumber: 'TCLU9920188',
+    asnNumber: 'ASN-2026-VG-0815',
+    linkedPos: ['PO-4500022101'],
+    item: 'Romaine Lettuce — Hearts',
+    supplier: 'Green Valley Produce',
+    quantity: 1800,
+    unit: 'Cases',
+    eventStatus: 'delayed',
+    eta: 'Aug 24, 2026 (+2 days)',
+    originalEta: 'Aug 22, 2026',
+    origin: 'Salinas, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-EARLY-01',
+    purchasingLane: 'vegetables',
+    containerNumber: 'FGRU7700442',
+    asnNumber: 'ASN-2026-VG-0818',
+    linkedPos: ['PO-4500022110'],
+    item: 'Broccoli Crowns — Iceless',
+    supplier: 'Green Valley Produce',
+    quantity: 950,
+    unit: 'Cases',
+    eventStatus: 'early',
+    eta: 'Aug 19, 2026 (−1 day)',
+    originalEta: 'Aug 20, 2026',
+    origin: 'Yuma, AZ',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-DLY-02',
+    purchasingLane: 'vegetables',
+    containerNumber: 'MSCU8810233',
+    asnNumber: 'ASN-2026-VG-0819',
+    linkedPos: ['PO-4500022120'],
+    item: 'Baby Spinach — Clamshell',
+    supplier: 'Coastal Greens Co.',
+    quantity: 720,
+    unit: 'Cases',
+    eventStatus: 'delayed',
+    eta: 'Aug 22, 2026 (+1 day)',
+    originalEta: 'Aug 21, 2026',
+    origin: 'Salinas, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-DLY-03',
+    purchasingLane: 'vegetables',
+    containerNumber: 'HLXU5590144',
+    asnNumber: 'ASN-2026-VG-0820',
+    linkedPos: ['PO-4500022125'],
+    item: 'Roma Tomatoes — Vine Ripened',
+    supplier: 'Sunbelt Produce',
+    quantity: 1400,
+    unit: 'Cases',
+    eventStatus: 'delayed',
+    eta: 'Aug 25, 2026 (+3 days)',
+    originalEta: 'Aug 22, 2026',
+    origin: 'Immokalee, FL',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-EARLY-02',
+    purchasingLane: 'vegetables',
+    containerNumber: 'CAIU6601288',
+    asnNumber: 'ASN-2026-VG-0821',
+    linkedPos: ['PO-4500022130'],
+    item: 'English Cucumbers — Film Wrapped',
+    supplier: 'Imperial Valley Greens',
+    quantity: 1100,
+    unit: 'Cases',
+    eventStatus: 'early',
+    eta: 'Aug 20, 2026 (−2 days)',
+    originalEta: 'Aug 22, 2026',
+    origin: 'El Centro, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-ONT-01',
+    purchasingLane: 'vegetables',
+    containerNumber: 'TGHU7720399',
+    asnNumber: 'ASN-2026-VG-0822',
+    linkedPos: ['PO-4500022135'],
+    item: 'Iceberg Lettuce — 24ct',
+    supplier: 'Green Valley Produce',
+    quantity: 1600,
+    unit: 'Cases',
+    eventStatus: 'on-time',
+    eta: 'Aug 22, 2026',
+    originalEta: 'Aug 22, 2026',
+    origin: 'Salinas, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-ONT-02',
+    purchasingLane: 'vegetables',
+    containerNumber: 'FGRU8830155',
+    asnNumber: 'ASN-2026-VG-0823',
+    linkedPos: ['PO-4500022140'],
+    item: 'Cauliflower — 9ct Wrapped',
+    supplier: 'Coastal Greens Co.',
+    quantity: 840,
+    unit: 'Cases',
+    eventStatus: 'on-time',
+    eta: 'Aug 23, 2026',
+    originalEta: 'Aug 23, 2026',
+    origin: 'Santa Maria, CA',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'inland',
+    transportMode: 'road',
+  },
+  {
+    id: 'SHP-VEG-ONT-03',
+    purchasingLane: 'vegetables',
+    containerNumber: 'TRHU9940266',
+    asnNumber: 'ASN-2026-VG-0824',
+    linkedPos: ['PO-4500022145'],
+    item: 'Tri-Color Bell Peppers',
+    supplier: 'Sunbelt Produce',
+    quantity: 1250,
+    unit: 'Cases',
+    eventStatus: 'on-time',
+    eta: 'Aug 24, 2026',
+    originalEta: 'Aug 24, 2026',
+    origin: 'Nogales, AZ',
+    destination: 'Chicago DC',
+    customsStatus: 'Cleared',
+    stage: 'customs',
     transportMode: 'road',
   },
 ];
@@ -1671,6 +2512,14 @@ export const DC_INVENTORY: DcInventory[] = [
     item: 'Strawberries',
     availableStock: 180,
     dailyDispatchRate: 72,
+    unit: 'Cases',
+  },
+  {
+    dcId: 'DC-CHI-01',
+    name: 'Chicago DC',
+    item: 'Romaine Lettuce',
+    availableStock: 140,
+    dailyDispatchRate: 88,
     unit: 'Cases',
   },
 ];
@@ -1750,6 +2599,51 @@ STORE_DEMAND.push({
   item: 'Blueberries',
 });
 
+STORE_DEMAND.push(
+  {
+    storeId: 'ST-101',
+    name: 'Loop Market',
+    onHand: 22,
+    dailyDemand: 32,
+    pendingOrders: 110,
+    daysCover: 0.7,
+    stockoutRiskDays: 1,
+    oosStartDate: '2026-08-23',
+    oosEndDate: '2026-08-25',
+    onHandShelfLifeDays: 4,
+    onHandExpiresDate: '2026-08-24',
+    item: 'Romaine Lettuce',
+  },
+  {
+    storeId: 'ST-318',
+    name: 'Oak Park',
+    onHand: 18,
+    dailyDemand: 26,
+    pendingOrders: 90,
+    daysCover: 0.7,
+    stockoutRiskDays: 1,
+    oosStartDate: '2026-08-23',
+    oosEndDate: '2026-08-25',
+    onHandShelfLifeDays: 4,
+    onHandExpiresDate: '2026-08-24',
+    item: 'Romaine Lettuce',
+  },
+  {
+    storeId: 'ST-204',
+    name: 'Lincoln Park',
+    onHand: 95,
+    dailyDemand: 20,
+    pendingOrders: 70,
+    daysCover: 4.8,
+    stockoutRiskDays: null,
+    oosStartDate: null,
+    oosEndDate: null,
+    onHandShelfLifeDays: 5,
+    onHandExpiresDate: '2026-08-25',
+    item: 'Romaine Lettuce',
+  }
+);
+
 
 export const PROMOTIONS: PromotionRisk[] = [
   {
@@ -1772,6 +2666,16 @@ export const PROMOTIONS: PromotionRisk[] = [
     dependsOnPo: 'PO-4500012345',
     atRisk: true,
   },
+  {
+    id: 'PROMO-950',
+    name: 'Salad Bowl Bundle',
+    item: 'Romaine Lettuce',
+    startDate: '2026-08-22',
+    endDate: '2026-08-24',
+    stores: ['ST-101', 'ST-318'],
+    dependsOnPo: 'PO-4500022101',
+    atRisk: true,
+  },
 ];
 
 /** Demo anchor date for calendar windows */
@@ -1790,6 +2694,14 @@ const SHIPMENT_ETA_ISO: Record<string, { original: string; revised: string }> = 
   'SHP-BB-ONT-01': { original: '2026-08-21', revised: '2026-08-21' },
   'SHP-BB-MIX-01': { original: '2026-08-24', revised: '2026-08-25' },
   'SHP-BB-RCV-01': { original: '2026-08-18', revised: '2026-08-18' },
+  'SHP-VEG-DLY-01': { original: '2026-08-22', revised: '2026-08-24' },
+  'SHP-VEG-DLY-02': { original: '2026-08-21', revised: '2026-08-22' },
+  'SHP-VEG-DLY-03': { original: '2026-08-22', revised: '2026-08-25' },
+  'SHP-VEG-EARLY-01': { original: '2026-08-20', revised: '2026-08-19' },
+  'SHP-VEG-EARLY-02': { original: '2026-08-22', revised: '2026-08-20' },
+  'SHP-VEG-ONT-01': { original: '2026-08-22', revised: '2026-08-22' },
+  'SHP-VEG-ONT-02': { original: '2026-08-23', revised: '2026-08-23' },
+  'SHP-VEG-ONT-03': { original: '2026-08-24', revised: '2026-08-24' },
 };
 
 export function getStoreName(storeId: string): string {
@@ -1818,6 +2730,14 @@ const SHIPMENT_ITEMS: Record<string, string[]> = {
   'SHP-BB-ONT-01': ['Blueberries'],
   'SHP-BB-MIX-01': ['Blueberries', 'Strawberries'],
   'SHP-BB-RCV-01': ['Blueberries'],
+  'SHP-VEG-DLY-01': ['Romaine Lettuce'],
+  'SHP-VEG-DLY-02': ['Baby Spinach'],
+  'SHP-VEG-DLY-03': ['Roma Tomatoes'],
+  'SHP-VEG-EARLY-01': ['Broccoli'],
+  'SHP-VEG-EARLY-02': ['Cucumbers'],
+  'SHP-VEG-ONT-01': ['Iceberg Lettuce'],
+  'SHP-VEG-ONT-02': ['Cauliflower'],
+  'SHP-VEG-ONT-03': ['Bell Peppers'],
 };
 
 export function getShipmentItems(shipment: TrackShipment): string[] {
@@ -2056,6 +2976,15 @@ function getStoreShelfContext(item: string): {
   onHandExpiresDate: string;
 } {
   const stores = STORE_DEMAND.filter((s) => s.item === item);
+  if (!stores.length) {
+    return {
+      storeName: '—',
+      daysLeft: 3,
+      stockoutDate: addDaysIso(DEMO_TODAY, 3),
+      onHandShelfLifeDays: 5,
+      onHandExpiresDate: addDaysIso(DEMO_TODAY, 5),
+    };
+  }
   const worst = stores.reduce((min, s) => (s.daysCover < min.daysCover ? s : min), stores[0]);
   const daysLeft = Math.max(0, Math.round(worst.daysCover));
   return {
@@ -3223,50 +4152,78 @@ export function selectClearanceOption(
   return updated;
 }
 
-/** Ranked short-lead alternates for delayed berry fill-in POs. */
-const ALT_SUPPLIER_CATALOG: Omit<AlternateSupplierOption, 'recommended' | 'reason'>[] = [
-  {
-    id: 'alt-agrigro',
-    supplierName: 'AgriGro Wholesale',
-    bidId: 'QUOTE-BB-002',
-    shipDays: 2,
-    pricePerCase: 29.4,
-    currency: 'USD',
-    origin: 'Mexico',
-    capacityCases: 2000,
-  },
-  {
-    id: 'alt-freshpack',
-    supplierName: 'FreshPack Co.',
-    bidId: 'QUOTE-BB-004',
-    shipDays: 3,
-    pricePerCase: 28.9,
-    currency: 'USD',
-    origin: 'USA — CA',
-    capacityCases: 1600,
-  },
-  {
-    id: 'alt-pacific',
-    supplierName: 'Pacific Berry Traders',
-    bidId: 'QUOTE-BB-007',
-    shipDays: 1,
-    pricePerCase: 31.2,
-    currency: 'USD',
-    origin: 'USA — WA',
-    capacityCases: 900,
-  },
-  {
-    id: 'alt-andes',
-    supplierName: 'Andes Fresh Export',
-    bidId: 'QUOTE-BB-011',
-    shipDays: 5,
-    pricePerCase: 27.5,
-    currency: 'USD',
-    origin: 'Peru',
-    capacityCases: 2400,
-  },
-];
+/** PO-first backup vendors for vegetables (not RFQ). */
+function getVegetableAlternateSupplierOptions(
+  item: string,
+  primarySupplier: string,
+  maxShipDays: number
+): { options: AlternateSupplierOption[]; recommendedOptionId: string | null } {
+  const catalog: Record<
+    string,
+    Omit<AlternateSupplierOption, 'currency' | 'recommended'>[]
+  > = {
+    'Romaine Lettuce': [
+      {
+        id: 'veg-alt-coastal',
+        supplierName: 'Coastal Greens Co.',
+        bidId: 'VEND-VG-101',
+        shipDays: 2,
+        pricePerCase: 19.25,
+        origin: 'Salinas, CA',
+        capacityCases: 1200,
+        reason: 'Approved backup vendor on PO contract',
+      },
+      {
+        id: 'veg-alt-desert',
+        supplierName: 'Desert Leaf Farms',
+        bidId: 'VEND-VG-102',
+        shipDays: 3,
+        pricePerCase: 17.8,
+        origin: 'Yuma, AZ',
+        capacityCases: 900,
+        reason: 'Secondary PO vendor — same pack spec',
+      },
+    ],
+    Broccoli: [
+      {
+        id: 'veg-alt-sunbelt',
+        supplierName: 'Sunbelt Produce',
+        bidId: 'VEND-VG-201',
+        shipDays: 2,
+        pricePerCase: 23.5,
+        origin: 'Salinas, CA',
+        capacityCases: 800,
+        reason: 'Approved fill-in on existing PO terms',
+      },
+      {
+        id: 'veg-alt-valley',
+        supplierName: 'Imperial Valley Greens',
+        bidId: 'VEND-VG-202',
+        shipDays: 3,
+        pricePerCase: 21.0,
+        origin: 'El Centro, CA',
+        capacityCases: 650,
+        reason: 'Backup vendor — iceless crown spec',
+      },
+    ],
+  };
 
+  const rows = catalog[item] ?? [];
+  const qualified = rows
+    .filter((s) => s.supplierName !== primarySupplier && s.shipDays <= maxShipDays)
+    .map((s, idx) => ({
+      ...s,
+      currency: 'USD',
+      recommended: idx === 0,
+    }));
+
+  return {
+    options: qualified,
+    recommendedOptionId: qualified[0]?.id ?? null,
+  };
+}
+
+/** Ranked short-lead alternates — RFQ bidders (fruits) or approved PO vendors (vegetables). */
 export function buildSourcingProposal(shipment: TrackShipment): SourcingProposal | null {
   if (shipment.eventStatus !== 'delayed') return null;
 
@@ -3345,16 +4302,25 @@ export function buildSourcingProposal(shipment: TrackShipment): SourcingProposal
     };
   }
 
-  const qualified = ALT_SUPPLIER_CATALOG.filter((s) => s.shipDays <= maxShipDaysConfig).map(
-    (s) => ({
-      ...s,
-      recommended: false,
-      reason:
-        s.shipDays <= 2
-          ? `Can cover fill-in before delayed container arrives (+${delayDays}d).`
-          : `Ships within configured max ${maxShipDaysConfig}d lead time.`,
-    })
-  );
+  const lane = getPurchasingLaneForShipment(shipment);
+  const { options: altOptions, recommendedOptionId } =
+    lane === 'vegetables'
+      ? getVegetableAlternateSupplierOptions(item, primarySupplier, maxShipDaysConfig)
+      : getRfqAlternateSupplierOptions(item, primarySupplier, maxShipDaysConfig);
+
+  const qualified: AlternateSupplierOption[] = altOptions.map((s) => ({
+    id: s.id,
+    supplierName: s.supplierName,
+    bidId: s.bidId,
+    shipDays: s.shipDays,
+    pricePerCase: s.pricePerCase,
+    currency: s.currency,
+    origin: s.origin,
+    capacityCases: s.capacityCases,
+    recommended: s.id === recommendedOptionId,
+    reason: s.reason,
+    rfqId: 'rfqId' in s ? (s as AlternateSupplierOption).rfqId : undefined,
+  }));
 
   if (qualified.length === 0) {
     return {
@@ -3367,19 +4333,15 @@ export function buildSourcingProposal(shipment: TrackShipment): SourcingProposal
     };
   }
 
-  // Prefer fastest ship, then lowest price
-  const ranked = [...qualified].sort(
-    (a, b) => a.shipDays - b.shipDays || a.pricePerCase - b.pricePerCase
-  );
-  ranked[0] = { ...ranked[0], recommended: true };
-  const recommendedOptionId = ranked[0].id;
+  const ranked = qualified;
+  const recommendedOptionIdFinal = recommendedOptionId ?? ranked[0]?.id ?? null;
 
   return {
     ...base,
     eligible: true,
     options: ranked,
-    selectedOptionId: recommendedOptionId,
-    recommendedOptionId,
+    selectedOptionId: recommendedOptionIdFinal,
+    recommendedOptionId: recommendedOptionIdFinal,
   };
 }
 
@@ -3459,9 +4421,11 @@ function buildFillInPurchaseOrder(
 ): SapPurchaseOrder | null {
   const p = action.sourcingProposal;
   if (!p?.issuedPo) return null;
-  const item = (p.item === 'Strawberries' ? 'Strawberries' : 'Blueberries') as
-    | 'Blueberries'
-    | 'Strawberries';
+  const item = p.item;
+  const isVegetable = VEGETABLE_ITEM_PATTERN.test(item);
+  const buyer = isVegetable ? 'David Okonkwo' : 'Sarah Mitchell';
+  const storageLocation = isVegetable ? 'CH01-V' : 'CH01-A';
+  const storageTemp = isVegetable ? '0–4°C' : '0–2°C';
   const shipDate = new Date();
   const eta = new Date(shipDate);
   eta.setDate(eta.getDate() + selected.shipDays);
@@ -3481,22 +4445,22 @@ function buildFillInPurchaseOrder(
     destination: 'Chicago DC',
     companyCode: '1000',
     purchasingOrg: 'PORG-US01',
-    buyer: 'Sarah Mitchell',
+    buyer,
     createdDate: shipIso,
     paymentTerms: 'Net 30',
     itemDetail: {
-      materialNumber: item === 'Blueberries' ? 'MAT-BB-FILL' : 'MAT-ST-FILL',
-      description: `Fresh ${item} — fill-in (alt supplier)`,
-      sku: item === 'Blueberries' ? 'SKU-BB-FILL' : 'SKU-ST-FILL',
+      materialNumber: `MAT-FILL-${p.issuedPo.slice(-4)}`,
+      description: `${item} — fill-in (alt supplier)`,
+      sku: `SKU-FILL-${p.issuedPo.slice(-4)}`,
       orderedQty: qty,
       confirmedQty: qty,
       unit: 'Cases',
       unitPrice,
       currency: selected.currency || 'USD',
-      shelfLifeDays: 14,
-      storageTemp: '0–2°C',
+      shelfLifeDays: isVegetable ? 10 : 14,
+      storageTemp,
       plant: 'PL-CHI-01',
-      storageLocation: 'CH01-A',
+      storageLocation,
       netWeightKg: Math.round(qty * 2),
       countryOfOrigin: selected.origin,
     },
@@ -3511,7 +4475,7 @@ function buildFillInPurchaseOrder(
       carrier: 'Short-haul reefer',
       incoterms: 'DAP',
       customsStatus: 'Domestic / cleared',
-      tempRange: '0–2°C',
+      tempRange: storageTemp,
       cargoLines: [
         {
           poNumber: p.issuedPo,
@@ -3568,8 +4532,20 @@ export function syncIssuedFillInPosFromActions(): SapPurchaseOrder[] {
 
 export function getAllPurchaseOrders(): SapPurchaseOrder[] {
   const fillIns = syncIssuedFillInPosFromActions();
-  const fillInIds = new Set(fillIns.map((p) => p.po));
-  return [...fillIns, ...DEMO_POS.filter((p) => !fillInIds.has(p.po))];
+  const rfqPos = loadFruitsRfqPosFromFlow();
+  const reserved = new Set([...fillIns, ...rfqPos].map((p) => p.po));
+  return [...fillIns, ...rfqPos, ...DEMO_POS.filter((p) => !reserved.has(p.po))];
+}
+
+function loadFruitsRfqPosFromFlow(): SapPurchaseOrder[] {
+  try {
+    // Lazy import pattern avoided — direct read keeps bundle simple
+    const raw = localStorage.getItem('freshguard-fruits-rfq-pos-v1');
+    if (raw) return JSON.parse(raw) as SapPurchaseOrder[];
+  } catch {
+    /* ignore */
+  }
+  return [];
 }
 
 export function isFillInPurchaseOrder(po: SapPurchaseOrder): boolean {
@@ -3579,7 +4555,7 @@ export function isFillInPurchaseOrder(po: SapPurchaseOrder): boolean {
   );
 }
 
-const ACTIONS_KEY = 'freshguard-risk-actions-v13';
+const ACTIONS_KEY = 'freshguard-risk-actions-v16';
 
 function buildActionContextFromShipment(shipment: TrackShipment) {
   const pos = shipment.linkedPos
@@ -3662,7 +4638,10 @@ export function getRiskActionContext(action: RiskAction): RiskActionContext | nu
 }
 
 export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction[] {
+  if (getPurchasingLaneForShipment(shipment) === 'vegetables') return [];
+
   const ctx = buildActionContextFromShipment(shipment);
+  const buyer = getShipmentPurchasingPersona(shipment);
   if (shipment.eventStatus === 'delayed') {
     const stockProposal = buildStockRiskProposal(shipment);
     const promotionProposal = buildPromotionRiskProposal(shipment);
@@ -3680,8 +4659,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         title: 'DC stock reallocation proposal',
         summary:
           'Reallocate available DC inventory and propose inter-store transfers to stores at highest stockout risk before inbound arrives.',
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: ['transport', 'receiving'],
         status: 'pending_approval',
         proposal: formatStockProposalSummary(stockProposal),
@@ -3705,8 +4684,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
           ? 'Alternate supplier — create fill-in PO'
           : 'Alternate supplier — not offered (check days config)',
         summary: formatSourcingProposalSummary(sourcingProposal),
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: ['supplier', 'receiving'],
         status: 'pending_approval',
         proposal: formatSourcingProposalSummary(sourcingProposal),
@@ -3727,8 +4706,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         title: 'Promotion reschedule & store mix review',
         summary:
           'Promotions tied to this inbound batch may start before stock arrives. Propose new dates or substitute participating stores.',
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: ['category_manager'],
         status: 'pending_approval',
         proposal: formatPromotionProposalSummary(promotionProposal),
@@ -3745,8 +4724,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         title: 'Revised shelf-life & markdown guidance',
         summary:
           'Delay reduces sellable window. After QC, system proposes markdown, max DC hold, and last store delivery date per item.',
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: ['receiving', 'category_manager'],
         status: 'pending_approval',
         proposal: formatShelfLifeProposalSummary(shelfLifeProposal),
@@ -3763,7 +4742,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         summary:
           'Dock crew is booked for the original date. Stand the shift down, then rebook the door and headcount against the revised arrival.',
         ownerPersona: 'receiving',
-        approverPersona: 'dc_purchasing',
+        approverPersona: buyer,
         notifyPersonas: ['receiving'],
         status: 'pending_approval',
         proposal: formatReceivingProposalSummary(receivingImpact),
@@ -3781,7 +4760,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         summary:
           'Reefers held for this pickup will sit idle. Release them, move them onto loads already inbound in that window, and rebook this pickup.',
         ownerPersona: 'transport',
-        approverPersona: 'dc_purchasing',
+        approverPersona: buyer,
         notifyPersonas: ['transport'],
         status: 'pending_approval',
         proposal: formatTransportProposalSummary(transportImpact),
@@ -3813,8 +4792,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         summary: overstockProposal.hasStorageCapacity
           ? `Present ${overstockProposal.presentStock.item}: ${overstockProposal.presentStock.dcOnHandCases} DC + ${overstockProposal.presentStock.storeOnHandCases} store cases already held. Capacity covers early inbound — keep existing stock on FEFO, put away new batch, no forced markdown.`
           : `Present ${overstockProposal.presentStock.item}: ${overstockProposal.presentStock.dcOnHandCases} DC + ${overstockProposal.presentStock.storeOnHandCases} store cases (${overstockProposal.presentStock.onHandShelfLifeDays}d life left). Early inbound would push DC to ${overstockProposal.projectedStock.dcIfHeldCases.toLocaleString()} cases with overflow — clear ageing batch, markdown if needed, then early replenish stores.`,
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: overstockProposal.hasStorageCapacity
           ? ['receiving']
           : ['receiving', 'transport', 'category_manager'],
@@ -3839,8 +4818,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         category: 'clearance',
         title: 'Clearance proposal — markdown or schedule promo',
         summary: formatEarlyClearanceProposalSummary(clearanceProposal),
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: ['category_manager'],
         status: 'pending_approval',
         proposal: formatEarlyClearanceProposalSummary(clearanceProposal),
@@ -3863,7 +4842,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
           ? `Pull crew forward for early gate-in. Put away all ${receivingImpact.pallets} pallets — capacity covers inbound.`
           : `Overstock short: put away only ${receivingImpact.putAwayPallets} of ${receivingImpact.pallets} pallets into free slots; flag ${receivingImpact.crossDockPallets} pallets (${receivingImpact.crossDockCases?.toLocaleString()} cases) for same-day cross-dock to stores.`,
         ownerPersona: 'receiving',
-        approverPersona: 'dc_purchasing',
+        approverPersona: buyer,
         notifyPersonas: ['receiving'],
         status: 'pending_approval',
         proposal: formatReceivingProposalSummary(receivingImpact),
@@ -3883,7 +4862,7 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
           ? 'Pull reefers forward for early gate-in. No extra store routes while capacity is OK.'
           : `Pull inbound pickup forward and book ${transportImpact.storeHaulTrucks ?? 0} outbound truck(s) for ${(transportImpact.storeHaulCases ?? 0).toLocaleString()} overflow cases from receiving cross-dock to stores.`,
         ownerPersona: 'transport',
-        approverPersona: 'dc_purchasing',
+        approverPersona: buyer,
         notifyPersonas: ['transport'],
         status: 'pending_approval',
         proposal: formatTransportProposalSummary(transportImpact),
@@ -3902,8 +4881,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         summary: overstockProposal.hasStorageCapacity
           ? 'No mandatory early store wave. Stand by if bay utilisation spikes after put-away.'
           : `Clear ageing ${distributionProposal.ageingDcCases} DC cases (${distributionProposal.markdownPercent ?? 15}% markdown). Split ${distributionProposal.overflowCases.toLocaleString()} overflow cases to ${distributionProposal.storeDeliveries.length} stores; add ${distributionProposal.extraRoutes} route(s).`,
-        ownerPersona: 'dc_purchasing',
-        approverPersona: 'dc_purchasing',
+        ownerPersona: buyer,
+        approverPersona: buyer,
         notifyPersonas: ['transport', 'receiving'],
         status: 'pending_approval',
         proposal: formatDistributionProposalSummary(distributionProposal),
@@ -3928,18 +4907,30 @@ export function loadRiskActions(): RiskAction[] {
       const existing = JSON.parse(raw) as RiskAction[];
       const existingById = new Map(existing.map((a) => [a.id, a]));
       let added = 0;
+      let refreshed = 0;
       for (const a of fresh) {
-        if (!existingById.has(a.id)) {
+        const prev = existingById.get(a.id);
+        if (!prev) {
           existingById.set(a.id, a);
           added += 1;
+        } else {
+          existingById.set(a.id, {
+            ...prev,
+            ownerPersona: a.ownerPersona,
+            approverPersona: a.approverPersona,
+            notifyPersonas: a.notifyPersonas,
+          });
+          refreshed += 1;
         }
       }
-      // Keep user progress on known ids; append any brand-new action types (e.g. sourcing).
       const ordered = [
         ...fresh.map((f) => existingById.get(f.id)!),
         ...existing.filter((e) => !fresh.some((f) => f.id === e.id)),
-      ];
-      if (added > 0) saveRiskActions(ordered);
+      ].filter((a) => {
+        const ship = DEMO_SHIPMENTS.find((s) => s.id === a.shipmentId);
+        return !ship || getPurchasingLaneForShipment(ship) !== 'vegetables';
+      });
+      if (added > 0 || refreshed > 0) saveRiskActions(ordered);
       return ordered;
     }
   } catch {
@@ -3978,11 +4969,15 @@ export function canPersonaApproveAction(action: RiskAction, persona: FreshGuardP
     return false;
   }
   if (isCategoryTwoStepAction(action)) {
-    if (action.status === 'pending_approval') return persona === 'dc_purchasing';
+    if (action.status === 'pending_approval') return isDcPurchasingPersona(persona) && persona === action.approverPersona;
     if (action.status === 'pending_category_approval') return persona === 'category_manager';
     return false;
   }
-  return action.status === 'pending_approval' && persona === 'dc_purchasing';
+  return (
+    action.status === 'pending_approval' &&
+    isDcPurchasingPersona(persona) &&
+    persona === action.approverPersona
+  );
 }
 
 export function approveRiskAction(id: string, persona: FreshGuardPersona): RiskAction | null {
@@ -3990,9 +4985,9 @@ export function approveRiskAction(id: string, persona: FreshGuardPersona): RiskA
   let updated: RiskAction | null = null;
   const next = list.map((a) => {
     if (a.id !== id || !canPersonaApproveAction(a, persona)) return a;
-    if (isCategoryTwoStepAction(a) && persona === 'dc_purchasing') {
+    if (isCategoryTwoStepAction(a) && isDcPurchasingPersona(persona)) {
       updated = { ...a, status: 'pending_category_approval' as const };
-    } else if (a.category === 'sourcing' && persona === 'dc_purchasing') {
+    } else if (a.category === 'sourcing' && isDcPurchasingPersona(persona)) {
       updated = issueSourcingPurchaseOrder(a);
     } else {
       updated = { ...a, status: 'approved' as const };
@@ -4014,7 +5009,8 @@ export function rejectRiskAction(id: string, persona: FreshGuardPersona): void {
 }
 
 export const PERSONA_LABELS: Record<FreshGuardPersona, string> = {
-  dc_purchasing: 'DC Purchasing',
+  dc_purchasing_fruits: 'DC Purchasing — Fruits',
+  dc_purchasing_vegetables: 'DC Purchasing — Vegetables',
   supplier: 'Supplier',
   transport: 'Transport Team',
   receiving: 'Receiving Team',

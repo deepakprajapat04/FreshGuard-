@@ -5,6 +5,7 @@
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { Layout } from './components/Layout';
+import { PersonaRouteGuard } from './components/PersonaRouteGuard';
 import { ThemeProvider } from './context/ThemeContext';
 import { PersonaProvider } from './context/PersonaContext';
 import { NotificationsProvider } from './context/NotificationsContext';
@@ -16,6 +17,7 @@ import QualityControl from './pages/QualityControl';
 import Claims from './pages/Claims';
 import Store from './pages/Store';
 import BusinessRules from './pages/BusinessRules';
+import FruitsRfq from './pages/FruitsRfq';
 
 export default function App() {
   return (
@@ -23,6 +25,7 @@ export default function App() {
       <PersonaProvider>
         <NotificationsProvider>
           <BrowserRouter>
+            <PersonaRouteGuard />
             <Layout>
               <Routes>
                 <Route path="/" element={<TrackingHub />} />
@@ -34,6 +37,7 @@ export default function App() {
                 <Route path="/qc" element={<QualityControl />} />
                 <Route path="/claims" element={<Claims />} />
                 <Route path="/store" element={<Store />} />
+                <Route path="/fruits-rfq" element={<FruitsRfq />} />
                 <Route path="/business-rules" element={<BusinessRules />} />
               </Routes>
             </Layout>

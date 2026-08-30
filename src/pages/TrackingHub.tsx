@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, StatCard } from '../components/PageChrome';
-import { usePersona, canApproveActions } from '../context/PersonaContext';
+import { usePersona } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { contentCanvasClass } from '../lib/sapTheme';
 import { StockRiskPanel } from '../components/tracking/StockRiskPanel';
@@ -44,6 +44,10 @@ import {
   selectClearanceOption,
   selectSourcingSupplier,
   isCategoryTwoStepAction,
+  isDcPurchasingPersona,
+  canPersonaApproveAction,
+  shipmentVisibleToPersona,
+  isVegetablesStatusOnlyIntel,
   type RiskAction,
   type TrackShipment,
   type FreshGuardPersona,
@@ -85,6 +89,14 @@ const ORIGINAL_ETA_ISO: Record<string, string> = {
   'SHP-ST-EARLY-01': '2026-08-20',
   'SHP-ST-EARLY-02': '2026-08-22',
   'SHP-BB-ONT-01': '2026-08-21',
+  'SHP-VEG-DLY-01': '2026-08-22',
+  'SHP-VEG-DLY-02': '2026-08-21',
+  'SHP-VEG-DLY-03': '2026-08-22',
+  'SHP-VEG-EARLY-01': '2026-08-20',
+  'SHP-VEG-EARLY-02': '2026-08-22',
+  'SHP-VEG-ONT-01': '2026-08-22',
+  'SHP-VEG-ONT-02': '2026-08-23',
+  'SHP-VEG-ONT-03': '2026-08-24',
 };
 
 const REVISED_ETA_ISO: Record<string, string> = {
@@ -92,6 +104,14 @@ const REVISED_ETA_ISO: Record<string, string> = {
   'SHP-ST-EARLY-01': '2026-08-19',
   'SHP-ST-EARLY-02': '2026-08-20',
   'SHP-BB-ONT-01': '2026-08-21',
+  'SHP-VEG-DLY-01': '2026-08-24',
+  'SHP-VEG-DLY-02': '2026-08-22',
+  'SHP-VEG-DLY-03': '2026-08-25',
+  'SHP-VEG-EARLY-01': '2026-08-19',
+  'SHP-VEG-EARLY-02': '2026-08-20',
+  'SHP-VEG-ONT-01': '2026-08-22',
+  'SHP-VEG-ONT-02': '2026-08-23',
+  'SHP-VEG-ONT-03': '2026-08-24',
 };
 
 function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: string }[] {
@@ -117,8 +137,15 @@ function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: str
   return [];
 }
 
+const VEGETABLE_DETAIL_STEPS: { id: DetailStep; label: string; icon: typeof Package }[] = [
+  { id: 'event', label: 'Event', icon: AlertTriangle },
+  { id: 'route', label: 'Touchpoints', icon: Route },
+];
+
 export default function TrackingHub() {
   const { persona } = usePersona();
+  const statusOnlyIntel = isVegetablesStatusOnlyIntel(persona);
+  const visibleDetailSteps = statusOnlyIntel ? VEGETABLE_DETAIL_STEPS : DETAIL_STEPS;
   const { upsertMany } = useNotifications();
   const [actions, setActions] = useState<RiskAction[]>(() => loadRiskActions());
   const [flash, setFlash] = useState<string | null>(null);
@@ -144,6 +171,7 @@ export default function TrackingHub() {
 
   const filteredShipments = useMemo(() => {
     return DEMO_SHIPMENTS.filter((s) => {
+      if (!shipmentVisibleToPersona(s, persona)) return false;
       if (eventFilter !== 'all' && s.eventStatus !== eventFilter) return false;
       if (search) {
         const q = search.toLowerCase();
@@ -155,7 +183,19 @@ export default function TrackingHub() {
       }
       return true;
     });
-  }, [eventFilter, search]);
+  }, [eventFilter, search, persona]);
+
+  useEffect(() => {
+    if (filteredShipments.some((s) => s.id === selectedId)) return;
+    setSelectedId(filteredShipments[0]?.id ?? DEMO_SHIPMENTS[0].id);
+  }, [filteredShipments, selectedId]);
+
+  useEffect(() => {
+    if (!statusOnlyIntel) return;
+    if (detailStep === 'risks' || detailStep === 'actions') {
+      setDetailStep('event');
+    }
+  }, [statusOnlyIntel, detailStep]);
 
   const selected =
     filteredShipments.find((s) => s.id === selectedId) ||
@@ -179,7 +219,7 @@ export default function TrackingHub() {
   const pendingForPersona = useMemo(() => {
     return actions.filter((a) => {
       if (a.status === 'pending_approval') {
-        if (persona === 'dc_purchasing') return a.approverPersona === 'dc_purchasing';
+        if (isDcPurchasingPersona(persona)) return a.approverPersona === persona;
         return false;
       }
       if (a.status === 'pending_category_approval') {
@@ -189,7 +229,8 @@ export default function TrackingHub() {
     });
   }, [actions, persona]);
 
-  const canApprove = canApproveActions(persona);
+  const canApproveAction = (action: RiskAction | undefined) =>
+    !!action && canPersonaApproveAction(action, persona);
 
   const refreshActions = () => setActions(loadRiskActions());
 
@@ -473,21 +514,28 @@ export default function TrackingHub() {
         )}
 
         {!detailExpanded && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            <StatCard compact label="Active lots" value={String(DEMO_SHIPMENTS.length)} tone="sap" />
+          <div className={cn('grid gap-2', statusOnlyIntel ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
+            <StatCard
+              compact
+              label="Active lots"
+              value={String(filteredShipments.length)}
+              tone="sap"
+            />
             <StatCard
               compact
               label="Delayed"
-              value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'delayed').length)}
+              value={String(filteredShipments.filter((s) => s.eventStatus === 'delayed').length)}
               tone="amber"
             />
             <StatCard
               compact
               label="Early"
-              value={String(DEMO_SHIPMENTS.filter((s) => s.eventStatus === 'early').length)}
+              value={String(filteredShipments.filter((s) => s.eventStatus === 'early').length)}
               tone="cyan"
             />
-            <StatCard compact label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
+            {!statusOnlyIntel && (
+              <StatCard compact label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
+            )}
           </div>
         )}
       </div>
@@ -622,7 +670,7 @@ export default function TrackingHub() {
             </div>
 
             <div className="flex border-b border-slate-200 dark:border-slate-700 overflow-x-auto bg-white dark:bg-slate-900">
-              {DETAIL_STEPS.map((step, idx) => (
+              {visibleDetailSteps.map((step, idx) => (
                 <button
                   key={step.id}
                   type="button"
@@ -648,7 +696,7 @@ export default function TrackingHub() {
               ))}
             </div>
 
-            {detailStep === 'risks' && riskSubSteps.length > 0 && (
+            {detailStep === 'risks' && !statusOnlyIntel && riskSubSteps.length > 0 && (
               <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50/95 dark:bg-slate-950/95">
                 <div className="flex flex-wrap gap-1.5">
                   {riskSubSteps.map((sub, idx) => (
@@ -709,10 +757,26 @@ export default function TrackingHub() {
                     </div>
                   </dl>
                   {delayDays !== 0 && (
-                    <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-900 px-3 py-2">
-                      {delayDays > 0
-                        ? `Shipment is ${delayDays} day(s) behind plan — downstream stock & promo risks triggered.`
-                        : `Shipment arriving ${Math.abs(delayDays)} day(s) early — overstock & receiving capacity risks triggered.`}
+                    <p
+                      className={cn(
+                        'text-xs rounded-lg px-3 py-2 border',
+                        delayDays > 0
+                          ? 'bg-amber-50 border-amber-200 text-amber-900'
+                          : 'bg-sky-50 border-sky-200 text-sky-900'
+                      )}
+                    >
+                      {statusOnlyIntel
+                        ? delayDays > 0
+                          ? `This container is delayed by ${delayDays} day(s). Revised ETA: ${selected.eta}.`
+                          : `This container is arriving ${Math.abs(delayDays)} day(s) early. Revised ETA: ${selected.eta}.`
+                        : delayDays > 0
+                          ? `Shipment is ${delayDays} day(s) behind plan — downstream stock & promo risks triggered.`
+                          : `Shipment arriving ${Math.abs(delayDays)} day(s) early — overstock & receiving capacity risks triggered.`}
+                    </p>
+                  )}
+                  {statusOnlyIntel && selected.eventStatus === 'on-time' && (
+                    <p className="text-xs rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 px-3 py-2">
+                      On plan — no schedule change for this container.
                     </p>
                   )}
                 </div>
@@ -761,18 +825,20 @@ export default function TrackingHub() {
                   <div><strong>Route:</strong> {selected.origin} → {selected.destination}</div>
                   <div><strong>Mode:</strong> {selected.transportMode}</div>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setDetailStep('risks')}
-                  className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD]"
-                >
-                  Next: Business risks <ChevronRight className="w-4 h-4" />
-                </button>
+                {!statusOnlyIntel && (
+                  <button
+                    type="button"
+                    onClick={() => setDetailStep('risks')}
+                    className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD]"
+                  >
+                    Next: Business risks <ChevronRight className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             )}
 
             {/* Step 3 — Risks with sub-wizard */}
-            {detailStep === 'risks' && (
+            {detailStep === 'risks' && !statusOnlyIntel && (
               <div className="space-y-4">
                 {riskSubSteps.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">
@@ -788,7 +854,7 @@ export default function TrackingHub() {
                         persona={persona}
                         originalEta={ORIGINAL_ETA_ISO[selected.id]}
                         revisedEta={REVISED_ETA_ISO[selected.id]}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(stockAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleStockApprove}
@@ -800,7 +866,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         sourcingAction={sourcingAction}
                         persona={persona}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(sourcingAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleSourcingApprove}
@@ -823,7 +889,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         shelfAction={shelfAction}
                         persona={persona}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(shelfAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleShelfApprove}
@@ -835,7 +901,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         receivingAction={receivingAction}
                         persona={persona}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(receivingAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleResourceApprove}
@@ -847,7 +913,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         transportAction={transportAction}
                         persona={persona}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(transportAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleResourceApprove}
@@ -859,7 +925,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         overstockAction={overstockAction}
                         persona={persona}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(overstockAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleResourceApprove}
@@ -882,7 +948,7 @@ export default function TrackingHub() {
                         shipment={selected}
                         distributionAction={distributionAction}
                         persona={persona}
-                        canApprove={canApprove}
+                        canApprove={canApproveAction(distributionAction)}
                         hideApproval
                         onActionsUpdated={refreshActions}
                         onApprove={handleResourceApprove}
@@ -901,7 +967,7 @@ export default function TrackingHub() {
             )}
 
             {/* Step 4 — Actions */}
-            {detailStep === 'actions' && (
+            {detailStep === 'actions' && !statusOnlyIntel && (
               <div className="space-y-4">
                 {shipmentActions.length === 0 ? (
                   <p className="text-sm text-slate-500 py-8 text-center border border-dashed rounded-xl">
@@ -933,7 +999,7 @@ export default function TrackingHub() {
                         <h3 className="text-sm font-bold">{a.title}</h3>
                         <p className="text-xs text-slate-600">{a.summary}</p>
                         <p className="text-xs font-medium">{a.proposal}</p>
-                        {a.status === 'pending_approval' && canApprove && (
+                        {a.status === 'pending_approval' && canPersonaApproveAction(a, persona) && (
                           <Link to="/actions" className="inline-flex items-center gap-1 text-xs font-bold text-[#4684AD] hover:underline">
                             Review in Actions <ArrowRight className="w-3 h-3" />
                           </Link>
@@ -946,7 +1012,7 @@ export default function TrackingHub() {
             )}
             </div>
 
-            {detailStep === 'risks' && activeRiskAction && (
+            {detailStep === 'risks' && !statusOnlyIntel && activeRiskAction && (
               <RiskActionFooter
                 action={activeRiskAction}
                 persona={persona}

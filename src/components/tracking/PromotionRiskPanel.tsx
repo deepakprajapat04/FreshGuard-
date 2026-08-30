@@ -23,6 +23,7 @@ import {
   buildPromotionRiskProposal,
   canPersonaApproveAction,
   getActionStatusLabel,
+  isDcPurchasingPersona,
   type FreshGuardPersona,
   type PromotionStoreChange,
   type RiskAction,
@@ -365,7 +366,7 @@ export function PromotionRiskPanel({
                 ` · awaiting ${PERSONA_LABELS.category_manager}`}
             </p>
 
-            {canAct && persona === 'dc_purchasing' && (
+            {canAct && isDcPurchasingPersona(persona) && (
               <div className="flex flex-wrap gap-2 pt-1">
                 <button type="button" onClick={handleApprove} className={btnPrimaryClass}>
                   <Check className="w-3.5 h-3.5" />
@@ -394,11 +395,11 @@ export function PromotionRiskPanel({
             {promoAction.status === 'pending_approval' && persona === 'category_manager' && (
               <p className="text-xs text-slate-500 flex items-center gap-1.5">
                 <Bell className="w-3.5 h-3.5" />
-                Awaiting DC Purchasing approval.
+                Awaiting {PERSONA_LABELS[promoAction.approverPersona]}.
               </p>
             )}
 
-            {promoAction.status === 'pending_category_approval' && persona === 'dc_purchasing' && (
+            {promoAction.status === 'pending_category_approval' && isDcPurchasingPersona(persona) && (
               <p className="text-xs text-violet-800 font-medium flex items-center gap-1.5">
                 <Bell className="w-3.5 h-3.5" />
                 Sent to Category Manager.

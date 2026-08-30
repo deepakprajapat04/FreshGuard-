@@ -1,7 +1,7 @@
 import { ReactNode, useRef, useState } from 'react';
 import { NavLink } from 'react-router';
 import { usePersona, isSupplierPersona } from '../context/PersonaContext';
-import { PERSONA_LABELS, type FreshGuardPersona } from '../lib/trackingFlow';
+import { DC_PURCHASING_PERSONAS, PERSONA_LABELS, type FreshGuardPersona } from '../lib/trackingFlow';
 import { SAP, contentCanvasClass } from '../lib/sapTheme';
 import { useTheme } from '../context/ThemeContext';
 import { useNotifications } from '../context/NotificationsContext';
@@ -21,6 +21,7 @@ import {
   Moon,
   Settings2,
   ClipboardCheck,
+  FileText,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -28,7 +29,7 @@ import { NotificationsPanel } from './NotificationsPanel';
 import { UserProfileMenu } from './UserProfileMenu';
 
 const ALL_PERSONAS: FreshGuardPersona[] = [
-  'dc_purchasing',
+  ...DC_PURCHASING_PERSONAS,
   'supplier',
   'transport',
   'receiving',
@@ -36,13 +37,14 @@ const ALL_PERSONAS: FreshGuardPersona[] = [
 ];
 
 const navItems = [
+  { name: 'Request for Quote', path: '/fruits-rfq', icon: FileText, personas: ['dc_purchasing_fruits'] as FreshGuardPersona[] },
   { name: 'Shipment Intelligence', path: '/', icon: LayoutDashboard, personas: ALL_PERSONAS },
-  { name: 'SAP Purchase Orders', path: '/orders', icon: ShoppingCart, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
+  { name: 'SAP Purchase Orders', supplierLabel: 'Shipping Detail', path: '/orders', icon: ShoppingCart, personas: [...DC_PURCHASING_PERSONAS, 'supplier'] as FreshGuardPersona[] },
   { name: 'Logistics Tracking', path: '/logistics', icon: Map, personas: ALL_PERSONAS },
-  { name: 'Risk Actions', path: '/actions', icon: ClipboardCheck, personas: ['dc_purchasing', 'transport', 'receiving', 'category_manager'] as FreshGuardPersona[] },
-  { name: 'Business Rules', path: '/business-rules', icon: Settings2, personas: ['dc_purchasing'] as FreshGuardPersona[] },
-  { name: 'Quality Control', path: '/qc', icon: ScanLine, personas: ['dc_purchasing', 'receiving'] as FreshGuardPersona[] },
-  { name: 'Claims & Wastage', path: '/claims', icon: AlertTriangle, personas: ['dc_purchasing', 'supplier'] as FreshGuardPersona[] },
+  { name: 'Risk Actions', path: '/actions', icon: ClipboardCheck, personas: ['dc_purchasing_fruits', 'transport', 'receiving', 'category_manager'] as FreshGuardPersona[] },
+  { name: 'Business Rules', path: '/business-rules', icon: Settings2, personas: DC_PURCHASING_PERSONAS },
+  { name: 'Quality Control', path: '/qc', icon: ScanLine, personas: [...DC_PURCHASING_PERSONAS, 'receiving'] as FreshGuardPersona[] },
+  { name: 'Claims & Wastage', path: '/claims', icon: AlertTriangle, personas: [...DC_PURCHASING_PERSONAS, 'supplier'] as FreshGuardPersona[] },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {
@@ -126,7 +128,12 @@ export function Layout({ children }: { children: ReactNode }) {
               {isSupplierPersona(persona) ? 'Supplier portal' : 'Operations console'}
             </div>
           )}
-          {filteredNavItems.map((item) => (
+          {filteredNavItems.map((item) => {
+            const label =
+              isSupplierPersona(persona) && 'supplierLabel' in item && item.supplierLabel
+                ? item.supplierLabel
+                : item.name;
+            return (
             <NavLink
               key={item.path}
               to={item.path}
@@ -140,12 +147,13 @@ export function Layout({ children }: { children: ReactNode }) {
                   sidebarCollapsed ? 'justify-center px-0' : ''
                 )
               }
-              title={sidebarCollapsed ? item.name : undefined}
+              title={sidebarCollapsed ? label : undefined}
             >
               <item.icon className="w-5 h-5 shrink-0 group-hover/link:scale-105 transition-transform" />
-              {!sidebarCollapsed && <span className="whitespace-nowrap">{item.name}</span>}
+              {!sidebarCollapsed && <span className="whitespace-nowrap">{label}</span>}
             </NavLink>
-          ))}
+            );
+          })}
         </div>
 
         <div className="p-3 border-t border-[#86A8C2]/60 bg-white/25 overflow-visible">

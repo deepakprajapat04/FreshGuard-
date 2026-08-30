@@ -722,7 +722,7 @@ export default function Logistics() {
   ];
 
   return (
-    <div className={cn('flex flex-col h-screen min-h-screen font-sans antialiased overflow-hidden', contentCanvasClass)}>
+    <div className={cn('flex flex-col h-full min-h-0 font-sans antialiased overflow-hidden', contentCanvasClass)}>
       <AnimatePresence>
         {successToast && (
           <motion.div
@@ -813,7 +813,7 @@ export default function Logistics() {
         }}
       />
 
-      <div className="flex-1 w-full relative overflow-hidden">
+      <div className="flex-1 w-full min-h-0 relative overflow-hidden">
         <AnimatePresence mode="wait">
           {activeTab === 'dashboard' && (
             <motion.div key="dash" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 overflow-y-auto px-4 lg:px-5 py-5">
@@ -833,7 +833,7 @@ export default function Logistics() {
           )}
 
           {activeTab === 'packing' && isVendor && (
-            <motion.div key="pack" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 overflow-y-auto px-4 lg:px-5 py-5">
+            <motion.div key="pack" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 overflow-y-auto px-4 lg:px-5 py-5 pb-10">
               <div className="w-full space-y-5">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-700 rounded-xl p-5 shadow-sm gap-4">
                   <div>

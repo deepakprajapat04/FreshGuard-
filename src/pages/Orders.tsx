@@ -15,6 +15,8 @@ import {
   Minimize2,
   Search,
   Filter,
+  CheckCircle2,
+  FileText,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader } from '../components/PageChrome';
@@ -28,6 +30,7 @@ import {
   getPoOrderLines,
   getAllPurchaseOrders,
   isFillInPurchaseOrder,
+  poVisibleToPersona,
   type PoRiskImpact,
   type SapPurchaseOrder,
 } from '../lib/trackingFlow';
@@ -37,8 +40,18 @@ import {
   SAMPLE_ASN_CAPTURE,
   type CapturedAsnFields,
 } from '../lib/asnCapture';
+import {
+  createPoFromFruitsRfqShipping,
+  FRUITS_RFQ_SUPPLIER,
+  getRfqsAwaitingShipping,
+  getRfqDropQty,
+  loadFruitsRfqs,
+  type FruitsRfq,
+} from '../lib/fruitsRfqFlow';
 
-const SUPPLIER_NAME = 'Berry Farms Co-op';
+import { SupplierRfqPortal } from '../components/supplier/SupplierRfqPortal';
+
+const SUPPLIER_NAME = FRUITS_RFQ_SUPPLIER;
 const STORAGE_KEY = 'freshguard-active-shipments-v6';
 
 type WizardStep = 'details' | 'item' | 'shipment' | 'risk';
@@ -150,12 +163,19 @@ function RiskStat({
 export default function Orders() {
   const { persona } = usePersona();
   const isSupplier = persona === 'supplier';
+  const isFruitsBuyer = persona === 'dc_purchasing_fruits';
   const [orders, setOrders] = useState<SapPurchaseOrder[]>(() => getAllPurchaseOrders());
+  const [fruitsRfqs, setFruitsRfqs] = useState<FruitsRfq[]>(() => loadFruitsRfqs());
+  const [awaitingRfqs, setAwaitingRfqs] = useState<FruitsRfq[]>(() =>
+    getRfqsAwaitingShipping(SUPPLIER_NAME)
+  );
   const [selectedPo, setSelectedPo] = useState<string | null>(() => {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('po');
-    if (fromQuery) return fromQuery;
-    const all = getAllPurchaseOrders();
+    const all = getAllPurchaseOrders().filter((o) =>
+      isSupplier ? o.supplier === SUPPLIER_NAME : poVisibleToPersona(o, persona)
+    );
+    if (fromQuery && all.some((o) => o.po === fromQuery)) return fromQuery;
     return all.find((o) => isFillInPurchaseOrder(o))?.po ?? all.find((o) => o.shipmentDetail)?.po ?? null;
   });
   const [wizardStep, setWizardStep] = useState<WizardStep>('details');
@@ -175,17 +195,31 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PoStatusFilter>('all');
   const [riskFilter, setRiskFilter] = useState<PoRiskFilter>('all');
+  const [linkedRfqId, setLinkedRfqId] = useState<string | null>(null);
+  const [asnMode, setAsnMode] = useState<'po' | 'rfq'>('po');
+  const [pomsSuccess, setPomsSuccess] = useState<{ poNumber: string; rfqId: string; item: string } | null>(
+    null
+  );
+
+  const refreshFruitsRfqState = () => {
+    setFruitsRfqs(loadFruitsRfqs());
+    setAwaitingRfqs(getRfqsAwaitingShipping(SUPPLIER_NAME));
+    setOrders(getAllPurchaseOrders());
+  };
 
   useEffect(() => {
-    setOrders(getAllPurchaseOrders());
+    refreshFruitsRfqState();
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('po');
     if (fromQuery) setSelectedPo(fromQuery);
   }, []);
 
   const visibleOrders = useMemo(
-    () => (isSupplier ? orders.filter((o) => o.supplier === SUPPLIER_NAME) : orders),
-    [orders, isSupplier]
+    () =>
+      isSupplier
+        ? orders.filter((o) => o.supplier === SUPPLIER_NAME)
+        : orders.filter((o) => poVisibleToPersona(o, persona)),
+    [orders, isSupplier, persona]
   );
 
   /** Only POs with a submitted ASN appear in the purchase order list. */
@@ -197,8 +231,12 @@ export default function Orders() {
   const riskByPo = useMemo(() => {
     const map = new Map<string, PoRiskImpact>();
     for (const o of orders) {
-      const impact = buildPoRiskImpact(o);
-      if (impact) map.set(o.po, impact);
+      try {
+        const impact = buildPoRiskImpact(o);
+        if (impact) map.set(o.po, impact);
+      } catch {
+        /* skip POs that cannot resolve risk context yet */
+      }
     }
     return map;
   }, [orders]);
@@ -324,7 +362,78 @@ export default function Orders() {
     }
   };
 
+  const submitRfqAsn = () => {
+    if (!linkedRfqId || !asnFields.asnNumber) return;
+    const rfq = awaitingRfqs.find((r) => r.id === linkedRfqId);
+    if (!rfq) return;
+    setSaving(true);
+    const dropQty = getRfqDropQty(rfq);
+    setTimeout(() => {
+      const result = createPoFromFruitsRfqShipping({
+        rfqId: linkedRfqId,
+        asnNumber: asnFields.asnNumber,
+        containerNumber: asnFields.containerNumber,
+        shipDate: asnFields.shipDate,
+        eta: asnFields.eta,
+        quantity: dropQty,
+      });
+      if (!result) {
+        setSaving(false);
+        setSlipMsg('Could not create PO — RFQ may already be fulfilled.');
+        return;
+      }
+
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        const list = stored ? JSON.parse(stored) : [];
+        list.unshift({
+          id: result.po.po,
+          containerNumber: asnFields.containerNumber,
+          asnNumber: asnFields.asnNumber,
+          vendor: SUPPLIER_NAME,
+          product: rfq.item,
+          item: `${dropQty} cases`,
+          quantity: dropQty,
+          unit: 'Cases',
+          stage: 'packing',
+          status: 'on-time',
+          eta: asnFields.eta,
+          destination: rfq.destination,
+          transportMode: 'ocean',
+          linkedPos: [result.po.po],
+          cargoLines: [
+            {
+              poNumber: result.po.po,
+              product: rfq.fruitItem,
+              item: rfq.fruitItem,
+              quantity: dropQty,
+              unit: 'Cases',
+            },
+          ],
+        });
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+      } catch {
+        /* ignore */
+      }
+
+      refreshFruitsRfqState();
+      setSelectedPo(result.po.po);
+      setSaving(false);
+      setAsnOpen(false);
+      setLinkedRfqId(null);
+      setPomsSuccess({
+        poNumber: result.po.po,
+        rfqId: rfq.id,
+        item: rfq.item,
+      });
+    }, 700);
+  };
+
   const submitAsn = () => {
+    if (asnMode === 'rfq') {
+      submitRfqAsn();
+      return;
+    }
     if (!asnFields.asnNumber || !linkedPoIds.length) return;
     setSaving(true);
     setTimeout(() => {
@@ -404,6 +513,10 @@ export default function Orders() {
     }, 600);
   };
 
+  if (isSupplier) {
+    return <SupplierRfqPortal />;
+  }
+
   return (
     <div
       className={cn(
@@ -413,27 +526,23 @@ export default function Orders() {
     >
       {!detailExpanded && (
         <PageHeader title="Purchase Order" className="shrink-0">
-          {isSupplier && (
-            <button
-              type="button"
-              onClick={() => {
-                setAsnOpen(true);
-                setLinkedPoIds([]);
-                setAsnFields({
-                  asnNumber: `ASN-${Date.now().toString().slice(-6)}`,
-                  containerNumber: '',
-                  shipDate: toDateInputValue(),
-                  eta: '3 Days',
-                  notes: '',
-                });
-              }}
-              className={btnPrimaryClass}
-            >
-              <Upload className="w-4 h-4" />
-              Create / upload ASN
-            </button>
+          {isFruitsBuyer && (
+            <Link to="/fruits-rfq" className={btnSecondaryClass}>
+              <FileText className="w-4 h-4" />
+              Request for Quote
+            </Link>
           )}
         </PageHeader>
+      )}
+
+      {isFruitsBuyer && fruitsRfqs.some((r) => r.status === 'awarded') && !detailExpanded && (
+        <div className="shrink-0 rounded-xl border border-blue-200 bg-blue-50/80 dark:bg-blue-950/20 px-4 py-3 text-sm text-[#2F5472] flex items-start gap-2">
+          <FileText className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            {fruitsRfqs.filter((r) => r.status === 'awarded').length} awarded RFQ(s) awaiting supplier
+            shipping. PO is created when ASN is submitted — no PO exists until then.
+          </span>
+        </div>
       )}
 
       <div
@@ -984,12 +1093,54 @@ export default function Orders() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40">
           <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-xl">
             <div className="border-b border-slate-200 bg-white px-5 py-4 dark:border-slate-800 dark:bg-slate-900">
-              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">Mass ASN upload</h2>
+              <h2 className="text-sm font-bold uppercase tracking-wide text-slate-900 dark:text-white">
+                {asnMode === 'rfq' ? 'Upload shipping against RFQ' : 'Mass ASN upload'}
+              </h2>
               <p className="text-xs text-slate-500 mt-1">
-                One container · multiple POs · photo OCR or manual entry
+                {asnMode === 'rfq'
+                  ? 'Request for Quote flow — shipping upload creates the purchase order'
+                  : 'One container · multiple POs · photo OCR or manual entry'}
               </p>
             </div>
             <div className="p-5 space-y-4">
+              {awaitingRfqs.length > 0 && (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAsnMode('rfq');
+                      setLinkedPoIds([]);
+                      if (!linkedRfqId && awaitingRfqs[0]) setLinkedRfqId(awaitingRfqs[0].id);
+                    }}
+                    className={cn(
+                      'px-3 py-1.5 rounded-lg text-xs font-bold uppercase border',
+                      asnMode === 'rfq'
+                        ? 'bg-[#4684AD] text-white border-[#4684AD]'
+                        : 'border-slate-200 text-slate-500'
+                    )}
+                  >
+                    RFQ shipping
+                  </button>
+                  {eligiblePos.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAsnMode('po');
+                        setLinkedRfqId(null);
+                      }}
+                      className={cn(
+                        'px-3 py-1.5 rounded-lg text-xs font-bold uppercase border',
+                        asnMode === 'po'
+                          ? 'bg-[#4684AD] text-white border-[#4684AD]'
+                          : 'border-slate-200 text-slate-500'
+                      )}
+                    >
+                      Existing PO
+                    </button>
+                  )}
+                </div>
+              )}
+
               <label className="block rounded-lg border border-dashed border-slate-300 p-4 cursor-pointer hover:bg-slate-50">
                 <span className="text-xs font-bold uppercase text-slate-500">Upload ASN photo / CSV</span>
                 <input
@@ -1004,32 +1155,69 @@ export default function Orders() {
                 {slipMsg && <p className="text-xs text-emerald-700 mt-2">{slipMsg}</p>}
               </label>
 
-              <div className="space-y-2">
-                <span className="text-xs font-bold uppercase text-slate-500">Link POs to container</span>
-                {eligiblePos.map((o) => {
-                  const on = linkedPoIds.includes(o.po);
-                  return (
-                    <button
-                      key={o.po}
-                      type="button"
-                      onClick={() => togglePo(o.po)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left text-sm',
-                        on ? 'border-[#4684AD] bg-[#C0D5E5]/60' : 'border-slate-200'
-                      )}
-                    >
-                      {on ? (
-                        <CheckSquare className="w-4 h-4 text-[#4684AD]" />
-                      ) : (
-                        <Square className="w-4 h-4 text-slate-400" />
-                      )}
-                      <span className="font-code font-semibold">{o.po}</span>
-                      <span>{o.item}</span>
-                      <span className="ml-auto text-slate-500">{o.orderedQty} cs</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {asnMode === 'rfq' ? (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase text-slate-500">
+                    Select awarded RFQ
+                  </span>
+                  {awaitingRfqs.length === 0 ? (
+                    <p className="text-sm text-slate-500">No awarded RFQs awaiting shipping.</p>
+                  ) : (
+                    awaitingRfqs.map((r) => {
+                      const on = linkedRfqId === r.id;
+                      return (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => setLinkedRfqId(r.id)}
+                          className={cn(
+                            'w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left text-sm',
+                            on ? 'border-[#4684AD] bg-[#C0D5E5]/60' : 'border-slate-200'
+                          )}
+                        >
+                          {on ? (
+                            <CheckSquare className="w-4 h-4 text-[#4684AD]" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400" />
+                          )}
+                          <span className="font-code font-semibold">{r.id}</span>
+                          <span className="truncate">{r.item}</span>
+                          <span className="ml-auto text-slate-500 shrink-0">
+                            {r.quantity} cs
+                          </span>
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <span className="text-xs font-bold uppercase text-slate-500">Link POs to container</span>
+                  {eligiblePos.map((o) => {
+                    const on = linkedPoIds.includes(o.po);
+                    return (
+                      <button
+                        key={o.po}
+                        type="button"
+                        onClick={() => togglePo(o.po)}
+                        className={cn(
+                          'w-full flex items-center gap-3 px-3 py-2 rounded-lg border text-left text-sm',
+                          on ? 'border-[#4684AD] bg-[#C0D5E5]/60' : 'border-slate-200'
+                        )}
+                      >
+                        {on ? (
+                          <CheckSquare className="w-4 h-4 text-[#4684AD]" />
+                        ) : (
+                          <Square className="w-4 h-4 text-slate-400" />
+                        )}
+                        <span className="font-code font-semibold">{o.po}</span>
+                        <span>{o.item}</span>
+                        <span className="ml-auto text-slate-500">{o.orderedQty} cs</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="block space-y-1">
@@ -1067,14 +1255,29 @@ export default function Orders() {
                 </label>
               </div>
 
+              {asnMode === 'rfq' && (
+                <p className="text-xs text-slate-500 rounded-lg bg-slate-50 dark:bg-slate-800/60 px-3 py-2">
+                  Submitting will create a purchase order and notify the DC team. No PO
+                  exists until this step.
+                </p>
+              )}
+
               <div className="flex gap-2 pt-2">
                 <button
                   type="button"
-                  disabled={saving || !linkedPoIds.length || !asnFields.asnNumber}
+                  disabled={
+                    saving ||
+                    !asnFields.asnNumber ||
+                    (asnMode === 'rfq' ? !linkedRfqId : !linkedPoIds.length)
+                  }
                   onClick={submitAsn}
                   className={cn(btnPrimaryClass, 'flex-1 disabled:opacity-50')}
                 >
-                  {saving ? 'Submitting…' : 'Submit ASN to DC'}
+                  {saving
+                    ? 'Submitting…'
+                    : asnMode === 'rfq'
+                      ? 'Submit shipping & create PO'
+                      : 'Submit ASN to DC'}
                 </button>
                 <button
                   type="button"
@@ -1082,6 +1285,57 @@ export default function Orders() {
                   className={btnSecondaryClass}
                 >
                   Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pomsSuccess && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/45">
+          <div className="w-full max-w-md rounded-2xl bg-white dark:bg-slate-900 border border-emerald-200 dark:border-emerald-800 shadow-2xl overflow-hidden">
+            <div className="px-5 py-4 bg-emerald-50 dark:bg-emerald-950/40 border-b border-emerald-100 dark:border-emerald-900">
+              <div className="flex items-center gap-2 text-emerald-900 dark:text-emerald-100">
+                <CheckCircle2 className="w-5 h-5" />
+                <h2 className="text-sm font-bold uppercase tracking-wide">PO created</h2>
+              </div>
+            </div>
+            <div className="p-5 space-y-3 text-sm text-slate-700 dark:text-slate-200">
+              <p>
+                Shipping details for <strong>{pomsSuccess.rfqId}</strong> were received. Purchase order{' '}
+                <strong className="font-code text-[#4684AD]">{pomsSuccess.poNumber}</strong> was created.
+              </p>
+              <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs space-y-1">
+                <div>
+                  <span className="text-slate-400">Item · </span>
+                  {pomsSuccess.item}
+                </div>
+                <div>
+                  <span className="text-slate-400">Supplier · </span>
+                  {SUPPLIER_NAME}
+                </div>
+              </div>
+              <p className="text-xs text-slate-500">
+                You can proceed in SAP Purchase Orders and Logistics Tracking.
+              </p>
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPomsSuccess(null);
+                    setSelectedPo(pomsSuccess.poNumber);
+                  }}
+                  className={cn(btnPrimaryClass, 'flex-1')}
+                >
+                  View PO & continue
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPomsSuccess(null)}
+                  className={btnSecondaryClass}
+                >
+                  Close
                 </button>
               </div>
             </div>

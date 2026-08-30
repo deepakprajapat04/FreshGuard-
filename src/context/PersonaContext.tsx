@@ -1,5 +1,8 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import type { FreshGuardPersona } from '../lib/trackingFlow';
+import {
+  type FreshGuardPersona,
+  isDcPurchasingPersona,
+} from '../lib/trackingFlow';
 
 export type Persona = FreshGuardPersona;
 
@@ -11,7 +14,7 @@ interface PersonaContextType {
 const PersonaContext = createContext<PersonaContextType | undefined>(undefined);
 
 export function PersonaProvider({ children }: { children: ReactNode }) {
-  const [persona, setPersona] = useState<Persona>('dc_purchasing');
+  const [persona, setPersona] = useState<Persona>('dc_purchasing_fruits');
   return (
     <PersonaContext.Provider value={{ persona, setPersona }}>
       {children}
@@ -35,12 +38,14 @@ export function isInternalPersona(persona: Persona) {
   return persona !== 'supplier';
 }
 
-/** Can approve risk-action proposals (DC Purchasing — step 1). */
+/** True if persona is a DC buyer lane. Use canPersonaApproveAction(action, persona) per action. */
 export function canApproveActions(persona: Persona) {
-  return persona === 'dc_purchasing';
+  return isDcPurchasingPersona(persona);
 }
 
 /** Can approve promotion proposals (Category Manager — step 2). */
 export function canApproveCategoryActions(persona: Persona) {
   return persona === 'category_manager';
 }
+
+export { isDcPurchasingPersona };

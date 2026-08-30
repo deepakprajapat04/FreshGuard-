@@ -13,6 +13,7 @@ import {
   selectSourcingSupplier,
   getActionStatusLabel,
   canPersonaApproveAction,
+  getShipmentPurchasingPersona,
   type FreshGuardPersona,
   type RiskAction,
   type TrackShipment,
@@ -66,17 +67,20 @@ export function SourcingRiskPanel({
   if (!proposal) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-4 py-8 text-center text-sm text-slate-500">
-        Alternate supplier is only available on delayed containers.
+        {shipment.eventStatus !== 'delayed'
+          ? 'Alternate supplier is only available on delayed containers.'
+          : 'Alternate supplier data is loading — refresh the page or open Risk Actions and click Reset demo.'}
       </div>
     );
   }
 
+  const buyerPersona = getShipmentPurchasingPersona(shipment);
   const effectiveSelectedId =
     selectedId ?? proposal.selectedOptionId ?? proposal.recommendedOptionId;
   const selected = proposal.options.find((o) => o.id === effectiveSelectedId);
   const canSelect =
     proposal.eligible &&
-    persona === 'dc_purchasing' &&
+    persona === buyerPersona &&
     (!sourcingAction || sourcingAction.status === 'pending_approval');
 
   const handleSelect = (optionId: string) => {
@@ -183,12 +187,13 @@ export function SourcingRiskPanel({
                         </span>
                         {opt.recommended && (
                           <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
-                            Recommended
+                            {opt.rfqId ? '2nd-best RFQ' : 'Recommended alt vendor'}
                           </span>
                         )}
                       </div>
                       <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 pl-5 leading-relaxed">
-                        {opt.reason} · {opt.origin} · {opt.bidId}
+                        {opt.reason} · {opt.origin}
+                        {opt.rfqId ? ` · ${opt.rfqId} · ${opt.bidId}` : ` · ${opt.bidId}`}
                       </p>
                     </div>
                     <div className="text-right text-xs shrink-0">

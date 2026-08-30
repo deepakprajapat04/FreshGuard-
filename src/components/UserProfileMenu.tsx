@@ -13,7 +13,7 @@ import {
 import { AnimatePresence, motion } from 'motion/react';
 import { cn } from '../lib/utils';
 import { usePersona } from '../context/PersonaContext';
-import type { FreshGuardPersona } from '../lib/trackingFlow';
+import { DC_PURCHASING_PERSONAS, type FreshGuardPersona } from '../lib/trackingFlow';
 import { PERSONA_LABELS } from '../lib/trackingFlow';
 import { useTheme } from '../context/ThemeContext';
 
@@ -29,14 +29,23 @@ const PROFILES: Record<
     id: string;
   }
 > = {
-  dc_purchasing: {
+  dc_purchasing_fruits: {
     name: 'Sarah Mitchell',
-    role: 'DC Purchasing Lead',
-    title: 'Enterprise Operations',
-    email: 'sarah.mitchell@freshguard.retail',
+    role: 'DC Purchasing — Fruits',
+    title: 'RFQ & Perishable Sourcing',
+    email: 'sarah.mitchell.fruits@freshguard.retail',
     org: 'FreshGuard Retail HQ',
     location: 'HQ DC — Chicago',
-    id: 'USR-DCP-014',
+    id: 'USR-DCP-F014',
+  },
+  dc_purchasing_vegetables: {
+    name: 'David Okonkwo',
+    role: 'DC Purchasing — Vegetables',
+    title: 'PO & Planned Produce Sourcing',
+    email: 'david.okonkwo.vegetables@freshguard.retail',
+    org: 'FreshGuard Retail HQ',
+    location: 'HQ DC — Chicago',
+    id: 'USR-DCP-V019',
   },
   supplier: {
     name: 'Marcus Chen',
@@ -77,7 +86,7 @@ const PROFILES: Record<
 };
 
 const ALL_PERSONAS: FreshGuardPersona[] = [
-  'dc_purchasing',
+  ...DC_PURCHASING_PERSONAS,
   'supplier',
   'transport',
   'receiving',

@@ -37,6 +37,7 @@ import {
   getActionStatusLabel,
   getRiskActionContext,
   isCategoryTwoStepAction,
+  isDcPurchasingPersona,
   selectSourcingSupplier,
   selectClearanceOption,
   EVENT_COLORS,
@@ -957,9 +958,11 @@ export default function Actions() {
   }, []);
 
   const forPersona = useMemo(() => {
-    if (persona === 'dc_purchasing') {
+    if (isDcPurchasingPersona(persona)) {
       return actions.filter(
-        (a) => a.status === 'pending_approval' || a.status === 'pending_category_approval'
+        (a) =>
+          (a.status === 'pending_approval' && a.approverPersona === persona) ||
+          (a.status === 'pending_category_approval' && a.ownerPersona === persona)
       );
     }
     if (persona === 'category_manager') {
@@ -1543,7 +1546,7 @@ export default function Actions() {
                   onSelectSourcingSupplier={
                     selected.category === 'sourcing' &&
                     selected.status === 'pending_approval' &&
-                    persona === 'dc_purchasing'
+                    isDcPurchasingPersona(persona)
                       ? (optionId) => {
                           selectSourcingSupplier(selected.id, optionId);
                           setActions(loadRiskActions());
@@ -1554,7 +1557,7 @@ export default function Actions() {
                     selected.category === 'clearance' &&
                     (selected.status === 'pending_approval' ||
                       selected.status === 'pending_category_approval') &&
-                    (persona === 'dc_purchasing' || persona === 'category_manager')
+                    (isDcPurchasingPersona(persona) || persona === 'category_manager')
                       ? (optionId) => {
                           selectClearanceOption(selected.id, optionId);
                           setActions(loadRiskActions());

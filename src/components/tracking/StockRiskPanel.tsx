@@ -568,7 +568,7 @@ export function StockRiskPanel({
             {stockAction.status === 'pending_approval' && !canApprove && (
               <p className="text-xs text-slate-500 flex items-center gap-1.5">
                 <Bell className="w-3.5 h-3.5" />
-                Awaiting DC Purchasing approval.
+                Awaiting {PERSONA_LABELS[stockAction.approverPersona]}.
               </p>
             )}
 

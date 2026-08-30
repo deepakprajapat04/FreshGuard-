@@ -12,6 +12,7 @@ import {
   selectClearanceOption,
   canPersonaApproveAction,
   getActionStatusLabel,
+  isDcPurchasingPersona,
   type EarlyClearanceProposal,
   type FreshGuardPersona,
   type RiskAction,
@@ -75,7 +76,7 @@ export function EarlyClearanceRiskPanel({
   const effectiveSelectedId =
     selectedId ?? proposal.selectedOptionId ?? proposal.recommendedOptionId;
   const canSelect =
-    (persona === 'dc_purchasing' || persona === 'category_manager') &&
+    (isDcPurchasingPersona(persona) || persona === 'category_manager') &&
     (!clearanceAction ||
       clearanceAction.status === 'pending_approval' ||
       clearanceAction.status === 'pending_category_approval');
@@ -259,7 +260,7 @@ export function EarlyClearanceRiskPanel({
             </strong>
           </p>
 
-          {canAct && persona === 'dc_purchasing' && (
+          {canAct && isDcPurchasingPersona(persona) && (
             <div className="flex flex-wrap gap-2 pt-1">
               <button type="button" onClick={handleApprove} className={btnPrimaryClass}>
                 <Check className="w-3.5 h-3.5" />
@@ -288,11 +289,11 @@ export function EarlyClearanceRiskPanel({
           {clearanceAction.status === 'pending_approval' && persona === 'category_manager' && (
             <p className="text-xs text-slate-500 flex items-center gap-1.5">
               <Bell className="w-3.5 h-3.5" />
-              Awaiting DC Purchasing approval.
+              Awaiting {PERSONA_LABELS[clearanceAction.approverPersona]}.
             </p>
           )}
 
-          {clearanceAction.status === 'pending_category_approval' && persona === 'dc_purchasing' && (
+          {clearanceAction.status === 'pending_category_approval' && isDcPurchasingPersona(persona) && (
             <p className="text-xs text-violet-800 font-medium flex items-center gap-1.5">
               <Bell className="w-3.5 h-3.5" />
               Sent to Category Manager.
