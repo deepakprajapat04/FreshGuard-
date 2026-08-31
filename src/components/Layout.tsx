@@ -22,6 +22,7 @@ import {
   Settings2,
   ClipboardCheck,
   FileText,
+  Activity,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -37,9 +38,10 @@ const ALL_PERSONAS: FreshGuardPersona[] = [
 ];
 
 const navItems = [
-  { name: 'Request for Quote', path: '/fruits-rfq', icon: FileText, personas: ['dc_purchasing_fruits'] as FreshGuardPersona[] },
-  { name: 'Shipment Intelligence', path: '/', icon: LayoutDashboard, personas: ALL_PERSONAS },
+  { name: 'Dashboard', path: '/', icon: Activity, personas: ALL_PERSONAS.filter((p) => p !== 'supplier') as FreshGuardPersona[] },
+  { name: 'Contracts', path: '/fruits-rfq', icon: FileText, personas: ['dc_purchasing_fruits'] as FreshGuardPersona[] },
   { name: 'SAP Purchase Orders', supplierLabel: 'Shipping Detail', path: '/orders', icon: ShoppingCart, personas: [...DC_PURCHASING_PERSONAS, 'supplier'] as FreshGuardPersona[] },
+  { name: 'Shipment Intelligence', path: '/tracking', icon: LayoutDashboard, personas: ALL_PERSONAS },
   { name: 'Logistics Tracking', path: '/logistics', icon: Map, personas: ALL_PERSONAS },
   { name: 'Risk Actions', path: '/actions', icon: ClipboardCheck, personas: ['dc_purchasing_fruits', 'transport', 'receiving', 'category_manager'] as FreshGuardPersona[] },
   { name: 'Business Rules', path: '/business-rules', icon: Settings2, personas: DC_PURCHASING_PERSONAS },
@@ -124,7 +126,7 @@ export function Layout({ children }: { children: ReactNode }) {
 
         <div className="flex-1 overflow-y-auto py-5 px-3 space-y-1 overflow-x-hidden">
           {!sidebarCollapsed && (
-            <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide mb-3 px-3 whitespace-nowrap">
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-3 px-3 whitespace-nowrap">
               {isSupplierPersona(persona) ? 'Supplier portal' : 'Operations console'}
             </div>
           )}
@@ -137,6 +139,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <NavLink
               key={item.path}
               to={item.path}
+              end={item.path === '/'}
               onClick={() => setMobileMenuOpen(false)}
               className={({ isActive }) =>
                 cn(
@@ -251,7 +254,7 @@ export function Layout({ children }: { children: ReactNode }) {
               >
                 <Bell className="w-5 h-5" />
                 {unreadCount > 0 && (
-                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] font-bold text-white flex items-center justify-center ring-2 ring-[#B8CFE0]">
+                  <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[11px] font-bold text-white flex items-center justify-center ring-2 ring-[#B8CFE0]">
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </span>
                 )}

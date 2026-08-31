@@ -306,7 +306,7 @@ export default function Claims() {
       render: (c) => (
         <span
           className={cn(
-            'px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase border',
+            'px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase border',
             c.status === 'pending'
               ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 text-amber-700 dark:text-amber-400'
               : c.status === 'approved'
@@ -332,7 +332,7 @@ export default function Claims() {
       render: () => (
         <button
           type="button"
-          className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 text-[10px] uppercase font-bold font-mono cursor-pointer border border-slate-200 dark:border-slate-850 px-2 py-1 rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 transition-colors"
+          className="text-slate-500 hover:text-slate-800 dark:hover:text-slate-200 flex items-center gap-1 text-[11px] uppercase font-bold font-mono cursor-pointer border border-slate-200 dark:border-slate-850 px-2 py-1 rounded bg-slate-50 hover:bg-slate-100 dark:bg-slate-950 transition-colors"
         >
           <FileText className="w-3.5 h-3.5" /> View Proof
         </button>
@@ -418,7 +418,7 @@ export default function Claims() {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    'px-3 py-1 rounded-md text-[10px] font-bold font-mono uppercase tracking-tight transition-all cursor-pointer',
+                    'px-3 py-1 rounded-md text-[11px] font-bold font-mono uppercase tracking-tight transition-all cursor-pointer',
                     activeTab === tab
                       ? 'bg-[#4684AD] text-white shadow-sm'
                       : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
@@ -508,7 +508,7 @@ export default function Claims() {
                           </option>
                         ))}
                       </select>
-                      <span className="text-[9px] text-slate-400 font-mono mt-1.5 block">
+                      <span className="text-[11px] text-slate-400 font-mono mt-1.5 block">
                         Displays recent logistics arrivals and auto-receivable gates.
                       </span>
                     </div>
@@ -534,7 +534,7 @@ export default function Claims() {
                             <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400 font-normal block">
                               Proof attached: cold_chain_excursion_log.csv
                             </span>
-                            <span className="text-[9px] text-emerald-500 font-mono tracking-tight block">
+                            <span className="text-[11px] text-emerald-500 font-mono tracking-tight block">
                               Click to remove evidence file (12KB)
                             </span>
                           </motion.div>
@@ -544,7 +544,7 @@ export default function Claims() {
                             <span className="text-xs font-bold font-mono tracking-tight text-rose-600 block hover:-translate-y-0.5 transition-transform">
                               [ + Attach Proof ]
                             </span>
-                            <span className="text-[10px] text-slate-450 dark:text-slate-505 max-w-[190px] mx-auto leading-normal">
+                            <span className="text-[11px] text-slate-450 dark:text-slate-505 max-w-[190px] mx-auto leading-normal">
                               Upload Photo of Package Damage or Cold-Chain Log Excursion
                             </span>
                           </div>
@@ -573,7 +573,7 @@ export default function Claims() {
                     {/* Interactive Fields Grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-[10px] font-bold font-mono text-slate-450 uppercase block mb-1">Issue Reason</label>
+                        <label className="text-[11px] font-bold font-mono text-slate-450 uppercase block mb-1">Issue Reason</label>
                         <select
                           id="issue-reason-field"
                           value={issueReason}
@@ -588,7 +588,7 @@ export default function Claims() {
                       </div>
 
                       <div>
-                        <label className="text-[10px] font-bold font-mono text-slate-450 uppercase block mb-1">Calculated Loss Amount ($)</label>
+                        <label className="text-[11px] font-bold font-mono text-slate-450 uppercase block mb-1">Calculated Loss Amount ($)</label>
                         <input
                           id="loss-amount-field"
                           type="number"
@@ -601,7 +601,7 @@ export default function Claims() {
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-bold font-mono text-slate-455 uppercase block mb-1">Evidence Attachment Summary</label>
+                      <label className="text-[11px] font-bold font-mono text-slate-455 uppercase block mb-1">Evidence Attachment Summary</label>
                       <input
                         id="evidence-summary-field"
                         type="text"
@@ -629,7 +629,7 @@ export default function Claims() {
                   {/* Smart Notification Badge */}
                   <div className="bg-amber-50/20 border border-amber-500/25 dark:border-amber-900/35 rounded-xl p-2.5 mt-3 flex items-start gap-2">
                     <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
-                    <p className="text-[10px] text-amber-800 dark:text-amber-400 font-sans leading-normal font-medium">
+                    <p className="text-[11px] text-amber-800 dark:text-amber-400 font-sans leading-normal font-medium">
                       FreshGuard AI automatically calculated this lost value credit claim from the total affected pallet volumes of matching thermal logs.
                     </p>
                   </div>
@@ -640,7 +640,7 @@ export default function Claims() {
 
               {/* Modal Actions Footer */}
               <div className="border-t border-slate-150 dark:border-slate-805 px-6 py-4 flex justify-between items-center bg-slate-50/50 dark:bg-slate-950/20">
-                <span className="text-[10px] text-slate-400 font-mono select-none">ID LOG: ACTIVE</span>
+                <span className="text-[11px] text-slate-400 font-mono select-none">ID LOG: ACTIVE</span>
                 
                 <div className="flex gap-2.5">
                   <button

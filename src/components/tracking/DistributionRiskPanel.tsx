@@ -64,7 +64,7 @@ export function DistributionRiskPanel({
             : 'border-amber-300 bg-amber-50/70 text-amber-950'
         )}
       >
-        <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+        <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
           Tied to overstock decision
         </div>
         <p className="mt-1 font-medium">{proposal.notifyMessage}</p>
@@ -73,14 +73,14 @@ export function DistributionRiskPanel({
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Put away at DC</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Put away at DC</div>
             <div className="text-lg font-bold tabular-nums text-emerald-700 mt-0.5">
               {proposal.putAwayCases.toLocaleString()}
             </div>
-            <div className="text-[10px] text-slate-400">cases into free slots</div>
+            <div className="text-[11px] text-slate-400">cases into free slots</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Overflow push</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Overflow push</div>
             <div
               className={cn(
                 'text-lg font-bold tabular-nums mt-0.5',
@@ -89,23 +89,23 @@ export function DistributionRiskPanel({
             >
               {proposal.overflowCases.toLocaleString()}
             </div>
-            <div className="text-[10px] text-slate-400">cases to stores</div>
+            <div className="text-[11px] text-slate-400">cases to stores</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Ageing DC stock</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Ageing DC stock</div>
             <div className="text-lg font-bold tabular-nums mt-0.5">
               {proposal.ageingDcCases.toLocaleString()}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {proposal.ageingShelfLifeDays}d life · exp {formatShortDate(proposal.ageingExpiresDate)}
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Extra routes</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Extra routes</div>
             <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
               {proposal.extraRoutes}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {proposal.markdownPercent != null
                 ? `markdown ${proposal.markdownPercent}%`
                 : 'no markdown'}
@@ -125,11 +125,11 @@ export function DistributionRiskPanel({
               className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 bg-white dark:bg-slate-900"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold tabular-nums text-white bg-[#4684AD] rounded px-1.5 py-0.5">
+                <span className="text-[11px] font-bold tabular-nums text-white bg-[#4684AD] rounded px-1.5 py-0.5">
                   {m.step}
                 </span>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{m.title}</span>
-                <span className="text-[10px] font-semibold uppercase text-slate-400 ml-auto">
+                <span className="text-[11px] font-semibold uppercase text-slate-400 ml-auto">
                   {m.owner}
                 </span>
               </div>
@@ -173,7 +173,7 @@ export function DistributionRiskPanel({
                     </td>
                     <td className="px-3 py-2.5">
                       {s.notifyStore ? (
-                        <span className="text-[10px] font-bold uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[11px] font-bold uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                           Clear stock / arrange space
                         </span>
                       ) : (
@@ -191,10 +191,10 @@ export function DistributionRiskPanel({
       {distributionAction && !hideApproval && (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-blue-50 text-blue-800 border-blue-200">
+            <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded border bg-blue-50 text-blue-800 border-blue-200">
               Distribution
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[11px] text-slate-500">
               {getActionStatusLabel(distributionAction.status)}
             </span>
           </div>

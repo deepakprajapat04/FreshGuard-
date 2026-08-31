@@ -1,7 +1,7 @@
 /**
  * Shipment intelligence — master-detail with step wizard detail panel.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router';
 import {
   ArrowRight,
@@ -17,6 +17,7 @@ import {
   Route,
   Maximize2,
   Minimize2,
+  Search,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, StatCard } from '../components/PageChrome';
@@ -84,6 +85,9 @@ const DETAIL_STEPS: { id: DetailStep; label: string; icon: typeof Package }[] = 
   { id: 'actions', label: 'Actions', icon: ClipboardList },
 ];
 
+/** MVP: hide Risks & Actions tabs and Actions pending KPI — flip to false to restore. */
+const MVP_HIDE_RISKS_AND_ACTIONS = true;
+
 const ORIGINAL_ETA_ISO: Record<string, string> = {
   'SHP-BB-DLY-01': '2026-08-21',
   'SHP-ST-EARLY-01': '2026-08-20',
@@ -145,13 +149,16 @@ const VEGETABLE_DETAIL_STEPS: { id: DetailStep; label: string; icon: typeof Pack
 export default function TrackingHub() {
   const { persona } = usePersona();
   const statusOnlyIntel = isVegetablesStatusOnlyIntel(persona);
-  const visibleDetailSteps = statusOnlyIntel ? VEGETABLE_DETAIL_STEPS : DETAIL_STEPS;
+  const hideRisksAndActions = statusOnlyIntel || MVP_HIDE_RISKS_AND_ACTIONS;
+  const visibleDetailSteps = hideRisksAndActions ? VEGETABLE_DETAIL_STEPS : DETAIL_STEPS;
   const { upsertMany } = useNotifications();
   const [actions, setActions] = useState<RiskAction[]>(() => loadRiskActions());
   const [flash, setFlash] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState(DEMO_SHIPMENTS[0].id);
   const [eventFilter, setEventFilter] = useState<EventFilter>('all');
   const [search, setSearch] = useState('');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [detailStep, setDetailStep] = useState<DetailStep>('event');
   const [riskSubStep, setRiskSubStep] = useState<RiskSubStep>('stock');
   const [detailExpanded, setDetailExpanded] = useState(false);
@@ -164,6 +171,24 @@ export default function TrackingHub() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [detailExpanded]);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [filterOpen]);
 
   useEffect(() => {
     setActions(loadRiskActions());
@@ -191,11 +216,11 @@ export default function TrackingHub() {
   }, [filteredShipments, selectedId]);
 
   useEffect(() => {
-    if (!statusOnlyIntel) return;
+    if (!hideRisksAndActions) return;
     if (detailStep === 'risks' || detailStep === 'actions') {
       setDetailStep('event');
     }
-  }, [statusOnlyIntel, detailStep]);
+  }, [hideRisksAndActions, detailStep]);
 
   const selected =
     filteredShipments.find((s) => s.id === selectedId) ||
@@ -514,7 +539,7 @@ export default function TrackingHub() {
         )}
 
         {!detailExpanded && (
-          <div className={cn('grid gap-2', statusOnlyIntel ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
+          <div className={cn('grid gap-2', hideRisksAndActions ? 'grid-cols-3' : 'grid-cols-2 sm:grid-cols-4')}>
             <StatCard
               compact
               label="Active lots"
@@ -533,7 +558,7 @@ export default function TrackingHub() {
               value={String(filteredShipments.filter((s) => s.eventStatus === 'early').length)}
               tone="cyan"
             />
-            {!statusOnlyIntel && (
+            {!hideRisksAndActions && (
               <StatCard compact label="Actions pending" value={String(pendingForPersona.length)} tone="rose" />
             )}
           </div>
@@ -560,36 +585,74 @@ export default function TrackingHub() {
           )}
         >
           <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-slate-900 dark:text-white">
-              <Filter className="w-3.5 h-3.5" />
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">
               Containers
             </h2>
+            {eventFilter !== 'all' && (
+              <p className="text-[11px] text-slate-500 mt-0.5">{EVENT_LABELS[eventFilter]}</p>
+            )}
           </div>
 
-          <div className="shrink-0 p-3 space-y-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search container, PO, item…"
-              className="w-full rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
-            />
-            <div className="flex flex-wrap gap-1">
-              {(['all', 'delayed', 'early', 'on-time'] as const).map((f) => (
+          <div className="shrink-0 p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search container, PO, item…"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
+                />
+              </div>
+              <div className="relative shrink-0" ref={filterRef}>
                 <button
-                  key={f}
                   type="button"
-                  onClick={() => setEventFilter(f)}
+                  onClick={() => setFilterOpen((v) => !v)}
                   className={cn(
-                    'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
-                    eventFilter === f
-                      ? 'bg-[#4684AD] text-white border-[#4684AD]'
+                    'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                    eventFilter !== 'all' || filterOpen
+                      ? 'border-[#4684AD] bg-[#C0D5E5]/50 text-[#2F5472]'
                       : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40'
                   )}
+                  aria-expanded={filterOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by delivery event"
                 >
-                  {f === 'all' ? 'All' : EVENT_LABELS[f]}
+                  <Filter className="w-3.5 h-3.5" />
+                  Filter
                 </button>
-              ))}
+                {filterOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute right-0 top-full z-20 mt-1 w-44 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1"
+                  >
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      Delivery event
+                    </div>
+                    {(['all', 'delayed', 'early', 'on-time'] as const).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        role="option"
+                        aria-selected={eventFilter === f}
+                        onClick={() => {
+                          setEventFilter(f);
+                          setFilterOpen(false);
+                        }}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                          eventFilter === f
+                            ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {f === 'all' ? 'All' : EVENT_LABELS[f]}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
@@ -613,7 +676,7 @@ export default function TrackingHub() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="font-code text-xs font-bold text-[#2F5472]">{s.containerNumber}</span>
-                      <span className={cn('text-[10px] font-bold uppercase px-2 py-0.5 rounded border', EVENT_COLORS[s.eventStatus])}>
+                      <span className={cn('text-[11px] font-bold uppercase px-2 py-0.5 rounded border', EVENT_COLORS[s.eventStatus])}>
                         {EVENT_LABELS[s.eventStatus]}
                       </span>
                     </div>
@@ -621,7 +684,7 @@ export default function TrackingHub() {
                     <div className="text-[11px] text-slate-500 mt-0.5">
                       ETA {s.eta}
                     </div>
-                    <div className="text-[10px] text-slate-400 font-code mt-0.5">{s.linkedPos.join(' · ')}</div>
+                    <div className="text-[11px] text-slate-400 font-code mt-0.5">{s.linkedPos.join(' · ')}</div>
                   </button>
                 );
               })
@@ -634,7 +697,7 @@ export default function TrackingHub() {
           <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-700">
             <div className="px-3 py-2.5 flex items-center justify-between gap-3 bg-white dark:bg-slate-900">
               <div className="min-w-0">
-                <h2 className="text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <h2 className="text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                   Container detail
                 </h2>
                 <p className="font-code text-sm font-bold leading-snug truncate">
@@ -647,7 +710,7 @@ export default function TrackingHub() {
               <div className="flex items-center gap-2 shrink-0">
                 <span
                   className={cn(
-                    'text-[10px] font-bold uppercase px-2 py-0.5 rounded border',
+                    'text-[11px] font-bold uppercase px-2 py-0.5 rounded border',
                     EVENT_COLORS[selected.eventStatus]
                   )}
                 >
@@ -684,7 +747,7 @@ export default function TrackingHub() {
                 >
                   <span
                     className={cn(
-                      'w-[1.125rem] h-[1.125rem] rounded-full flex items-center justify-center text-[10px]',
+                      'w-[1.125rem] h-[1.125rem] rounded-full flex items-center justify-center text-[11px]',
                       detailStep === step.id ? 'bg-[#4684AD] text-white' : 'bg-slate-200 text-slate-500'
                     )}
                   >
@@ -696,7 +759,7 @@ export default function TrackingHub() {
               ))}
             </div>
 
-            {detailStep === 'risks' && !statusOnlyIntel && riskSubSteps.length > 0 && (
+            {detailStep === 'risks' && !hideRisksAndActions && riskSubSteps.length > 0 && (
               <div className="px-3 py-2 border-b border-slate-200 dark:border-slate-700 bg-slate-50/95 dark:bg-slate-950/95">
                 <div className="flex flex-wrap gap-1.5">
                   {riskSubSteps.map((sub, idx) => (
@@ -732,27 +795,27 @@ export default function TrackingHub() {
                 <div className="rounded-xl border border-slate-200 p-4 space-y-3">
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     <div>
-                      <dt className="text-[10px] font-bold uppercase text-slate-400">Event</dt>
+                      <dt className="text-[11px] font-bold uppercase text-slate-400">Event</dt>
                       <dd className="font-semibold mt-0.5">{EVENT_LABELS[selected.eventStatus]}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase text-slate-400">ASN</dt>
+                      <dt className="text-[11px] font-bold uppercase text-slate-400">ASN</dt>
                       <dd className="font-code mt-0.5">{selected.asnNumber}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase text-slate-400">Original ETA</dt>
+                      <dt className="text-[11px] font-bold uppercase text-slate-400">Original ETA</dt>
                       <dd className="mt-0.5">{selected.originalEta}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase text-slate-400">Current ETA</dt>
+                      <dt className="text-[11px] font-bold uppercase text-slate-400">Current ETA</dt>
                       <dd className="mt-0.5 font-semibold text-[#2F5472]">{selected.eta}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase text-slate-400">Quantity</dt>
+                      <dt className="text-[11px] font-bold uppercase text-slate-400">Quantity</dt>
                       <dd className="mt-0.5">{selected.quantity.toLocaleString()} {selected.unit}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase text-slate-400">Linked POs</dt>
+                      <dt className="text-[11px] font-bold uppercase text-slate-400">Linked POs</dt>
                       <dd className="font-code text-xs mt-0.5">{selected.linkedPos.join(', ')}</dd>
                     </div>
                   </dl>
@@ -825,7 +888,7 @@ export default function TrackingHub() {
                   <div><strong>Route:</strong> {selected.origin} → {selected.destination}</div>
                   <div><strong>Mode:</strong> {selected.transportMode}</div>
                 </div>
-                {!statusOnlyIntel && (
+                {!hideRisksAndActions && (
                   <button
                     type="button"
                     onClick={() => setDetailStep('risks')}
@@ -838,7 +901,7 @@ export default function TrackingHub() {
             )}
 
             {/* Step 3 — Risks with sub-wizard */}
-            {detailStep === 'risks' && !statusOnlyIntel && (
+            {detailStep === 'risks' && !hideRisksAndActions && (
               <div className="space-y-4">
                 {riskSubSteps.length === 0 ? (
                   <div className="rounded-xl border border-dashed p-8 text-center text-sm text-slate-500">
@@ -967,7 +1030,7 @@ export default function TrackingHub() {
             )}
 
             {/* Step 4 — Actions */}
-            {detailStep === 'actions' && !statusOnlyIntel && (
+            {detailStep === 'actions' && !hideRisksAndActions && (
               <div className="space-y-4">
                 {shipmentActions.length === 0 ? (
                   <p className="text-sm text-slate-500 py-8 text-center border border-dashed rounded-xl">
@@ -988,10 +1051,10 @@ export default function TrackingHub() {
                         )}
                       >
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#2F5472]">
+                          <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded text-white bg-[#2F5472]">
                             {a.category.replace('_', ' ')}
                           </span>
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-[11px] text-slate-500">
                             Owner: {PERSONA_LABELS[a.ownerPersona]}
                           </span>
                           {a.status === 'approved' && <CheckCircle2 className="w-4 h-4 text-emerald-600 ml-auto" />}
@@ -1012,7 +1075,7 @@ export default function TrackingHub() {
             )}
             </div>
 
-            {detailStep === 'risks' && !statusOnlyIntel && activeRiskAction && (
+            {detailStep === 'risks' && !hideRisksAndActions && activeRiskAction && (
               <RiskActionFooter
                 action={activeRiskAction}
                 persona={persona}

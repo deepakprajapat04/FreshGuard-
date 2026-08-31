@@ -33,10 +33,10 @@ export const inputClass =
   'w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-[#4684AD]/40';
 
 export const filterChipClass =
-  'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700 transition-colors';
+  'px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700 transition-colors';
 
 export const filterChipActiveClass =
-  'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border bg-[#4684AD] text-white border-[#4684AD]';
+  'px-2 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border bg-[#4684AD] text-white border-[#4684AD]';
 
 export const selectedRowClass =
   'bg-[#C0D5E5]/50 dark:bg-blue-950/30 border-l-4 border-l-[#4684AD]';

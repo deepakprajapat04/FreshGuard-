@@ -78,7 +78,7 @@ function ChangeSummaryCard({
           <h5 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h5>
         </div>
         <dl className="mt-3 text-xs">
-          <dt className="text-slate-500 uppercase text-[10px] font-semibold tracking-wide">Stores</dt>
+          <dt className="text-slate-500 uppercase text-[11px] font-semibold tracking-wide">Stores</dt>
           <dd className={cn('font-bold text-lg tabular-nums', countClass)}>{count}</dd>
         </dl>
       </div>
@@ -157,42 +157,42 @@ export function PromotionRiskPanel({
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Planned DC
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-700 dark:text-slate-200 mt-0.5">
               {formatShortDate(proposal.originalEta)}
             </div>
-            <div className="text-[10px] text-slate-400">original ETA</div>
+            <div className="text-[11px] text-slate-400">original ETA</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               DC arrival
             </div>
             <div className="text-lg font-bold tabular-nums text-amber-800 mt-0.5">
               {formatShortDate(proposal.revisedEta)}
             </div>
-            <div className="text-[10px] text-slate-400">current ETA</div>
+            <div className="text-[11px] text-slate-400">current ETA</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Promos at risk
             </div>
             <div className="text-lg font-bold tabular-nums text-violet-700 mt-0.5">
               {proposal.promotions.filter((p) => p.atRisk).length}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               of {proposal.promotions.length} on this batch
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Store changes
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-900 dark:text-slate-100 mt-0.5">
               {proposal.storeChanges.length}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {removeChanges.length} remove · {addChanges.length} add
             </div>
           </div>
@@ -263,7 +263,7 @@ export function PromotionRiskPanel({
 
         {/* Option A — one compact row */}
         <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide mb-2">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide mb-2">
             Reschedule
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -279,7 +279,7 @@ export function PromotionRiskPanel({
               {formatShortDate(proposal.reschedule.proposedStart)} →{' '}
               {formatShortDate(proposal.reschedule.proposedEnd)}
             </span>
-            <span className="text-[10px] font-semibold text-[#2F5472] bg-[#C0D5E5] px-1.5 py-0.5 rounded">
+            <span className="text-[11px] font-semibold text-[#2F5472] bg-[#C0D5E5] px-1.5 py-0.5 rounded">
               +{shiftDays}d
             </span>
           </div>
@@ -302,7 +302,7 @@ export function PromotionRiskPanel({
                   <td className="px-3 py-2.5">
                     <span
                       className={cn(
-                        'text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
+                        'text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded',
                         change.type === 'remove'
                           ? 'bg-rose-100 text-rose-800'
                           : 'bg-emerald-100 text-emerald-800'
@@ -342,12 +342,12 @@ export function PromotionRiskPanel({
         {promoAction && !hideApproval && (
           <div className="mx-4 mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Approval
               </span>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+                  'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
                   promoAction.status === 'pending_approval' ||
                     promoAction.status === 'pending_category_approval'
                     ? 'bg-amber-100 text-amber-900 border-amber-200'

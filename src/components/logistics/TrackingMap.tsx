@@ -279,11 +279,11 @@ export function TrackingMap({ shipment }: { shipment: MapShipment | undefined })
   return (
     <div className="relative h-full min-h-[360px] w-full rounded-2xl overflow-hidden border border-slate-300 shadow-xl bg-[#c8e6c9]">
       <div className="absolute top-3 left-3 z-[500] pointer-events-none space-y-1.5">
-        <div className="bg-white/95 backdrop-blur border border-slate-200 text-[9px] font-bold text-slate-700 px-2.5 py-1.5 rounded-lg shadow-md">
+        <div className="bg-white/95 backdrop-blur border border-slate-200 text-[11px] font-bold text-slate-700 px-2.5 py-1.5 rounded-lg shadow-md">
           PSA PORTNET LIVE MAP
         </div>
         {shipment.containerNumber && (
-          <div className="bg-emerald-600 text-[9px] font-bold text-white px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 shadow-md">
+          <div className="bg-emerald-600 text-[11px] font-bold text-white px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5 shadow-md">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-200 animate-pulse" />
             {shipment.containerNumber}
           </div>
@@ -291,7 +291,7 @@ export function TrackingMap({ shipment }: { shipment: MapShipment | undefined })
       </div>
 
       <div className="absolute bottom-3 left-3 z-[500] pointer-events-none">
-        <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-3 py-2 text-[9px] text-slate-700 space-y-1 shadow-md">
+        <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-3 py-2 text-[11px] text-slate-700 space-y-1 shadow-md">
           <div className="font-bold uppercase tracking-wide text-slate-500 mb-1">Route status</div>
           <div className="flex items-center gap-2">
             <span className="w-4 h-1 rounded-full bg-emerald-600" /> Completed
@@ -322,7 +322,7 @@ export function TrackingMap({ shipment }: { shipment: MapShipment | undefined })
       <MapContainer
         center={geo.current}
         zoom={4}
-        className="h-full w-full [&_.leaflet-control-attribution]:text-[9px] [&_.leaflet-control-attribution]:bg-white/80"
+        className="h-full w-full [&_.leaflet-control-attribution]:text-[11px] [&_.leaflet-control-attribution]:bg-white/80"
         style={{ height: '100%', width: '100%', minHeight: 360 }}
         zoomControl={true}
         scrollWheelZoom={true}

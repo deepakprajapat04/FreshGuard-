@@ -91,7 +91,7 @@ export function BuyerAlertsDrawer({
                         </span>
                         <span
                           className={cn(
-                            'text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md',
+                            'text-[11px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md',
                             alert.category === 'Urgent'
                               ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300'
                               : alert.category === 'Regular'
@@ -114,7 +114,7 @@ export function BuyerAlertsDrawer({
                     <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">
                       {alert.message}
                     </p>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 gap-2">
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 gap-2">
                       <span className="truncate">
                         {alert.containerNumber} · {alert.source}
                       </span>
@@ -127,7 +127,7 @@ export function BuyerAlertsDrawer({
                         <button
                           type="button"
                           onClick={() => onMarkRead(alert.id)}
-                          className="text-[10px] font-bold uppercase text-emerald-700 dark:text-emerald-400"
+                          className="text-[11px] font-bold uppercase text-emerald-700 dark:text-emerald-400"
                         >
                           Mark read
                         </button>
@@ -135,7 +135,7 @@ export function BuyerAlertsDrawer({
                       <button
                         type="button"
                         onClick={() => onOpenTracking(alert.shipmentId)}
-                        className="text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300"
+                        className="text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300"
                       >
                         Open tracking
                       </button>

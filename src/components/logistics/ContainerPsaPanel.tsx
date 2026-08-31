@@ -157,7 +157,7 @@ export function ContainerPsaPanel({
             <h3 className="text-sm font-bold uppercase tracking-wider text-[#C0D5E5]">
               {isVendor ? 'Select lot to update' : 'PSA container ledger'}
             </h3>
-            <span className="text-[10px] text-slate-400 shrink-0">
+            <span className="text-[11px] text-slate-400 shrink-0">
               {list.length}
               {filterCount > 0 ? ` / ${shipments.length}` : ''} lots
             </span>
@@ -178,7 +178,7 @@ export function ContainerPsaPanel({
               type="button"
               onClick={() => setFiltersOpen((v) => !v)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
+                'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border',
                 filtersOpen || filterCount > 0
                   ? 'bg-[#4684AD] border-[#4684AD] text-white'
                   : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'
@@ -187,7 +187,7 @@ export function ContainerPsaPanel({
               <Filter className="w-3.5 h-3.5" />
               Filters
               {filterCount > 0 && (
-                <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] flex items-center justify-center">
+                <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[11px] flex items-center justify-center">
                   {filterCount}
                 </span>
               )}
@@ -196,7 +196,7 @@ export function ContainerPsaPanel({
               <button
                 type="button"
                 onClick={clearFilters}
-                className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+                className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
               >
                 <X className="w-3 h-3" /> Clear
               </button>
@@ -206,7 +206,7 @@ export function ContainerPsaPanel({
           {filtersOpen && (
             <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-slate-100 dark:border-white/10">
               <label className="space-y-0.5">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
@@ -219,7 +219,7 @@ export function ContainerPsaPanel({
                 </select>
               </label>
               <label className="space-y-0.5">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Transport</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Transport</span>
                 <select
                   value={modeFilter}
                   onChange={(e) => setModeFilter(e.target.value as ModeFilter)}
@@ -232,7 +232,7 @@ export function ContainerPsaPanel({
                 </select>
               </label>
               <label className="space-y-0.5">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">PSA sync</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">PSA sync</span>
                 <select
                   value={syncFilter}
                   onChange={(e) => setSyncFilter(e.target.value as SyncFilter)}
@@ -246,7 +246,7 @@ export function ContainerPsaPanel({
                 </select>
               </label>
               <label className="space-y-0.5">
-                <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Supplier</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Supplier</span>
                 <select
                   value={supplierFilter}
                   onChange={(e) => setSupplierFilter(e.target.value)}
@@ -293,7 +293,7 @@ export function ContainerPsaPanel({
                     <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
                       {s.containerNumber}
                     </span>
-                    <span className="text-[9px] font-mono uppercase text-[#2F5472] dark:text-blue-300">
+                    <span className="text-[11px] font-mono uppercase text-[#2F5472] dark:text-blue-300">
                       {s.psaSyncStatus}
                     </span>
                   </div>
@@ -302,13 +302,13 @@ export function ContainerPsaPanel({
                     {poCount} PO{poCount === 1 ? '' : 's'} · {lines.length} item
                     {lines.length === 1 ? '' : 's'}
                   </div>
-                  <div className="text-[10px] text-slate-400 mt-0.5 truncate">
+                  <div className="text-[11px] text-slate-400 mt-0.5 truncate">
                     Lead {s.id} · {s.product || s.item}
                   </div>
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <span
                       className={cn(
-                        'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded',
+                        'text-[11px] font-bold uppercase px-1.5 py-0.5 rounded',
                         s.status === 'delayed'
                           ? 'bg-rose-100 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
                           : s.status === 'delivered'
@@ -318,7 +318,7 @@ export function ContainerPsaPanel({
                     >
                       {s.status}
                     </span>
-                    <span className="text-[9px] uppercase text-slate-400">
+                    <span className="text-[11px] uppercase text-slate-400">
                       {s.transportMode || 'road'}
                     </span>
                   </div>
@@ -347,7 +347,7 @@ export function ContainerPsaPanel({
                       Changes publish to PSA Portnet® and appear on the retail tracking dashboard.
                     </p>
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 rounded shrink-0">
+                  <span className="text-[11px] font-mono font-bold text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2 py-1 rounded shrink-0">
                     Last sync {formatSyncAge(selectedShipment.psaLastSyncAt)}
                   </span>
                 </div>
@@ -355,7 +355,7 @@ export function ContainerPsaPanel({
                   <div className="grid sm:grid-cols-2 gap-3">
                     {fields.map(([key, label]) => (
                       <label key={key} className="block space-y-1">
-                        <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                        <span className="text-[11px] font-mono font-bold uppercase text-slate-400">
                           {label}
                         </span>
                         <input
@@ -367,7 +367,7 @@ export function ContainerPsaPanel({
                     ))}
 
                     <label className="block space-y-1">
-                      <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                      <span className="text-[11px] font-mono font-bold uppercase text-slate-400">
                         Expected delivery date
                       </span>
                       <input
@@ -392,13 +392,13 @@ export function ContainerPsaPanel({
                         }}
                         className="w-full rounded-lg border border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20 px-3 py-2 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-[#4684AD]"
                       />
-                      <span className="text-[10px] text-slate-500 leading-relaxed block">
+                      <span className="text-[11px] text-slate-500 leading-relaxed block">
                         Set the date you believe the container will arrive — logged against linked POs.
                       </span>
                     </label>
 
                     <label className="block space-y-1">
-                      <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                      <span className="text-[11px] font-mono font-bold uppercase text-slate-400">
                         ETA display label
                       </span>
                       <input
@@ -410,7 +410,7 @@ export function ContainerPsaPanel({
                     </label>
 
                     <label className="block space-y-1 sm:col-span-2">
-                      <span className="text-[10px] font-mono font-bold uppercase text-slate-400">
+                      <span className="text-[11px] font-mono font-bold uppercase text-slate-400">
                         Update notes
                       </span>
                       <textarea
@@ -467,7 +467,7 @@ export function ContainerPsaPanel({
                       key={k}
                       className="rounded-lg border border-slate-200 dark:border-slate-800 p-3 bg-slate-50 dark:bg-slate-950/40"
                     >
-                      <dt className="text-[9px] font-mono uppercase text-slate-400 font-bold">{k}</dt>
+                      <dt className="text-[11px] font-mono uppercase text-slate-400 font-bold">{k}</dt>
                       <dd className="font-bold text-slate-800 dark:text-slate-200 mt-0.5">
                         {v || '—'}
                       </dd>
@@ -501,7 +501,7 @@ export function ContainerPsaPanel({
                             <span className="font-bold text-slate-900 dark:text-slate-100">
                               {formatIsoDate(entry.fromDate)} → {formatIsoDate(entry.toDate)}
                             </span>
-                            <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                            <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
                               {entry.source}
                             </span>
                           </div>
@@ -517,7 +517,7 @@ export function ContainerPsaPanel({
                             </p>
                           )}
                         </div>
-                        <div className="text-right text-[10px] text-slate-400 shrink-0">
+                        <div className="text-right text-[11px] text-slate-400 shrink-0">
                           <div>{formatLogWhen(entry.at)}</div>
                           {entry.by && <div className="mt-0.5">{entry.by}</div>}
                         </div>
@@ -545,7 +545,7 @@ export function ContainerPsaPanel({
                 <button
                   type="button"
                   onClick={() => setShowAllPos((v) => !v)}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold uppercase border border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 dark:border-white/15 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
                 >
                   {showAllPos ? (
                     <>
@@ -573,7 +573,7 @@ export function ContainerPsaPanel({
 
                   <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
                     <table className="w-full text-left text-xs min-w-[640px]">
-                      <thead className="bg-slate-50 dark:bg-slate-950/60 text-[10px] uppercase tracking-wide text-slate-500">
+                      <thead className="bg-slate-50 dark:bg-slate-950/60 text-[11px] uppercase tracking-wide text-slate-500">
                         <tr>
                           <th className="px-3 py-2.5 font-semibold">PO number</th>
                           <th className="px-3 py-2.5 font-semibold">Product / item</th>
@@ -603,14 +603,14 @@ export function ContainerPsaPanel({
                                 <div className="font-semibold text-slate-800 dark:text-slate-200">
                                   {line.product}
                                 </div>
-                                <div className="text-[10px] text-slate-500 mt-0.5">{line.item}</div>
+                                <div className="text-[11px] text-slate-500 mt-0.5">{line.item}</div>
                               </td>
-                              <td className="px-3 py-2.5 font-mono text-[10px] text-slate-500">
+                              <td className="px-3 py-2.5 font-mono text-[11px] text-slate-500">
                                 {line.sku || '—'}
                               </td>
                               <td className="px-3 py-2.5 text-right font-semibold tabular-nums">
                                 {line.quantity.toLocaleString()}{' '}
-                                <span className="text-[10px] font-normal text-slate-400">{line.unit}</span>
+                                <span className="text-[11px] font-normal text-slate-400">{line.unit}</span>
                               </td>
                               <td className="px-3 py-2.5 text-slate-600 dark:text-slate-300">
                                 {line.buyerRef || '—'}
@@ -618,7 +618,7 @@ export function ContainerPsaPanel({
                               <td className="px-3 py-2.5">
                                 <span
                                   className={cn(
-                                    'inline-flex px-1.5 py-0.5 rounded text-[9px] font-bold uppercase',
+                                    'inline-flex px-1.5 py-0.5 rounded text-[11px] font-bold uppercase',
                                     line.lineStatus === 'partial'
                                       ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
                                       : line.lineStatus === 'held'

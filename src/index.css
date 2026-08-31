@@ -19,6 +19,7 @@
 
 html {
   font-family: var(--font-sans);
+  font-size: 16.5px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;

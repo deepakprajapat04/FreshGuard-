@@ -89,11 +89,11 @@ export function RiskTimelineCalendar({
         className="grid border-b border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-900/60"
         style={{ gridTemplateColumns: '140px 1fr' }}
       >
-        <div className="px-3 py-2 text-[10px] font-bold uppercase text-slate-400">Store / event</div>
+        <div className="px-3 py-2 text-[11px] font-bold uppercase text-slate-400">Store / event</div>
         <div className="relative py-2 pr-2">
           <div className="grid" style={{ gridTemplateColumns: `repeat(${days.length}, 1fr)` }}>
             {days.map((d) => (
-              <div key={d} className="text-[9px] text-center text-slate-500 font-medium">
+              <div key={d} className="text-[11px] text-center text-slate-500 font-medium">
                 {dayLabel(d)}
               </div>
             ))}
@@ -103,7 +103,7 @@ export function RiskTimelineCalendar({
 
       {(originalEta || revisedEta) && (
         <div className="grid border-b border-slate-100 dark:border-slate-800" style={{ gridTemplateColumns: '140px 1fr' }}>
-          <div className="px-3 py-2 text-[10px] font-semibold text-slate-500">ETA markers</div>
+          <div className="px-3 py-2 text-[11px] font-semibold text-slate-500">ETA markers</div>
           <div className="relative h-8 mx-2">
             {originalEta && (
               <div
@@ -143,7 +143,7 @@ export function RiskTimelineCalendar({
           >
             <div className="px-3 py-3 min-w-0">
               <div className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">{row.label}</div>
-              {row.sub && <div className="text-[10px] text-slate-500 mt-0.5 truncate">{row.sub}</div>}
+              {row.sub && <div className="text-[11px] text-slate-500 mt-0.5 truncate">{row.sub}</div>}
             </div>
             <div className="relative py-3 mx-2">
               <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-px bg-slate-200 dark:bg-slate-700" />
@@ -157,7 +157,7 @@ export function RiskTimelineCalendar({
         ))
       )}
 
-      <div className="px-3 py-2 bg-slate-50/80 dark:bg-slate-900/40 flex flex-wrap gap-3 text-[10px] text-slate-500 border-t border-slate-200 dark:border-slate-700">
+      <div className="px-3 py-2 bg-slate-50/80 dark:bg-slate-900/40 flex flex-wrap gap-3 text-[11px] text-slate-500 border-t border-slate-200 dark:border-slate-700">
         <span className="flex items-center gap-1">
           <span className="w-3 h-2 rounded bg-rose-500/85" /> Store OOS window
         </span>

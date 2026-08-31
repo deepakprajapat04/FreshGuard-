@@ -67,7 +67,7 @@ export function ReceivingRiskPanel({
               : 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
           )}
         >
-          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+          <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
             Tied to overstock decision
           </div>
           <p className="mt-1 font-medium">{impact.capacityNote}</p>
@@ -78,19 +78,19 @@ export function ReceivingRiskPanel({
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-slate-800">
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Inbound</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Inbound</div>
               <div className="text-lg font-bold tabular-nums mt-0.5">{impact.pallets}</div>
-              <div className="text-[10px] text-slate-400">pallets</div>
+              <div className="text-[11px] text-slate-400">pallets</div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Put away</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Put away</div>
               <div className="text-lg font-bold tabular-nums text-emerald-700 mt-0.5">
                 {impact.putAwayPallets ?? impact.pallets}
               </div>
-              <div className="text-[10px] text-slate-400">to chilled slots</div>
+              <div className="text-[11px] text-slate-400">to chilled slots</div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Cross-dock</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Cross-dock</div>
               <div
                 className={cn(
                   'text-lg font-bold tabular-nums mt-0.5',
@@ -99,18 +99,18 @@ export function ReceivingRiskPanel({
               >
                 {impact.crossDockPallets ?? 0}
               </div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-400">
                 {(impact.crossDockCases ?? 0) > 0
                   ? `${impact.crossDockCases!.toLocaleString()} cases → stores`
                   : 'none — BAU'}
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Crew</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Crew</div>
               <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
                 {impact.crewFte} FTE
               </div>
-              <div className="text-[10px] text-slate-400">~{impact.unloadHours}h · door {impact.doorId}</div>
+              <div className="text-[11px] text-slate-400">~{impact.unloadHours}h · door {impact.doorId}</div>
             </div>
           </div>
         </div>
@@ -119,47 +119,47 @@ export function ReceivingRiskPanel({
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Planned slot
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-700 dark:text-slate-200 mt-0.5">
               {formatShortDate(impact.plannedSlot)}
             </div>
-            <div className="text-[10px] text-slate-400">door {impact.doorId}</div>
+            <div className="text-[11px] text-slate-400">door {impact.doorId}</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Revised slot
             </div>
             <div className="text-lg font-bold tabular-nums text-amber-800 mt-0.5">
               {formatShortDate(impact.revisedSlot)}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {late ? `+${impact.delayDays}d vs plan` : `${Math.abs(impact.delayDays)}d earlier`}
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Crew needed
             </div>
             <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
               {impact.crewFte} FTE
             </div>
-            <div className="text-[10px] text-slate-400">~{impact.unloadHours}h to unload</div>
+            <div className="text-[11px] text-slate-400">~{impact.unloadHours}h to unload</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Volume
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-800 dark:text-slate-100 mt-0.5">
               {impact.pallets}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               pallets · {impact.cases.toLocaleString()} cases
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Crew freed
             </div>
             <div
@@ -170,7 +170,7 @@ export function ReceivingRiskPanel({
             >
               {impact.freedCrewHours > 0 ? `${impact.freedCrewHours}h` : 'None'}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {impact.freedCrewHours > 0
                 ? `idle on ${formatShortDate(impact.plannedSlot)}`
                 : 'no idle shift'}
@@ -214,12 +214,12 @@ export function ReceivingRiskPanel({
         {receivingAction && !hideApproval && (
           <div className="mx-4 my-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Approval
               </span>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+                  'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
                   receivingAction.status === 'pending_approval'
                     ? 'bg-amber-100 text-amber-900 border-amber-200'
                     : receivingAction.status === 'approved'

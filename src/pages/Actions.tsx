@@ -3,7 +3,7 @@
  * Promo / early clearance are two-step: DC Purchasing → Category Manager.
  */
 import type { ReactNode } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router';
 import {
   ArrowRight,
@@ -13,6 +13,7 @@ import {
   ChevronRight,
   ClipboardList,
   Clock,
+  Filter,
   Maximize2,
   Megaphone,
   Minimize2,
@@ -176,50 +177,50 @@ function ActionSourceContext({
 
   return (
     <div className="rounded-lg border border-[#4684AD]/25 bg-[#C0D5E5]/20 dark:bg-blue-950/20 px-4 py-3 space-y-3">
-      <div className="text-[10px] font-semibold uppercase text-[#2F5472] tracking-wide">
+      <div className="text-[11px] font-semibold uppercase text-[#2F5472] tracking-wide">
         Source shipment
       </div>
       <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 text-xs">
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">Supplier</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">Supplier</dt>
           <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{ctx.supplier}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">Container</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">Container</dt>
           <dd className="font-code font-semibold text-slate-800 dark:text-slate-100 mt-0.5">
             {ctx.containerNumber}
           </dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">ASN</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">ASN</dt>
           <dd className="font-code text-slate-700 dark:text-slate-200 mt-0.5">{ctx.asnNumber ?? '—'}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">Items</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">Items</dt>
           <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{itemLabel}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">Volume</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">Volume</dt>
           <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5 tabular-nums">
             {ctx.totalQuantity.toLocaleString()} {ctx.unit}
           </dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">Destination</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">Destination</dt>
           <dd className="text-slate-700 dark:text-slate-200 mt-0.5">{ctx.destination}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">ETA</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">ETA</dt>
           <dd className="text-slate-700 dark:text-slate-200 mt-0.5">{ctx.eta}</dd>
         </div>
         <div>
-          <dt className="text-[10px] font-bold uppercase text-slate-400">Shipment ID</dt>
+          <dt className="text-[11px] font-bold uppercase text-slate-400">Shipment ID</dt>
           <dd className="font-code text-slate-500 mt-0.5">{ctx.shipmentId}</dd>
         </div>
       </dl>
       {ctx.poSummaries.length > 0 && (
         <div className="space-y-2 pt-1 border-t border-[#4684AD]/15">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Linked purchase orders
           </div>
           <div className="space-y-2">
@@ -259,7 +260,7 @@ function StatusChip({ status }: { status: RiskAction['status'] }) {
   return (
     <span
       className={cn(
-        'text-[10px] font-bold uppercase px-2 py-0.5 rounded border shrink-0',
+        'text-[11px] font-bold uppercase px-2 py-0.5 rounded border shrink-0',
         status === 'pending_approval'
           ? 'bg-amber-100 text-amber-900 border-amber-200'
           : status === 'pending_category_approval'
@@ -285,7 +286,7 @@ function SectionTable({
 }) {
   return (
     <section className="space-y-2">
-      <h4 className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">{title}</h4>
+      <h4 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">{title}</h4>
       <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
         <table className="w-full text-xs">
           <thead>
@@ -327,7 +328,7 @@ function ActionDetailBody({
             <td className="px-3 py-2.5">
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
+                  'text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded',
                   m.type === 'dc_to_store'
                     ? 'bg-[#C0D5E5] text-[#2F5472]'
                     : 'bg-slate-100 text-slate-600 dark:bg-slate-800'
@@ -363,7 +364,7 @@ function ActionDetailBody({
             p.eligible ? 'border-amber-300 bg-amber-50/70' : 'border-slate-300 bg-slate-50'
           )}
         >
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Days configuration
           </div>
           <p className="mt-1 font-bold text-slate-900">
@@ -382,7 +383,7 @@ function ActionDetailBody({
         </div>
         {p.options.length > 0 && (
           <div className="space-y-2">
-            <h4 className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <h4 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Alternate suppliers{canPick ? ' — tap to select' : ''}
             </h4>
             <div className="space-y-2">
@@ -415,7 +416,7 @@ function ActionDetailBody({
                           />
                           <span className="font-bold text-xs text-slate-900">{o.supplierName}</span>
                           {o.recommended && (
-                            <span className="text-[10px] font-bold uppercase text-emerald-700">
+                            <span className="text-[11px] font-bold uppercase text-emerald-700">
                               Rec
                             </span>
                           )}
@@ -442,7 +443,7 @@ function ActionDetailBody({
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Reschedule
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs mt-1.5">
@@ -462,7 +463,7 @@ function ActionDetailBody({
               <td className="px-3 py-2.5">
                 <span
                   className={cn(
-                    'text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
+                    'text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded',
                     c.type === 'remove'
                       ? 'bg-rose-100 text-rose-800'
                       : 'bg-emerald-100 text-emerald-800'
@@ -529,7 +530,7 @@ function ActionDetailBody({
               : 'border-amber-300 bg-amber-50/70'
           )}
         >
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Capacity check
           </div>
           <p className="text-xs font-bold mt-1">
@@ -544,30 +545,30 @@ function ActionDetailBody({
         </div>
 
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="px-3 py-2 border-b border-slate-100 dark:border-slate-800 text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Present stock vs early arrival
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800 text-xs">
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase text-slate-400 font-semibold">DC on hand</div>
+              <div className="text-[11px] uppercase text-slate-400 font-semibold">DC on hand</div>
               <div className="text-sm font-bold tabular-nums mt-0.5">
                 {p.presentStock.dcOnHandCases.toLocaleString()}
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase text-slate-400 font-semibold">Store on hand</div>
+              <div className="text-[11px] uppercase text-slate-400 font-semibold">Store on hand</div>
               <div className="text-sm font-bold tabular-nums mt-0.5">
                 {p.presentStock.storeOnHandCases.toLocaleString()}
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase text-slate-400 font-semibold">Ageing life</div>
+              <div className="text-[11px] uppercase text-slate-400 font-semibold">Ageing life</div>
               <div className="text-sm font-bold tabular-nums text-amber-800 mt-0.5">
                 {p.presentStock.onHandShelfLifeDays}d
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] uppercase text-slate-400 font-semibold">If held at DC</div>
+              <div className="text-[11px] uppercase text-slate-400 font-semibold">If held at DC</div>
               <div className="text-sm font-bold tabular-nums mt-0.5">
                 {p.projectedStock.dcIfHeldCases.toLocaleString()}
               </div>
@@ -598,13 +599,13 @@ function ActionDetailBody({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
           <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Storage cost</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Storage cost</div>
             <p className="mt-1 text-slate-700 dark:text-slate-300 leading-relaxed">
               {p.storageCostNote}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500">
+            <div className="text-[11px] font-semibold uppercase text-slate-500">
               Shelf-life consequence
             </div>
             <p className="mt-1 text-slate-700 dark:text-slate-300 leading-relaxed">
@@ -669,7 +670,7 @@ function ActionDetailBody({
               : 'border-amber-300 bg-amber-50/70'
           )}
         >
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Tied to overstock
           </div>
           <p className="mt-1 font-medium text-slate-800">{d.notifyMessage}</p>
@@ -686,7 +687,7 @@ function ActionDetailBody({
             { label: 'Extra routes', value: `${d.extraRoutes}`, sub: formatShortDate(d.revisedEta) },
           ].map((s) => (
             <div key={s.label} className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">{s.label}</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">{s.label}</div>
               <div className="text-sm font-bold tabular-nums mt-0.5">{s.value}</div>
               <div className="text-xs text-slate-400">{s.sub}</div>
             </div>
@@ -731,7 +732,7 @@ function ActionDetailBody({
     return (
       <div className="space-y-4">
         <div className="rounded-lg border border-amber-300 bg-amber-50/70 px-4 py-3 text-xs">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Ageing stock to clear
           </div>
           <p className="mt-1 font-bold text-slate-900">
@@ -772,12 +773,12 @@ function ActionDetailBody({
                   />
                   <span className="font-bold text-xs text-slate-900">{opt.title}</span>
                   {isRec && (
-                    <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
+                    <span className="text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
                       Recommended
                     </span>
                   )}
                   {isSelected && (
-                    <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#C0D5E5] text-[#2F5472]">
+                    <span className="text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#C0D5E5] text-[#2F5472]">
                       Selected
                     </span>
                   )}
@@ -821,7 +822,7 @@ function ActionDetailBody({
                 : 'border-emerald-300 bg-emerald-50/70'
             )}
           >
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Tied to overstock</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Tied to overstock</div>
             <p className="mt-1 font-medium">{r.capacityNote}</p>
           </div>
         )}
@@ -840,7 +841,7 @@ function ActionDetailBody({
             },
           ].map((s) => (
             <div key={s.label} className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">{s.label}</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">{s.label}</div>
               <div className="text-sm font-bold tabular-nums mt-0.5">{s.value}</div>
               <div className="text-xs text-slate-400">{s.sub}</div>
             </div>
@@ -874,7 +875,7 @@ function ActionDetailBody({
                 : 'border-emerald-300 bg-emerald-50/70'
             )}
           >
-            <div className="text-[10px] font-semibold uppercase text-slate-500">Tied to overstock</div>
+            <div className="text-[11px] font-semibold uppercase text-slate-500">Tied to overstock</div>
             <p className="mt-1 font-medium">{t.capacityNote}</p>
           </div>
         )}
@@ -893,7 +894,7 @@ function ActionDetailBody({
             },
           ].map((s) => (
             <div key={s.label} className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">{s.label}</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">{s.label}</div>
               <div className="text-sm font-bold tabular-nums mt-0.5">{s.value}</div>
               <div className="text-xs text-slate-400">{s.sub}</div>
             </div>
@@ -951,11 +952,31 @@ export default function Actions() {
   const [detailExpanded, setDetailExpanded] = useState(false);
   const [taskSearch, setTaskSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [expandedContainers, setExpandedContainers] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setActions(loadRiskActions());
   }, []);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [filterOpen]);
 
   const forPersona = useMemo(() => {
     if (isDcPurchasingPersona(persona)) {
@@ -1217,37 +1238,13 @@ export default function Actions() {
     >
       {!detailExpanded && (
         <PageHeader title="Risk Actions" className="shrink-0">
-          <div className="flex items-center gap-1">
-            {(
-              [
-                { id: 'all' as const, label: 'All', count: forPersona.length },
-                { id: 'pending' as const, label: 'Pending', count: pendingCount },
-                { id: 'approved' as const, label: 'Approved', count: approvedCount },
-              ] as const
-            ).map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setStatusFilter(f.id)}
-                className={cn(
-                  'px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors',
-                  statusFilter === f.id
-                    ? 'bg-[#4684AD] text-white border-[#4684AD]'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-500 hover:border-[#4684AD]/40'
-                )}
-              >
-                {f.label}
-                <span className="ml-1.5 tabular-nums opacity-80">{f.count}</span>
-              </button>
-            ))}
-            <button
-              type="button"
-              onClick={resetDemo}
-              className="ml-2 text-xs font-semibold text-slate-400 hover:text-slate-700 underline"
-            >
-              Reset demo
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={resetDemo}
+            className="text-xs font-semibold text-slate-400 hover:text-slate-700 underline"
+          >
+            Reset demo
+          </button>
         </PageHeader>
       )}
 
@@ -1272,42 +1269,104 @@ export default function Actions() {
           )}
         >
           <div className="shrink-0 border-b border-slate-200/80 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide text-slate-900 dark:text-white">
+            <h2 className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-900 dark:text-white">
               <ClipboardList className="w-3.5 h-3.5" />
               Containers
             </h2>
             <p className="mt-0.5 text-xs text-slate-500">
               {containerGroups.length} container{containerGroups.length === 1 ? '' : 's'} ·{' '}
               {filteredVisible.length} action{filteredVisible.length === 1 ? '' : 's'}
+              {statusFilter !== 'all' ? ` · ${statusFilter}` : ''}
+              {categoryFilter !== 'all'
+                ? ` · ${TASK_CATEGORY_FILTERS.find((f) => f.id === categoryFilter)?.label ?? ''}`
+                : ''}
             </p>
           </div>
-          <div className="shrink-0 space-y-2 border-b border-slate-100 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={taskSearch}
-                onChange={(e) => setTaskSearch(e.target.value)}
-                placeholder="Search container, PO, supplier…"
-                className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40 dark:border-slate-700 dark:bg-slate-950"
-              />
+          <div className="shrink-0 border-b border-slate-100 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                  placeholder="Search container, PO, supplier…"
+                  className="w-full rounded-lg border border-slate-200 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40 dark:border-slate-700 dark:bg-slate-950"
+                />
+              </div>
+              <div className="relative shrink-0" ref={filterRef}>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((v) => !v)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                    statusFilter !== 'all' || categoryFilter !== 'all' || filterOpen
+                      ? 'border-[#4684AD] bg-[#C0D5E5]/50 text-[#2F5472]'
+                      : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+                  )}
+                  aria-expanded={filterOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by status and risk type"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Filter
+                </button>
+                {filterOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1 max-h-72 overflow-y-auto"
+                  >
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      Status
+                    </div>
+                    {(
+                      [
+                        { id: 'all' as const, label: `All (${forPersona.length})` },
+                        { id: 'pending' as const, label: `Pending (${pendingCount})` },
+                        { id: 'approved' as const, label: `Approved (${approvedCount})` },
+                      ] as const
+                    ).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        role="option"
+                        aria-selected={statusFilter === f.id}
+                        onClick={() => setStatusFilter(f.id)}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                          statusFilter === f.id
+                            ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      Risk type
+                    </div>
+                    {TASK_CATEGORY_FILTERS.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        role="option"
+                        aria-selected={categoryFilter === f.id}
+                        onClick={() => setCategoryFilter(f.id)}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                          categoryFilter === f.id
+                            ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {f.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-            <label className="block space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                Risk type filter
-              </span>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value as CategoryFilter)}
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950 px-2.5 py-2 text-xs font-medium"
-              >
-                {TASK_CATEGORY_FILTERS.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.label}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
           <div className="flex-1 min-h-0 overflow-y-auto">
             {visible.length === 0 ? (
@@ -1352,14 +1411,14 @@ export default function Actions() {
                               </span>
                               <span
                                 className={cn(
-                                  'text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border',
+                                  'text-[11px] font-bold uppercase px-1.5 py-0.5 rounded border',
                                   EVENT_COLORS[group.eventStatus]
                                 )}
                               >
                                 {EVENT_LABELS[group.eventStatus]}
                               </span>
                               {group.pendingCount > 0 && (
-                                <span className="text-[10px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
+                                <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200">
                                   {group.pendingCount} pending
                                 </span>
                               )}
@@ -1405,7 +1464,7 @@ export default function Actions() {
                                 <div className="flex items-center justify-between gap-2">
                                   <span
                                     className={cn(
-                                      'inline-flex items-center gap-1 text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border',
+                                      'inline-flex items-center gap-1 text-[11px] font-bold uppercase px-1.5 py-0.5 rounded border',
                                       meta.tone
                                     )}
                                   >
@@ -1457,7 +1516,7 @@ export default function Actions() {
                       )}
                       <span
                         className={cn(
-                          'font-bold uppercase px-1.5 py-0.5 rounded border text-[10px]',
+                          'font-bold uppercase px-1.5 py-0.5 rounded border text-[11px]',
                           EVENT_COLORS[selected.eventStatus]
                         )}
                       >
@@ -1510,7 +1569,7 @@ export default function Actions() {
                           type="button"
                           onClick={() => setSelectedId(a.id)}
                           className={cn(
-                            'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
+                            'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide border transition-colors',
                             active
                               ? 'bg-[#4684AD] text-white border-[#4684AD]'
                               : 'bg-white dark:bg-slate-950 text-slate-600 border-slate-200 dark:border-slate-700 hover:border-[#4684AD]/50'
@@ -1533,7 +1592,7 @@ export default function Actions() {
                 {selectedContext && <ActionSourceContext ctx={selectedContext} />}
 
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-950/40 px-4 py-3">
-                  <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+                  <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
                     Proposal
                   </div>
                   <p className="text-xs text-slate-700 dark:text-slate-300 mt-1 leading-relaxed">
@@ -1586,7 +1645,7 @@ export default function Actions() {
                     )}
                   </p>
                   <Link
-                    to="/"
+                    to="/tracking"
                     className="text-xs font-semibold text-[#4684AD] hover:underline"
                   >
                     Open in Shipment Intelligence

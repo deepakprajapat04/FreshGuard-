@@ -64,7 +64,7 @@ function RiskKpiCard({
           </span>
           <span
             className={cn(
-              'inline-flex items-center gap-0.5 text-[9px] font-bold',
+              'inline-flex items-center gap-0.5 text-[11px] font-bold',
               flat ? 'text-slate-400' : good ? 'text-emerald-600' : 'text-rose-600'
             )}
           >
@@ -73,7 +73,7 @@ function RiskKpiCard({
             <Info className="w-3 h-3 opacity-50" />
           </span>
         </div>
-        <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium leading-snug">{label}</div>
+        <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-medium leading-snug">{label}</div>
       </div>
       <MiniBars seed={barsSeed} tone={barTone} />
     </div>
@@ -121,10 +121,10 @@ export function RiskOverviewKpis({
   return (
     <div className={cn('space-y-1.5', className)}>
       <div className="flex items-center gap-2 flex-wrap">
-        <h3 className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <h3 className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
           Exposure snapshot
         </h3>
-        <span className="text-[9px] text-slate-400 hidden sm:inline">
+        <span className="text-[11px] text-slate-400 hidden sm:inline">
           Watchlist · vendors · corridors · alerts
         </span>
       </div>

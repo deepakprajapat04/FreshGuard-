@@ -152,7 +152,7 @@ export default function Inbox() {
                     <div className="mt-1.5">
                       <span
                         className={cn(
-                          'inline-flex text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border',
+                          'inline-flex text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded border',
                           p.trigger === 'cancelled'
                             ? 'bg-slate-800 text-white border-slate-700'
                             : 'bg-rose-100 text-rose-800 border-rose-200 dark:bg-rose-950/50 dark:text-rose-200 dark:border-rose-800'
@@ -162,7 +162,7 @@ export default function Inbox() {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                  <span className="text-[11px] text-slate-400 flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {formatDistanceToNow(new Date(p.createdAt), { addSuffix: true })}
                   </span>
@@ -177,10 +177,10 @@ export default function Inbox() {
                         : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
                     )}
                   >
-                    <div className="text-[9px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300">
                       Stock not available impact
                     </div>
-                    <div className="flex flex-wrap gap-1.5 text-[10px] font-semibold">
+                    <div className="flex flex-wrap gap-1.5 text-[11px] font-semibold">
                       <span className="px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-900">
                         On hand {p.stockShortage.storeOnHandCases}
                       </span>
@@ -199,20 +199,20 @@ export default function Inbox() {
                 )}
                 <div className="grid sm:grid-cols-3 gap-2 text-xs">
                   <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5">
-                    <div className="text-[9px] uppercase font-bold text-slate-400">
+                    <div className="text-[11px] uppercase font-bold text-slate-400">
                       Primary ({p.trigger === 'cancelled' ? 'cancelled' : 'delayed'})
                     </div>
                     <div className="font-semibold mt-0.5">{p.primarySupplier}</div>
                   </div>
                   <div className="rounded-lg border border-[#86A8C2]/50 dark:border-sky-800 bg-[#C0D5E5]/30 dark:bg-sky-950/30 p-2.5">
-                    <div className="text-[9px] uppercase font-bold text-[#4684AD]">2nd-best short-lead</div>
+                    <div className="text-[11px] uppercase font-bold text-[#4684AD]">2nd-best short-lead</div>
                     <div className="font-semibold mt-0.5">{p.secondBestSupplier}</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="text-[11px] text-slate-500 mt-0.5">
                       {p.secondBestBidId} · ships in {p.secondBestEtaDays}d · ${p.secondBestPricePerCase}/case
                     </div>
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-2.5">
-                    <div className="text-[9px] uppercase font-bold text-slate-400">Fill-in volume</div>
+                    <div className="text-[11px] uppercase font-bold text-slate-400">Fill-in volume</div>
                     <div className="font-semibold mt-0.5">
                       {p.quantity.toLocaleString()} {p.unit}
                     </div>

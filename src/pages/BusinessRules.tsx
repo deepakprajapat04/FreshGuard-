@@ -438,7 +438,7 @@ export default function BusinessRules() {
                         <span className="text-sm font-bold text-slate-900 dark:text-slate-100">{a.name}</span>
                         <span
                           className={cn(
-                            'text-[9px] font-bold uppercase px-1.5 py-0.5 rounded',
+                            'text-[11px] font-bold uppercase px-1.5 py-0.5 rounded',
                             a.riskScore === 'Critical'
                               ? 'bg-rose-600 text-white'
                               : a.riskScore === 'High'
@@ -450,11 +450,11 @@ export default function BusinessRules() {
                         >
                           {RISK_SCORE_LABELS[a.riskScore]}
                         </span>
-                        <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600">
+                        <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-600">
                           {EVENT_MODE_LABELS[a.eventMode]}
                         </span>
                         {!a.enabled && (
-                          <span className="text-[9px] font-bold uppercase text-slate-400">Off</span>
+                          <span className="text-[11px] font-bold uppercase text-slate-400">Off</span>
                         )}
                       </div>
                       <div className="text-[11px] text-slate-500 mt-1">
@@ -466,7 +466,7 @@ export default function BusinessRules() {
                       <button
                         type="button"
                         onClick={() => toggleCustomAlert(a.id)}
-                        className="text-[10px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5]"
+                        className="text-[11px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5]"
                       >
                         {a.enabled ? 'Disable' : 'Enable'}
                       </button>

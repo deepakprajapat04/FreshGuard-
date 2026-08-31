@@ -22,8 +22,8 @@ const ROUTE_PERSONAS: Record<string, FreshGuardPersona[]> = {
 };
 
 const PERSONA_HOME: Record<FreshGuardPersona, string> = {
-  dc_purchasing_fruits: '/fruits-rfq',
-  dc_purchasing_vegetables: '/orders',
+  dc_purchasing_fruits: '/',
+  dc_purchasing_vegetables: '/',
   supplier: '/orders',
   transport: '/',
   receiving: '/',

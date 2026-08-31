@@ -60,7 +60,7 @@ export function OverstockRiskPanel({
             : 'border-amber-300 bg-amber-50/70 dark:bg-amber-950/20'
         )}
       >
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Capacity decision
         </div>
         <p className="text-sm font-bold mt-1 text-slate-900 dark:text-slate-100">
@@ -78,23 +78,23 @@ export function OverstockRiskPanel({
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Free slots
             </div>
             <div className="text-lg font-bold tabular-nums mt-0.5">{proposal.freePalletSlots}</div>
-            <div className="text-[10px] text-slate-400">pallets</div>
+            <div className="text-[11px] text-slate-400">pallets</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Inbound
             </div>
             <div className="text-lg font-bold tabular-nums mt-0.5 text-amber-800">
               {proposal.inboundPallets}
             </div>
-            <div className="text-[10px] text-slate-400">pallets</div>
+            <div className="text-[11px] text-slate-400">pallets</div>
           </div>
           <div className="px-3 py-2.5 col-span-2">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide flex items-center gap-1">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide flex items-center gap-1">
               <Warehouse className="w-3 h-3" />
               Storage / shelf-life
             </div>
@@ -113,40 +113,40 @@ export function OverstockRiskPanel({
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">DC on hand</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">DC on hand</div>
               <div className="text-lg font-bold tabular-nums mt-0.5">
                 {proposal.presentStock.dcOnHandCases.toLocaleString()}
               </div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-400">
                 {proposal.presentStock.item} · {proposal.presentStock.dcDailyDispatch}/day out
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Store on hand</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Store on hand</div>
               <div className="text-lg font-bold tabular-nums mt-0.5">
                 {proposal.presentStock.storeOnHandCases.toLocaleString()}
               </div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-400">
                 {proposal.presentStock.storeCount} stores
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Ageing batch life</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Ageing batch life</div>
               <div className="text-lg font-bold tabular-nums text-amber-800 mt-0.5">
                 {proposal.presentStock.onHandShelfLifeDays}d
               </div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-400">
                 expires {formatShortDate(proposal.presentStock.onHandExpiresDate)}
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">
+              <div className="text-[11px] font-semibold uppercase text-slate-500">
                 If early inbound held
               </div>
               <div className="text-lg font-bold tabular-nums mt-0.5">
                 {proposal.projectedStock.dcIfHeldCases.toLocaleString()}
               </div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-400">
                 DC cases · {proposal.projectedStock.dcDaysCoverIfHeld}d cover
                 {proposal.projectedStock.overflowCases > 0
                   ? ` · ${proposal.projectedStock.overflowCases.toLocaleString()} overflow`
@@ -171,11 +171,11 @@ export function OverstockRiskPanel({
               className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 bg-white dark:bg-slate-900"
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold tabular-nums text-white bg-[#4684AD] rounded px-1.5 py-0.5">
+                <span className="text-[11px] font-bold tabular-nums text-white bg-[#4684AD] rounded px-1.5 py-0.5">
                   {m.step}
                 </span>
                 <span className="text-xs font-bold text-slate-800 dark:text-slate-100">{m.title}</span>
-                <span className="text-[10px] font-semibold uppercase text-slate-400 ml-auto">
+                <span className="text-[11px] font-semibold uppercase text-slate-400 ml-auto">
                   {m.owner}
                 </span>
               </div>
@@ -207,7 +207,7 @@ export function OverstockRiskPanel({
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {proposal.batches.map((b) => (
                 <tr key={b.po}>
-                  <td className="px-3 py-2.5 font-code text-[10px] text-[#2F5472]">{b.po}</td>
+                  <td className="px-3 py-2.5 font-code text-[11px] text-[#2F5472]">{b.po}</td>
                   <td className="px-3 py-2.5 font-semibold">{b.item}</td>
                   <td className="px-3 py-2.5 tabular-nums">{b.inboundCases.toLocaleString()}</td>
                   <td className="px-3 py-2.5 tabular-nums font-bold text-emerald-700">
@@ -227,7 +227,7 @@ export function OverstockRiskPanel({
                     ) : (
                       <span className="text-emerald-700">None — BAU</span>
                     )}
-                    <div className="text-[10px] text-slate-400 mt-0.5 leading-snug">
+                    <div className="text-[11px] text-slate-400 mt-0.5 leading-snug">
                       {b.clearanceGuidance}
                     </div>
                   </td>
@@ -270,7 +270,7 @@ export function OverstockRiskPanel({
                     </td>
                     <td className="px-3 py-2.5">
                       {s.notifyStore ? (
-                        <span className="text-[10px] font-bold uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
+                        <span className="text-[11px] font-bold uppercase text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded">
                           Clear stock / arrange space
                         </span>
                       ) : (
@@ -291,10 +291,10 @@ export function OverstockRiskPanel({
       {overstockAction && !hideApproval && (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-blue-50 text-blue-800 border-blue-200">
+            <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded border bg-blue-50 text-blue-800 border-blue-200">
               Overstock
             </span>
-            <span className="text-[10px] text-slate-500">
+            <span className="text-[11px] text-slate-500">
               {getActionStatusLabel(overstockAction.status)}
             </span>
           </div>

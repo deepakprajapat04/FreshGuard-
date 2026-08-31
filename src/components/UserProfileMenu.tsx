@@ -219,7 +219,7 @@ export function UserProfileMenu({
                 </div>
 
                 <div className="px-3 pb-3 space-y-1.5 border-t border-slate-100 dark:border-slate-800 pt-3">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 px-1 mb-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400 px-1 mb-1">
                     Active persona
                   </div>
                   {ALL_PERSONAS.map((p) => (

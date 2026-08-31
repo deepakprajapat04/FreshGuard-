@@ -1,26 +1,46 @@
 import { downloadExcelCsv } from '../components/DataTable';
-import { getAwardedQuote, getRfqDropQty, type FruitsRfq } from './fruitsRfqFlow';
+import {
+  fromContractNumber,
+  getAwardedQuote,
+  getRfqDropQty,
+  toContractNumber,
+  type FruitsRfq,
+} from './fruitsRfqFlow';
 
+/** Fillable shipping columns — mirrors PO shipment detail fields. */
 export const MASS_SHIPPING_HEADERS = [
-  'RFQ ID',
+  'Contract number',
   'Item',
   'Fruit',
   'Quantity',
   'Unit',
-  'Awarded price / case',
+  'Contract price / case',
   'Total value',
   'Buyer',
-  'Destination',
   'Delivery date',
   'Cold chain',
   'Min shelf life',
   'Size spec',
   'Vendor',
-  'Awarded at',
+  'Assigned at',
   'ASN number',
   'Container',
   'Ship date',
   'ETA',
+  'Original ETA',
+  'Transport mode',
+  'Carrier',
+  'Vessel',
+  'Voyage',
+  'Origin',
+  'Destination',
+  'Incoterms',
+  'Bill of lading',
+  'Customs',
+  'Temp range',
+  'Quantity expected',
+  'Quantity actual',
+  'Amount',
 ] as const;
 
 export type MassShippingRow = {
@@ -29,6 +49,20 @@ export type MassShippingRow = {
   containerNumber: string;
   shipDate: string;
   eta: string;
+  originalEta: string;
+  transportMode: string;
+  carrier: string;
+  vessel: string;
+  voyage: string;
+  origin: string;
+  destination: string;
+  incoterms: string;
+  billOfLading: string;
+  customs: string;
+  tempRange: string;
+  qtyExpected: string;
+  qtyActual: string;
+  amount: string;
 };
 
 function parseDelimited(text: string): string[][] {
@@ -79,6 +113,11 @@ function normHeader(h: string) {
 }
 
 const HEADER_ALIASES: Record<string, keyof MassShippingRow | 'skip'> = {
+  'contract number': 'rfqId',
+  contract: 'rfqId',
+  'contract no': 'rfqId',
+  'contract id': 'rfqId',
+  cn: 'rfqId',
   'rfq id': 'rfqId',
   rfqid: 'rfqId',
   rfq: 'rfqId',
@@ -89,34 +128,87 @@ const HEADER_ALIASES: Record<string, keyof MassShippingRow | 'skip'> = {
   'ship date': 'shipDate',
   shipdate: 'shipDate',
   eta: 'eta',
+  'original eta': 'originalEta',
+  'orig eta': 'originalEta',
+  'transport mode': 'transportMode',
+  transport: 'transportMode',
+  mode: 'transportMode',
+  carrier: 'carrier',
+  vessel: 'vessel',
+  'vessel name': 'vessel',
+  voyage: 'voyage',
+  'voyage number': 'voyage',
+  origin: 'origin',
+  destination: 'destination',
+  incoterms: 'incoterms',
+  incoterm: 'incoterms',
+  'bill of lading': 'billOfLading',
+  bol: 'billOfLading',
+  bl: 'billOfLading',
+  customs: 'customs',
+  'customs status': 'customs',
+  'temp range': 'tempRange',
+  temperature: 'tempRange',
+  'cold chain': 'tempRange',
+  'quantity expected': 'qtyExpected',
+  'qty expected': 'qtyExpected',
+  'expected qty': 'qtyExpected',
+  'quantity actual': 'qtyActual',
+  'qty actual': 'qtyActual',
+  'actual qty': 'qtyActual',
+  amount: 'amount',
+  value: 'amount',
 };
+
+function cell(
+  line: string[],
+  idx: Partial<Record<keyof MassShippingRow, number>>,
+  key: keyof MassShippingRow
+): string {
+  return idx[key] != null ? line[idx[key]!]?.trim() ?? '' : '';
+}
 
 export function downloadMassShippingExcel(rfqs: FruitsRfq[]) {
   const rows = rfqs.map((r) => {
     const quote = getAwardedQuote(r);
+    const expected = getRfqDropQty(r);
+    const price = quote?.pricePerCase ?? r.unitPrice ?? 0;
     return [
-      r.id,
+      toContractNumber(r.id),
       r.item,
       r.fruitItem,
-      String(getRfqDropQty(r)),
+      String(expected),
       r.unit,
       quote ? quote.pricePerCase.toFixed(2) : '',
       quote ? quote.totalPrice.toFixed(2) : '',
       r.buyer,
-      r.destination,
       r.deliveryDate,
       r.specifications.tempRange,
       r.specifications.minShelfLife,
       r.specifications.sizeSpec,
       r.awardedVendor ?? '',
       r.awardedAt ?? '',
-      '',
-      '',
-      '',
-      '',
+      '', // ASN
+      '', // Container
+      '', // Ship date
+      '', // ETA
+      '', // Original ETA
+      'ocean',
+      'Maersk Reefer',
+      'MV Andes Fresh',
+      'AF-118W',
+      'Valparaíso, Chile',
+      r.destination,
+      'FOB Valparaíso',
+      '', // BOL
+      'Pending clearance',
+      r.specifications.tempRange,
+      String(expected),
+      String(expected),
+      (expected * price).toFixed(2),
     ];
   });
-  downloadExcelCsv('rfq-mass-shipping.xls', [...MASS_SHIPPING_HEADERS], rows);
+  downloadExcelCsv('contract-mass-shipping.xls', [...MASS_SHIPPING_HEADERS], rows);
 }
 
 export function parseMassShippingExcel(text: string): MassShippingRow[] {
@@ -133,14 +225,28 @@ export function parseMassShippingExcel(text: string): MassShippingRow[] {
 
   const out: MassShippingRow[] = [];
   for (const line of table.slice(1)) {
-    const rfqId = line[idx.rfqId]?.trim();
-    if (!rfqId) continue;
+    const rawId = line[idx.rfqId]?.trim();
+    if (!rawId) continue;
     out.push({
-      rfqId,
-      asnNumber: idx.asnNumber != null ? line[idx.asnNumber]?.trim() ?? '' : '',
-      containerNumber: idx.containerNumber != null ? line[idx.containerNumber]?.trim() ?? '' : '',
-      shipDate: idx.shipDate != null ? line[idx.shipDate]?.trim() ?? '' : '',
-      eta: idx.eta != null ? line[idx.eta]?.trim() ?? '' : '',
+      rfqId: fromContractNumber(rawId),
+      asnNumber: cell(line, idx, 'asnNumber'),
+      containerNumber: cell(line, idx, 'containerNumber'),
+      shipDate: cell(line, idx, 'shipDate'),
+      eta: cell(line, idx, 'eta'),
+      originalEta: cell(line, idx, 'originalEta'),
+      transportMode: cell(line, idx, 'transportMode'),
+      carrier: cell(line, idx, 'carrier'),
+      vessel: cell(line, idx, 'vessel'),
+      voyage: cell(line, idx, 'voyage'),
+      origin: cell(line, idx, 'origin'),
+      destination: cell(line, idx, 'destination'),
+      incoterms: cell(line, idx, 'incoterms'),
+      billOfLading: cell(line, idx, 'billOfLading'),
+      customs: cell(line, idx, 'customs'),
+      tempRange: cell(line, idx, 'tempRange'),
+      qtyExpected: cell(line, idx, 'qtyExpected'),
+      qtyActual: cell(line, idx, 'qtyActual'),
+      amount: cell(line, idx, 'amount'),
     });
   }
   return out;

@@ -744,7 +744,7 @@ export default function Logistics() {
                 <h1 className="text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                   Logistics &amp; Shipment Tracking
                 </h1>
-                <span className="text-[10px] font-semibold tracking-wide text-[#4684AD] dark:text-[#C0D5E5] uppercase">
+                <span className="text-[11px] font-semibold tracking-wide text-[#4684AD] dark:text-[#C0D5E5] uppercase">
                   FreshGuard × PSA Portnet®
                 </span>
               </div>
@@ -755,7 +755,7 @@ export default function Logistics() {
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
             <div className={cn(
-              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[10px] font-semibold',
+              'flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[11px] font-semibold',
               psaSyncPulse
                 ? 'bg-emerald-500 text-white border-emerald-400'
                 : 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:border-emerald-500/40'
@@ -779,7 +779,7 @@ export default function Logistics() {
                   key={t.id}
                   onClick={() => setActiveTab(t.id)}
                   className={cn(
-                    'flex-1 min-w-[100px] py-1.5 px-2.5 rounded-md text-[10px] sm:text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all',
+                    'flex-1 min-w-[100px] py-1.5 px-2.5 rounded-md text-[11px] sm:text-[11px] font-semibold uppercase tracking-wide flex items-center justify-center gap-1.5 transition-all',
                     activeTab === t.id
                       ? btnTabActiveClass
                       : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/5'
@@ -859,17 +859,17 @@ export default function Logistics() {
                           <div>
                             <span className="font-mono text-xs font-black text-[#2F5472] dark:text-blue-300 uppercase tracking-widest">{s.id}</span>
                             <h4 className="text-sm font-black mt-1">{s.product || s.item}</h4>
-                            <div className="text-[10px] font-mono text-slate-500 mt-1">Ordered: {s.quantity.toLocaleString()} {s.unit}</div>
+                            <div className="text-[11px] font-mono text-slate-500 mt-1">Ordered: {s.quantity.toLocaleString()} {s.unit}</div>
                             {s.asnNumber && (
-                              <div className="text-[10px] font-mono text-violet-600 dark:text-violet-400 mt-0.5">ASN {s.asnNumber}</div>
+                              <div className="text-[11px] font-mono text-violet-600 dark:text-violet-400 mt-0.5">ASN {s.asnNumber}</div>
                             )}
                             {s.cargoLines && s.cargoLines.length > 1 && (
-                              <div className="text-[10px] text-slate-500 mt-0.5">
+                              <div className="text-[11px] text-slate-500 mt-0.5">
                                 {s.cargoLines.length} POs in container · {s.cargoLines.map((c) => c.poNumber).join(', ')}
                               </div>
                             )}
                             {s.packingSlipName && (
-                              <div className="text-[10px] text-emerald-700 dark:text-emerald-400 mt-0.5">
+                              <div className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-0.5">
                                 Slip: {s.packingSlipName}
                               </div>
                             )}
@@ -881,7 +881,7 @@ export default function Logistics() {
 
                           <div className="space-y-2 border-t border-slate-100 dark:border-slate-800 pt-3">
                             <label className="block space-y-1">
-                              <span className="text-[10px] font-bold uppercase text-slate-400">Confirm qty ({s.unit})</span>
+                              <span className="text-[11px] font-bold uppercase text-slate-400">Confirm qty ({s.unit})</span>
                               <input
                                 type="number"
                                 min={1}
@@ -891,7 +891,7 @@ export default function Logistics() {
                               />
                             </label>
                             <label className="block space-y-1">
-                              <span className="text-[10px] font-bold uppercase text-slate-400">Container #</span>
+                              <span className="text-[11px] font-bold uppercase text-slate-400">Container #</span>
                               <input
                                 value={shipContainerById[s.id] ?? (s.containerNumber || '')}
                                 onChange={(e) => setShipContainerById((prev) => ({ ...prev, [s.id]: e.target.value }))}
@@ -900,7 +900,7 @@ export default function Logistics() {
                               />
                             </label>
                             <label className="block space-y-1">
-                              <span className="text-[10px] font-bold uppercase text-slate-400">ETA</span>
+                              <span className="text-[11px] font-bold uppercase text-slate-400">ETA</span>
                               <input
                                 value={shipEtaById[s.id] ?? (s.eta === 'Pending dispatch' ? '3 Days' : s.eta)}
                                 onChange={(e) => setShipEtaById((prev) => ({ ...prev, [s.id]: e.target.value }))}
@@ -909,7 +909,7 @@ export default function Logistics() {
                               />
                             </label>
                             <label className="block space-y-1">
-                              <span className="text-[10px] font-bold uppercase text-slate-400">Shipment notes</span>
+                              <span className="text-[11px] font-bold uppercase text-slate-400">Shipment notes</span>
                               <textarea
                                 rows={2}
                                 value={shipNotesById[s.id] ?? ''}
@@ -974,7 +974,7 @@ export default function Logistics() {
                     </span>
                   </div>
                   <div className="space-y-1">
-                    <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Status</span>
                     <div className="flex flex-wrap gap-1">
                       {(
                         [
@@ -990,7 +990,7 @@ export default function Logistics() {
                           type="button"
                           onClick={() => setTransitStatusFilter(value)}
                           className={cn(
-                            'px-2 py-1 rounded-md text-[10px] font-semibold border transition-colors',
+                            'px-2 py-1 rounded-md text-[11px] font-semibold border transition-colors',
                             transitStatusFilter === value
                               ? value === 'delayed' || value === 'mismatched'
                                 ? 'bg-rose-600 border-rose-500 text-white'
@@ -1012,7 +1012,7 @@ export default function Logistics() {
                       type="button"
                       onClick={() => setTransitFiltersOpen((v) => !v)}
                       className={cn(
-                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold border',
+                        'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold border',
                         transitFiltersOpen || transitFilterCount > 0
                           ? 'bg-[#4684AD] border-[#4684AD] text-white'
                           : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100 dark:bg-white/5 dark:border-white/15 dark:text-slate-200 dark:hover:bg-white/10'
@@ -1021,7 +1021,7 @@ export default function Logistics() {
                       <Filter className="w-3.5 h-3.5" />
                       More filters
                       {transitFilterCount > 0 && (
-                        <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] flex items-center justify-center">
+                        <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[11px] flex items-center justify-center">
                           {transitFilterCount}
                         </span>
                       )}
@@ -1034,7 +1034,7 @@ export default function Logistics() {
                           setTransitModeFilter('all');
                           setTransitSupplierFilter('all');
                         }}
-                        className="inline-flex items-center gap-1 text-[10px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
+                        className="inline-flex items-center gap-1 text-[11px] text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white"
                       >
                         <X className="w-3 h-3" /> Clear
                       </button>
@@ -1043,7 +1043,7 @@ export default function Logistics() {
                   {transitFiltersOpen && (
                     <div className="grid grid-cols-1 gap-1.5 pt-1 border-t border-slate-100 dark:border-white/10">
                       <label className="space-y-0.5">
-                        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Transport</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Transport</span>
                         <select
                           value={transitModeFilter}
                           onChange={(e) => setTransitModeFilter(e.target.value as typeof transitModeFilter)}
@@ -1056,7 +1056,7 @@ export default function Logistics() {
                         </select>
                       </label>
                       <label className="space-y-0.5">
-                        <span className="text-[9px] font-semibold uppercase tracking-wide text-slate-400">Supplier</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">Supplier</span>
                         <select
                           value={transitSupplierFilter}
                           onChange={(e) => setTransitSupplierFilter(e.target.value)}
@@ -1109,7 +1109,7 @@ export default function Logistics() {
                     </div>
                   )}
                 </div>
-                <div className="p-3 border-t border-slate-200 dark:border-slate-800 flex justify-between text-[10px] text-slate-500 shrink-0">
+                <div className="p-3 border-t border-slate-200 dark:border-slate-800 flex justify-between text-[11px] text-slate-500 shrink-0">
                   <span>Role: {isVendor ? 'Supplier' : 'Retail buyer'}</span>
                   <span className="flex items-center gap-1 text-emerald-600"><span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" /> PSA live</span>
                 </div>
@@ -1124,7 +1124,7 @@ export default function Logistics() {
                       key={mode}
                       onClick={() => setViewMode(mode)}
                       className={cn(
-                        'px-3 py-1.5 rounded-md text-[10px] font-bold font-mono uppercase flex items-center gap-1.5',
+                        'px-3 py-1.5 rounded-md text-[11px] font-bold font-mono uppercase flex items-center gap-1.5',
                         viewMode === mode ? 'bg-[#4684AD] text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                       )}
                     >
@@ -1186,7 +1186,7 @@ export default function Logistics() {
                                 <div className="mt-2 space-y-2">
                                   {'kind' in activeDisruption && activeDisruption.kind === 'mismatch' ? (
                                     <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/50 border border-rose-200/60 dark:border-rose-800/40 space-y-1.5">
-                                      <div className="text-[10px] font-bold uppercase tracking-wide text-rose-800 dark:text-rose-300">
+                                      <div className="text-[11px] font-bold uppercase tracking-wide text-rose-800 dark:text-rose-300">
                                         Take action
                                       </div>
                                       <p className="text-xs text-slate-700 dark:text-slate-300">
@@ -1199,13 +1199,13 @@ export default function Logistics() {
                                   ) : (
                                     <>
                                   <div className="p-3 rounded-lg bg-white/80 dark:bg-slate-900/50 border border-amber-200/60 dark:border-amber-800/40 space-y-1.5">
-                                    <div className="text-[10px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
+                                    <div className="text-[11px] font-bold uppercase tracking-wide text-amber-800 dark:text-amber-300">
                                       Shelf life impact
                                     </div>
                                     <p className="text-xs text-slate-700 dark:text-slate-300">
                                       {activeDisruption.shelfImpact}
                                     </p>
-                                    <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
+                                    <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
                                       <span className="px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300">
                                         Planned shelf: {activeDisruption.shelfLifeBefore ?? 14}d
                                       </span>
@@ -1224,7 +1224,7 @@ export default function Logistics() {
                                   >
                                     <div
                                       className={cn(
-                                        'text-[10px] font-bold uppercase tracking-wide',
+                                        'text-[11px] font-bold uppercase tracking-wide',
                                         activeDisruption.willShortage
                                           ? 'text-rose-800 dark:text-rose-300'
                                           : 'text-slate-500'
@@ -1237,7 +1237,7 @@ export default function Logistics() {
                                     <p className="text-xs text-slate-700 dark:text-slate-300">
                                       {activeDisruption.shortageImpact}
                                     </p>
-                                    <div className="flex flex-wrap gap-2 text-[10px] font-semibold">
+                                    <div className="flex flex-wrap gap-2 text-[11px] font-semibold">
                                       <span className="px-2 py-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                                         On hand: {(activeDisruption.storeOnHandCases ?? 0).toLocaleString()} cases
                                       </span>
@@ -1276,7 +1276,7 @@ export default function Logistics() {
                               <button
                                 type="button"
                                 onClick={() => setAlertDetailsOpen((v) => !v)}
-                                className="inline-flex items-center gap-1 text-[10px] font-bold uppercase text-slate-600 dark:text-slate-300 hover:text-[#2F5472]"
+                                className="inline-flex items-center gap-1 text-[11px] font-bold uppercase text-slate-600 dark:text-slate-300 hover:text-[#2F5472]"
                               >
                                 {alertDetailsOpen ? (
                                   <ChevronUp className="w-3.5 h-3.5" />
@@ -1295,14 +1295,14 @@ export default function Logistics() {
                                     <button
                                       type="button"
                                       onClick={() => setViewMode('timeline')}
-                                      className="inline-flex items-center gap-2 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[11px] font-black uppercase font-mono shrink-0"
                                     >
                                       Review PSA timeline
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => setShowAlertsPanel(true)}
-                                      className="inline-flex items-center gap-2 px-3 py-2 bg-[#4684AD] hover:bg-[#4684AD] text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                      className="inline-flex items-center gap-2 px-3 py-2 bg-[#4684AD] hover:bg-[#4684AD] text-white rounded-lg text-[11px] font-black uppercase font-mono shrink-0"
                                     >
                                       Open buyer alerts
                                     </button>
@@ -1312,14 +1312,14 @@ export default function Logistics() {
                                 <button
                                   type="button"
                                   onClick={() => navigate('/inbox')}
-                                  className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                  className="inline-flex items-center gap-2 px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-[11px] font-black uppercase font-mono shrink-0"
                                 >
                                   Review Inbox approvals
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => navigate('/procurement')}
-                                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#4684AD] hover:bg-[#4684AD] text-white rounded-lg text-[10px] font-black uppercase font-mono shrink-0"
+                                  className="inline-flex items-center gap-2 px-3 py-2 bg-[#4684AD] hover:bg-[#4684AD] text-white rounded-lg text-[11px] font-black uppercase font-mono shrink-0"
                                 >
                                   <ShoppingCart className="w-3.5 h-3.5" />
                                   Ask alternative suppliers
@@ -1338,7 +1338,7 @@ export default function Logistics() {
                           <div className="flex items-center gap-2 font-mono font-bold text-[#C0D5E5]">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
-                          <span className="text-[10px] font-mono text-emerald-300">Sync {formatSyncAge(selectedShipment.psaLastSyncAt)} · {selectedShipment.psaEvents?.length || 0} events</span>
+                          <span className="text-[11px] font-mono text-emerald-300">Sync {formatSyncAge(selectedShipment.psaLastSyncAt)} · {selectedShipment.psaEvents?.length || 0} events</span>
                         </div>
                       </div>
                     )}
@@ -1348,7 +1348,7 @@ export default function Logistics() {
                           <div className="flex items-center gap-2 font-mono font-bold text-[#C0D5E5]">
                             <Link2 className="w-4 h-4" /> Tracking {selectedShipment.containerNumber} via PSA Portnet®
                           </div>
-                          <span className="text-[10px] font-mono text-amber-300">
+                          <span className="text-[11px] font-mono text-amber-300">
                             {'kind' in activeDisruption && activeDisruption.kind === 'mismatch'
                               ? 'Mode mismatch alert active'
                               : 'Delay alert active'}
@@ -1365,7 +1365,7 @@ export default function Logistics() {
                       </div>
                       {selectedShipment && (
                         <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-slate-100 font-mono shrink-0">
-                          <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Live logistics feed · PSA mirrored</div>
+                          <div className="text-[11px] text-slate-500 font-bold uppercase tracking-widest">Live logistics feed · PSA mirrored</div>
                           <div className="text-sm font-bold mt-0.5">{selectedShipment.vendor} — {selectedShipment.item}</div>
                           <div className="text-[11px] text-slate-400 mt-1">
                             {selectedShipment.containerNumber} · {selectedShipment.vesselName} · <span className="text-emerald-400">{selectedShipment.psaSyncStatus?.toUpperCase()}</span>
@@ -1489,7 +1489,7 @@ function Section({
     <div>
       <div className="flex items-center gap-1.5 mb-3 px-1">
         <span className={cn('w-2 h-2 rounded-full', tone === 'rose' ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500')} />
-        <h3 className={cn('text-[10px] font-extrabold uppercase tracking-widest font-mono', tone === 'rose' ? 'text-rose-600' : 'text-slate-500')}>{title}</h3>
+        <h3 className={cn('text-[11px] font-extrabold uppercase tracking-widest font-mono', tone === 'rose' ? 'text-rose-600' : 'text-slate-500')}>{title}</h3>
       </div>
       {items.length === 0 ? (
         <div className="text-center py-4 text-xs font-mono text-slate-400 border border-dashed border-slate-200 dark:border-slate-800 rounded-xl">{empty}</div>
@@ -1539,7 +1539,7 @@ function ShipmentListItem({
       <div className="flex justify-between gap-2">
         <div>
           <h4 className="font-mono text-[11px] font-black">{shipment.id} · <span className="font-sans font-bold">{shipment.item}</span></h4>
-          <span className="text-[10px] text-slate-500 font-mono">{shipment.containerNumber}</span>
+          <span className="text-[11px] text-slate-500 font-mono">{shipment.containerNumber}</span>
         </div>
         {isDelivered ? (
           <span className="bg-emerald-600 text-white font-mono text-[8.5px] font-black uppercase px-2 py-0.5 rounded">Delivered</span>
@@ -1617,7 +1617,7 @@ function BuyerShipmentListItem({ shipment, active, onClick }: { shipment: Shipme
           </span>
         )}
       </div>
-      <div className="text-[10px] font-mono text-slate-500">{shipment.containerNumber} · {shipment.vesselName}</div>
+      <div className="text-[11px] font-mono text-slate-500">{shipment.containerNumber} · {shipment.vesselName}</div>
       <div className="text-[11px] mt-1">
         <div className="font-semibold text-slate-600">
           Status:{' '}

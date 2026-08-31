@@ -1,23 +1,33 @@
 /**
- * Fruits RFQ — buyer awards quote; PO is created only after supplier uploads shipping.
+ * Contracts — standing orders with an assigned supplier (award already done upstream).
+ * Supplier uploads shipping → PO created.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, Navigate } from 'react-router';
-import { Award, CheckCircle2, Filter, Package, Repeat, Search, Thermometer } from 'lucide-react';
+import {
+  Building2,
+  CheckCircle2,
+  Filter,
+  Maximize2,
+  Minimize2,
+  Package,
+  Repeat,
+  Search,
+  Thermometer,
+} from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader, StatCard, pageShellClass, statGridClass } from '../components/PageChrome';
-import { btnPrimaryClass, btnSecondaryClass } from '../lib/sapTheme';
+import { btnSecondaryClass } from '../lib/sapTheme';
 import { usePersona } from '../context/PersonaContext';
-import { useNotifications } from '../context/NotificationsContext';
 import {
-  awardFruitsRfq,
   cadenceLabel,
   formatRepeatSummary,
+  getAwardedQuote,
   getQuoteRepeat,
   loadFruitsRfqs,
   resetFruitsRfqDemo,
+  toContractNumber,
   type FruitsRfq,
-  type FruitsRfqQuote,
 } from '../lib/fruitsRfqFlow';
 
 function statusLabel(status: FruitsRfq['status']) {
@@ -45,12 +55,10 @@ function statusClass(status: FruitsRfq['status']) {
   }
 }
 
-type RfqStatusFilter = 'all' | FruitsRfq['status'];
+type ContractStatusFilter = 'all' | 'awarded' | 'po_created';
 
-const RFQ_STATUS_FILTER_LABELS: Record<RfqStatusFilter, string> = {
+const STATUS_FILTER_LABELS: Record<ContractStatusFilter, string> = {
   all: 'All',
-  open: 'Open',
-  review: 'In review',
   awarded: 'Awaiting shipping',
   po_created: 'PO created',
 };
@@ -63,103 +71,54 @@ function formatDate(iso: string) {
   });
 }
 
-function QuoteCard({
-  quote,
-  rfq,
-  onAward,
-  awarding,
-}: {
-  quote: FruitsRfqQuote;
-  rfq: FruitsRfq;
-  onAward: () => void;
-  awarding: boolean;
-}) {
-  const isWinner =
-    rfq.awardedQuoteId === quote.id ||
-    (rfq.status !== 'review' && rfq.awardedVendor === quote.vendor);
-  const repeat = getQuoteRepeat(quote, rfq);
-  const matchesAsk = repeat.cadence === rfq.repeat.cadence;
-  const perDrop = Math.round(quote.pricePerCase * repeat.qtyPerDelivery);
+function AssignedSupplierCard({ rfq }: { rfq: FruitsRfq }) {
+  const quote = getAwardedQuote(rfq);
+  const vendor = rfq.awardedVendor ?? quote?.vendor ?? '—';
+  const perDrop =
+    quote != null
+      ? Math.round(quote.pricePerCase * getQuoteRepeat(quote, rfq).qtyPerDelivery)
+      : null;
 
   return (
-    <div
-      className={cn(
-        'rounded-xl border p-4 space-y-3',
-        isWinner
-          ? 'border-emerald-300 bg-emerald-50/50 dark:bg-emerald-950/20'
-          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
-      )}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-sm font-bold text-slate-900 dark:text-white">{quote.vendor}</div>
-          <div className="text-xs text-slate-500 mt-0.5">{quote.fleetSpecification}</div>
+    <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+        <div className="shrink-0 w-10 h-10 rounded-lg bg-[#C0D5E5]/50 border border-[#4684AD]/25 flex items-center justify-center">
+          <Building2 className="w-5 h-5 text-[#2F5472]" />
         </div>
-        {isWinner && (
-          <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border border-emerald-300 text-emerald-800 bg-white">
-            Awarded
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
-        <span
-          className={cn(
-            'inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded border',
-            matchesAsk
-              ? 'border-[#4684AD]/30 bg-[#C0D5E5]/40 text-[#2F5472]'
-              : 'border-amber-200 bg-amber-50 text-amber-900'
+        <div className="min-w-0 flex-1">
+          <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+            Assigned supplier
+          </div>
+          <div className="text-base font-bold text-slate-900 dark:text-white truncate">{vendor}</div>
+          {quote?.fleetSpecification && (
+            <div className="text-xs text-slate-500">{quote.fleetSpecification}</div>
           )}
-        >
-          <Repeat className="w-3 h-3" />
-          {formatRepeatSummary(repeat)}
-        </span>
-        <span className="text-slate-500">
-          {repeat.qtyPerDelivery.toLocaleString()} cases/drop · {repeat.deliveries} drops · {repeat.weeks}{' '}
-          weeks
-        </span>
-        {!matchesAsk && (
-          <span className="text-[10px] font-semibold uppercase text-amber-800">
-            Differs from {cadenceLabel(rfq.repeat.cadence)} ask
-          </span>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
-        <div>
-          <div className="text-[10px] uppercase text-slate-400 font-semibold">Price / case</div>
-          <div className="font-bold tabular-nums">${quote.pricePerCase.toFixed(2)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase text-slate-400 font-semibold">Per drop</div>
-          <div className="font-bold tabular-nums">${perDrop.toLocaleString()}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase text-slate-400 font-semibold">Program</div>
-          <div className="font-bold tabular-nums">${quote.totalPrice.toLocaleString()}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase text-slate-400 font-semibold">First ETA</div>
-          <div className="font-medium">{formatDate(quote.eta)}</div>
-        </div>
-        <div>
-          <div className="text-[10px] uppercase text-slate-400 font-semibold">Quality</div>
-          <div className="font-medium">{quote.qualityIndex}</div>
         </div>
       </div>
 
-      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">{quote.notes}</p>
-
-      {rfq.status === 'review' && !isWinner && (
-        <button
-          type="button"
-          disabled={awarding}
-          onClick={onAward}
-          className={cn(btnPrimaryClass, 'w-full sm:w-auto disabled:opacity-60')}
-        >
-          <Award className="w-4 h-4" />
-          {awarding ? 'Awarding…' : 'Award quote'}
-        </button>
+      {quote && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800">
+          <div className="px-4 py-3">
+            <div className="text-[11px] uppercase text-slate-400 font-semibold">Price / case</div>
+            <div className="text-sm font-bold tabular-nums mt-0.5">${quote.pricePerCase.toFixed(2)}</div>
+          </div>
+          <div className="px-4 py-3">
+            <div className="text-[11px] uppercase text-slate-400 font-semibold">Per drop</div>
+            <div className="text-sm font-bold tabular-nums mt-0.5">
+              ${(perDrop ?? 0).toLocaleString()}
+            </div>
+          </div>
+          <div className="px-4 py-3">
+            <div className="text-[11px] uppercase text-slate-400 font-semibold">Program value</div>
+            <div className="text-sm font-bold tabular-nums mt-0.5">
+              ${quote.totalPrice.toLocaleString()}
+            </div>
+          </div>
+          <div className="px-4 py-3">
+            <div className="text-[11px] uppercase text-slate-400 font-semibold">First ETA</div>
+            <div className="text-sm font-bold mt-0.5">{formatDate(quote.eta)}</div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -167,17 +126,45 @@ function QuoteCard({
 
 export default function FruitsRfq() {
   const { persona } = usePersona();
-  const { upsertMany } = useNotifications();
   const [rfqs, setRfqs] = useState<FruitsRfq[]>(() => loadFruitsRfqs());
   const [selectedId, setSelectedId] = useState<string>('RFQ-F-2026-001');
-  const [awardingId, setAwardingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<RfqStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [detailExpanded, setDetailExpanded] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setRfqs(loadFruitsRfqs());
   }, []);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [filterOpen]);
+
+  useEffect(() => {
+    if (!detailExpanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setDetailExpanded(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailExpanded]);
 
   const filteredRfqs = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -186,13 +173,13 @@ export default function FruitsRfq() {
       if (!q) return true;
       const haystack = [
         r.id,
+        toContractNumber(r.id),
         r.item,
         r.fruitItem,
         r.destination,
         r.awardedVendor,
         cadenceLabel(r.repeat.cadence),
         r.repeat.deliveryDays,
-        ...r.quotes.map((quote) => quote.vendor),
       ]
         .filter(Boolean)
         .join(' ')
@@ -210,53 +197,24 @@ export default function FruitsRfq() {
 
   const selected = filteredRfqs.find((r) => r.id === selectedId) ?? filteredRfqs[0];
 
+  useEffect(() => {
+    if (!selected) setDetailExpanded(false);
+  }, [selected]);
+
   const stats = useMemo(() => {
-    const inReview = rfqs.filter((r) => r.status === 'review').length;
+    const assigned = rfqs.filter((r) => Boolean(r.awardedVendor)).length;
     const awaiting = rfqs.filter((r) => r.status === 'awarded').length;
     const created = rfqs.filter((r) => r.status === 'po_created').length;
-    return { inReview, awaiting, created };
+    return { assigned, awaiting, created };
   }, [rfqs]);
-
-  const handleAward = (rfqId: string, quoteId: string) => {
-    setAwardingId(quoteId);
-    setTimeout(() => {
-      const rfq = rfqs.find((r) => r.id === rfqId);
-      const quote = rfq?.quotes.find((q) => q.id === quoteId);
-      awardFruitsRfq(rfqId, quoteId);
-      const next = loadFruitsRfqs();
-      setRfqs(next);
-      setAwardingId(null);
-      setToast(
-        'Quote awarded and sent to supplier. PO is created when they upload shipping details.'
-      );
-      setTimeout(() => setToast(null), 9000);
-
-      if (rfq && quote) {
-        upsertMany([
-          {
-            id: `n-supplier-award-${rfqId}`,
-            title: 'Request for Quote awarded to you',
-            message: `DC awarded ${rfq.item} (${rfqId}) at $${quote.pricePerCase.toFixed(2)}/case. Upload shipping in Shipping Detail to create the PO.`,
-            severity: 'success',
-            category: 'Regular',
-            timestamp: new Date().toISOString(),
-            read: false,
-            module: 'Procurement',
-            href: '/orders',
-          },
-        ]);
-      }
-    }, 1200);
-  };
 
   const handleResetDemo = () => {
     resetFruitsRfqDemo();
     const next = loadFruitsRfqs();
     setRfqs(next);
     setSelectedId('RFQ-F-2026-001');
-    setToast(
-      'Demo reset — requests restored (Blueberries in review, six awards awaiting shipping).'
-    );
+    setDetailExpanded(false);
+    setToast('Demo reset — contracts restored with assigned suppliers awaiting shipping.');
     setTimeout(() => setToast(null), 7000);
   };
 
@@ -268,97 +226,136 @@ export default function FruitsRfq() {
     return (
       <div className={pageShellClass}>
         <PageHeader
-          title="Request for Quote"
-          subtitle="Switch to DC Purchasing — Fruits to manage request for quote sourcing."
+          title="Contracts"
+          subtitle="Switch to DC Purchasing — Fruits to manage standing-order contracts."
         />
       </div>
     );
   }
 
   return (
-    <div className={pageShellClass}>
-      <PageHeader
-        eyebrow="Procurement"
-        title="Request for Quote"
-        subtitle="Award competitive quotes first. Purchase orders are created only after the supplier uploads shipping details."
-      >
-        <button
-          type="button"
-          onClick={handleResetDemo}
-          className="text-xs font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
-        >
-          Reset demo
-        </button>
-        <Link to="/orders" className={btnSecondaryClass}>
-          <Package className="w-4 h-4" />
-          View POs
-        </Link>
-      </PageHeader>
+    <div className={cn(pageShellClass, 'flex flex-col')}>
+      {!detailExpanded && (
+        <PageHeader eyebrow="Procurement" title="Contracts">
+          <button
+            type="button"
+            onClick={handleResetDemo}
+            className="text-xs font-semibold text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 underline"
+          >
+            Reset demo
+          </button>
+          <Link to="/orders" className={btnSecondaryClass}>
+            <Package className="w-4 h-4" />
+            View POs
+          </Link>
+        </PageHeader>
+      )}
 
-      {toast && (
+      {toast && !detailExpanded && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 flex items-start gap-2">
           <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
           <span>{toast}</span>
         </div>
       )}
 
-      <div className={statGridClass}>
-        <StatCard label="In review" value={String(stats.inReview)} />
-        <StatCard label="Awaiting supplier shipping" value={String(stats.awaiting)} />
-        <StatCard label="PO created" value={String(stats.created)} />
-        <StatCard label="Flow" value="RFQ → ASN → PO" />
-      </div>
+      {!detailExpanded && (
+        <div className={statGridClass}>
+          <StatCard label="Assigned contracts" value={String(stats.assigned)} />
+          <StatCard label="Awaiting supplier shipping" value={String(stats.awaiting)} />
+          <StatCard label="PO created" value={String(stats.created)} />
+        </div>
+      )}
 
-      <div className="grid lg:grid-cols-[minmax(240px,300px)_1fr] gap-3 min-h-[480px]">
-        <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden flex flex-col min-h-0">
+      <div
+        className={cn(
+          'flex-1 min-h-[480px] grid gap-3',
+          detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(240px,300px)_1fr]'
+        )}
+      >
+        <section
+          className={cn(
+            'rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden flex flex-col min-h-0',
+            detailExpanded && 'hidden'
+          )}
+        >
           <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 dark:border-slate-700">
-            <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-slate-900 dark:text-white">
-              <Filter className="w-3.5 h-3.5" />
-              Active RFQs
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">
+              Active contracts
             </h2>
-            <p className="text-[10px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               {filteredRfqs.length} of {rfqs.length}
+              {statusFilter !== 'all' ? ` · ${STATUS_FILTER_LABELS[statusFilter]}` : ''}
             </p>
           </div>
 
-          <div className="shrink-0 p-3 space-y-2 border-b border-slate-100 dark:border-slate-800">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search RFQ, item, supplier…"
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Status</div>
-              <div className="flex flex-wrap gap-1">
-                {(Object.keys(RFQ_STATUS_FILTER_LABELS) as RfqStatusFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setStatusFilter(f)}
-                    className={cn(
-                      'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
-                      statusFilter === f
-                        ? 'bg-[#4684AD] text-white border-[#4684AD]'
-                        : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
-                    )}
+          <div className="shrink-0 p-3 border-b border-slate-100 dark:border-slate-800">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search…"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
+                />
+              </div>
+              <div className="relative shrink-0" ref={filterRef}>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((v) => !v)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                    statusFilter !== 'all' || filterOpen
+                      ? 'border-[#4684AD] bg-[#C0D5E5]/50 text-[#2F5472]'
+                      : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+                  )}
+                  aria-expanded={filterOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by status"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Filter
+                </button>
+                {filterOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1"
                   >
-                    {RFQ_STATUS_FILTER_LABELS[f]}
-                  </button>
-                ))}
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      Status
+                    </div>
+                    {(Object.keys(STATUS_FILTER_LABELS) as ContractStatusFilter[]).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        role="option"
+                        aria-selected={statusFilter === f}
+                        onClick={() => {
+                          setStatusFilter(f);
+                          setFilterOpen(false);
+                        }}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                          statusFilter === f
+                            ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {STATUS_FILTER_LABELS[f]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
             {rfqs.length === 0 ? (
-              <p className="p-4 text-sm text-slate-500">No active RFQs.</p>
+              <p className="p-4 text-sm text-slate-500">No active contracts.</p>
             ) : filteredRfqs.length === 0 ? (
-              <p className="p-4 text-sm text-slate-500">No RFQs match your search or filters.</p>
+              <p className="p-4 text-sm text-slate-500">No contracts match your search or filters.</p>
             ) : (
               filteredRfqs.map((r) => (
                 <button
@@ -372,20 +369,25 @@ export default function FruitsRfq() {
                       : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
                   )}
                 >
-                  <div className="text-xs font-code font-semibold text-[#4684AD]">{r.id}</div>
+                  <div className="text-sm font-code font-semibold text-[#4684AD]">
+                    {toContractNumber(r.id)}
+                  </div>
                   <div className="text-sm font-medium text-slate-900 dark:text-white mt-0.5 truncate">
                     {r.item}
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-1 truncate">
+                    {r.awardedVendor ?? 'Unassigned'}
                   </div>
                   <div className="flex items-center gap-2 mt-2">
                     <span
                       className={cn(
-                        'text-[10px] font-bold uppercase px-2 py-0.5 rounded border',
+                        'text-[11px] font-bold uppercase px-2 py-0.5 rounded border',
                         statusClass(r.status)
                       )}
                     >
                       {statusLabel(r.status)}
                     </span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="text-[11px] text-slate-400">
                       {cadenceLabel(r.repeat.cadence)} · {r.repeat.qtyPerDelivery.toLocaleString()}{' '}
                       cs/drop
                     </span>
@@ -398,60 +400,87 @@ export default function FruitsRfq() {
 
         {selected && (
           <section className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800 space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs font-code font-bold text-[#4684AD]">{selected.id}</span>
-                <span
-                  className={cn(
-                    'text-[10px] font-bold uppercase px-2 py-0.5 rounded border',
-                    statusClass(selected.status)
-                  )}
+            <div className="px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-code font-bold text-[#4684AD]">
+                      {toContractNumber(selected.id)}
+                    </span>
+                    <span
+                      className={cn(
+                        'text-[11px] font-bold uppercase px-2 py-0.5 rounded border',
+                        statusClass(selected.status)
+                      )}
+                    >
+                      {statusLabel(selected.status)}
+                    </span>
+                  </div>
+                  <h2 className="text-lg font-bold text-slate-900 dark:text-white">{selected.item}</h2>
+                  <p className="text-xs text-slate-500">
+                    {selected.destination} · first delivery {formatDate(selected.deliveryDate)}
+                    {selected.awardedVendor ? ` · Supplier: ${selected.awardedVendor}` : ''}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDetailExpanded((v) => !v)}
+                  className="shrink-0 p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#2F5472] hover:border-[#4684AD]/50 transition-colors"
+                  title={detailExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
+                  aria-label={detailExpanded ? 'Exit full screen' : 'Expand to full screen'}
                 >
-                  {statusLabel(selected.status)}
-                </span>
+                  {detailExpanded ? (
+                    <Minimize2 className="w-3.5 h-3.5" />
+                  ) : (
+                    <Maximize2 className="w-3.5 h-3.5" />
+                  )}
+                </button>
               </div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">{selected.item}</h2>
-              <p className="text-xs text-slate-500">
-                Standing order · {formatRepeatSummary(selected.repeat)} ·{' '}
-                {selected.repeat.qtyPerDelivery.toLocaleString()} cases/drop · {selected.quantity.toLocaleString()}{' '}
-                cases/week · first delivery {formatDate(selected.deliveryDate)} · {selected.destination}
-              </p>
             </div>
 
-            <div className="p-5 space-y-5 flex-1 overflow-y-auto">
-              <div className="grid sm:grid-cols-4 gap-3">
+            <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-400">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400">
                     <Repeat className="w-3 h-3" />
                     Cadence
                   </div>
                   <div className="text-sm font-medium mt-1">{formatRepeatSummary(selected.repeat)}</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {selected.repeat.qtyPerDelivery.toLocaleString()} cases / drop
+                  </div>
                 </div>
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase text-slate-400">
+                  <div className="text-[11px] font-bold uppercase text-slate-400">Volume</div>
+                  <div className="text-sm font-medium mt-1">
+                    {selected.quantity.toLocaleString()} cases / week
+                  </div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {selected.repeat.deliveries} drops · {selected.repeat.weeks} weeks
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
+                  <div className="flex items-center gap-1.5 text-[11px] font-bold uppercase text-slate-400">
                     <Thermometer className="w-3 h-3" />
                     Cold chain
                   </div>
                   <div className="text-sm font-medium mt-1">{selected.specifications.tempRange}</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {selected.specifications.minShelfLife}
+                  </div>
                 </div>
                 <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Shelf life</div>
-                  <div className="text-sm font-medium mt-1">{selected.specifications.minShelfLife}</div>
-                </div>
-                <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5">
-                  <div className="text-[10px] font-bold uppercase text-slate-400">Spec</div>
+                  <div className="text-[11px] font-bold uppercase text-slate-400">Spec</div>
                   <div className="text-sm font-medium mt-1">{selected.specifications.sizeSpec}</div>
                 </div>
               </div>
 
-              {selected.status === 'awarded' && (
-                <div className="rounded-xl border border-blue-200 bg-blue-50/70 dark:bg-blue-950/20 px-4 py-3 text-sm text-[#2F5472]">
-                  <strong>Standing order awarded.</strong> First-drop PO is created when{' '}
-                  <strong>{selected.awardedVendor}</strong> uploads shipping for the next{' '}
-                  {selected.repeat.deliveryDays} slot ({cadenceLabel(selected.repeat.cadence)},{' '}
-                  {selected.repeat.deliveries} drops).
-                </div>
-              )}
+              <div className="space-y-2">
+                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
+                  Who supplies this contract
+                </h3>
+                <AssignedSupplierCard rfq={selected} />
+              </div>
 
               {selected.status === 'po_created' && selected.poNumber && (
                 <div className="rounded-xl border border-emerald-200 bg-emerald-50/70 dark:bg-emerald-950/20 px-4 py-3 text-sm text-emerald-900 space-y-2">
@@ -460,30 +489,15 @@ export default function FruitsRfq() {
                     PO created
                   </div>
                   <p>
-                    Purchase order <strong className="font-code">{selected.poNumber}</strong> was
-                    auto-created after supplier shipping upload. You can continue in{' '}
+                    Purchase order <strong className="font-code">{selected.poNumber}</strong> is ready.
+                    Open{' '}
                     <Link to={`/orders?po=${selected.poNumber}`} className="text-[#4684AD] underline">
                       SAP Purchase Orders
                     </Link>{' '}
-                    and Logistics Tracking.
+                    or Logistics Tracking.
                   </p>
                 </div>
               )}
-
-              <div className="space-y-3">
-                <h3 className="text-xs font-bold uppercase tracking-wide text-slate-500">
-                  Supplier quotes ({selected.quotes.length})
-                </h3>
-                {selected.quotes.map((q) => (
-                  <QuoteCard
-                    key={q.id}
-                    quote={q}
-                    rfq={selected}
-                    awarding={awardingId === q.id}
-                    onAward={() => handleAward(selected.id, q.id)}
-                  />
-                ))}
-              </div>
             </div>
           </section>
         )}

@@ -121,7 +121,7 @@ export function SourcingRiskPanel({
             : 'border-slate-300 bg-slate-50 dark:bg-slate-950/40'
         )}
       >
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Days configuration
         </div>
         <p className="text-sm font-bold mt-1 text-slate-900 dark:text-slate-100">
@@ -186,7 +186,7 @@ export function SourcingRiskPanel({
                           {opt.supplierName}
                         </span>
                         {opt.recommended && (
-                          <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          <span className="text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
                             {opt.rfqId ? '2nd-best RFQ' : 'Recommended alt vendor'}
                           </span>
                         )}
@@ -214,7 +214,7 @@ export function SourcingRiskPanel({
 
           {selected && (
             <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 text-xs">
-              <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+              <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
                 New PO preview
               </div>
               <p className="mt-1 font-medium text-slate-800 dark:text-slate-100">
@@ -231,14 +231,14 @@ export function SourcingRiskPanel({
       {!hideApproval && (
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Approval
           </span>
           {sourcingAction ? (
             <>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+                  'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
                   sourcingAction.status === 'pending_approval'
                     ? 'bg-amber-100 text-amber-900 border-amber-200'
                     : sourcingAction.status === 'approved'
@@ -249,13 +249,13 @@ export function SourcingRiskPanel({
                 {getActionStatusLabel(sourcingAction.status)}
               </span>
               {sourcingAction.sourcingProposal?.issuedPo && (
-                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-[#C0D5E5] text-[#2F5472]">
+                <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded bg-[#C0D5E5] text-[#2F5472]">
                   {sourcingAction.sourcingProposal.issuedPo}
                 </span>
               )}
             </>
           ) : (
-            <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded border bg-amber-100 text-amber-900 border-amber-200">
+            <span className="text-[11px] font-semibold uppercase px-2 py-0.5 rounded border bg-amber-100 text-amber-900 border-amber-200">
               Loading task…
             </span>
           )}

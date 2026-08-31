@@ -29,7 +29,7 @@ function StoreChangeRow({ change }: { change: PromotionStoreChange }) {
           <div className="flex flex-wrap items-center gap-2">
             <span
               className={cn(
-                'text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
+                'text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded',
                 isRemove
                   ? 'bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300'
                   : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300'
@@ -38,14 +38,14 @@ function StoreChangeRow({ change }: { change: PromotionStoreChange }) {
               {isRemove ? 'Remove' : 'Add'}
             </span>
             <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">{change.storeName}</span>
-            <span className="text-[10px] font-code text-slate-400">{change.storeId}</span>
+            <span className="text-[11px] font-code text-slate-400">{change.storeId}</span>
           </div>
           <p className="text-[11px] text-slate-500 mt-1">
             {change.promoName} · {change.item}
           </p>
         </div>
         {snapshot && (
-          <dl className="text-right shrink-0 text-[10px] tabular-nums">
+          <dl className="text-right shrink-0 text-[11px] tabular-nums">
             <dt className="text-slate-400 uppercase font-semibold">Cover</dt>
             <dd className="font-bold text-slate-800 dark:text-slate-100">{snapshot.daysCover.toFixed(1)}d</dd>
           </dl>

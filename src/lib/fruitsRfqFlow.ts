@@ -46,6 +46,20 @@ export function formatRepeatSummary(repeat: FruitsRfqRepeat): string {
   return `${cadenceLabel(repeat.cadence)} · ${repeat.deliveryDays}`;
 }
 
+/** Display standing-order id as a contract number (RFQ-F-2026-001 → CN-F-2026-001). */
+export function toContractNumber(rfqId: string): string {
+  return rfqId.replace(/^RFQ-/i, 'CN-');
+}
+
+/** Resolve a displayed contract number back to the internal RFQ id. */
+export function fromContractNumber(id: string): string {
+  return id.replace(/^CN-/i, 'RFQ-');
+}
+
+export function isPendingContractStatus(status: FruitsRfqStatus): boolean {
+  return status === 'awarded';
+}
+
 export function quoteProgramTotal(pricePerCase: number, repeat: FruitsRfqRepeat): number {
   return Math.round(pricePerCase * repeat.qtyPerDelivery * repeat.deliveries);
 }
@@ -90,9 +104,23 @@ export type FruitsRfqShippingInput = {
   shipDate: string;
   eta: string;
   quantity?: number;
+  quantityExpected?: number;
+  quantityActual?: number;
+  amount?: number;
+  transportMode?: string;
+  incoterms?: string;
+  originalEta?: string;
+  carrier?: string;
+  vessel?: string;
+  voyage?: string;
+  origin?: string;
+  destination?: string;
+  billOfLading?: string;
+  customs?: string;
+  tempRange?: string;
 };
 
-const RFQS_KEY = 'freshguard-fruits-rfqs-v3';
+const RFQS_KEY = 'freshguard-fruits-rfqs-v4';
 const RFQ_POS_KEY = 'freshguard-fruits-rfq-pos-v1';
 const PO_COUNTER_KEY = 'freshguard-fruits-po-counter';
 
@@ -166,10 +194,10 @@ const SEED_RFQS: FruitsRfq[] = [
     unit: 'Cases',
     deliveryDate: '2026-09-05',
     destination: 'Chicago DC',
-    status: 'review',
+    status: 'awarded',
     buyer: 'Sarah Mitchell',
     createdDate: '2026-08-26',
-    deadline: '18 hours remaining',
+    deadline: 'Closed',
     repeat: BB_TWICE,
     specifications: {
       tempRange: '0–2°C',
@@ -212,6 +240,10 @@ const SEED_RFQS: FruitsRfq[] = [
         },
       },
     ],
+    awardedVendor: FRUITS_RFQ_SUPPLIER,
+    awardedQuoteId: 'FQ-001-A',
+    unitPrice: 29.5,
+    awardedAt: awardedHoursAgo(5),
   },
   {
     id: 'RFQ-F-2026-002',
@@ -316,10 +348,10 @@ const SEED_RFQS: FruitsRfq[] = [
     unit: 'Cases',
     deliveryDate: '2026-09-12',
     destination: 'Chicago DC',
-    status: 'open',
+    status: 'awarded',
     buyer: 'Sarah Mitchell',
     createdDate: '2026-08-24',
-    deadline: '3 days remaining',
+    deadline: 'Closed',
     repeat: OR_WEEKLY,
     specifications: {
       tempRange: '3–7°C',
@@ -329,7 +361,7 @@ const SEED_RFQS: FruitsRfq[] = [
     quotes: [
       {
         id: 'FQ-004-A',
-        vendor: 'SunCitrus Export',
+        vendor: FRUITS_RFQ_SUPPLIER,
         pricePerCase: 18.6,
         totalPrice: quoteProgramTotal(18.6, OR_WEEKLY),
         eta: '2026-09-11',
@@ -339,6 +371,10 @@ const SEED_RFQS: FruitsRfq[] = [
         repeat: OR_WEEKLY,
       },
     ],
+    awardedVendor: FRUITS_RFQ_SUPPLIER,
+    awardedQuoteId: 'FQ-004-A',
+    unitPrice: 18.6,
+    awardedAt: awardedHoursAgo(10),
   },
   {
     id: 'RFQ-F-2026-005',
@@ -629,7 +665,11 @@ export function getRfqDropQty(rfq: FruitsRfq): number {
 }
 
 function buildPoFromRfq(rfq: FruitsRfq, input: FruitsRfqShippingInput): SapPurchaseOrder {
-  const qty = input.quantity ?? getRfqDropQty(rfq);
+  const qty =
+    input.quantityActual ??
+    input.quantity ??
+    input.quantityExpected ??
+    getRfqDropQty(rfq);
   const unitPrice = rfq.unitPrice ?? rfq.quotes[0]?.pricePerCase ?? 0;
   const po = nextPoNumber();
   const materialPrefix: Record<FruitsRfq['fruitItem'], string> = {
@@ -654,6 +694,14 @@ function buildPoFromRfq(rfq: FruitsRfq, input: FruitsRfqShippingInput): SapPurch
     Cherries: 10,
   };
 
+  const transportRaw = (input.transportMode ?? 'ocean').trim().toLowerCase();
+  const transportMode: 'ocean' | 'air' | 'road' =
+    transportRaw === 'air' || transportRaw.includes('air')
+      ? 'air'
+      : transportRaw === 'road' || transportRaw.includes('truck') || transportRaw.includes('road')
+        ? 'road'
+        : 'ocean';
+
   return {
     po,
     item: rfq.fruitItem,
@@ -670,9 +718,9 @@ function buildPoFromRfq(rfq: FruitsRfq, input: FruitsRfqShippingInput): SapPurch
     paymentTerms: 'Net 30',
     itemDetail: {
       materialNumber: `MAT-${prefix}-RFQ`,
-      description: `${rfq.item} · RFQ ${rfq.id}`,
+      description: `${rfq.item} · ${toContractNumber(rfq.id)}`,
       sku: `SKU-${prefix}-RFQ`,
-      orderedQty: qty,
+      orderedQty: input.quantityExpected ?? getRfqDropQty(rfq),
       confirmedQty: qty,
       unit: 'Cases',
       unitPrice,
@@ -689,16 +737,19 @@ function buildPoFromRfq(rfq: FruitsRfq, input: FruitsRfqShippingInput): SapPurch
       containerNumber: input.containerNumber,
       shipDate: input.shipDate,
       eta: input.eta,
-      originalEta: input.eta,
-      origin: 'Valparaíso, Chile',
+      originalEta: input.originalEta?.trim() || input.eta,
+      origin: input.origin?.trim() || 'Valparaíso, Chile',
       portOfLoading: 'Valparaíso',
       portOfDischarge: 'Los Angeles',
-      destination: rfq.destination,
-      transportMode: 'ocean',
-      carrier: 'Maersk Reefer',
-      vesselName: 'MV Andes Fresh',
-      incoterms: 'FOB',
-      tempRange: rfq.specifications.tempRange,
+      destination: input.destination?.trim() || rfq.destination,
+      transportMode,
+      carrier: input.carrier?.trim() || 'Maersk Reefer',
+      vesselName: input.vessel?.trim() || 'MV Andes Fresh',
+      voyageNumber: input.voyage?.trim() || 'AF-118W',
+      billOfLading: input.billOfLading?.trim() || undefined,
+      incoterms: input.incoterms?.trim() || 'FOB Valparaíso',
+      customsStatus: input.customs?.trim() || 'Pending clearance',
+      tempRange: input.tempRange?.trim() || rfq.specifications.tempRange,
       cargoLines: [
         {
           poNumber: po,

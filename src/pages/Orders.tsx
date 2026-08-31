@@ -1,8 +1,8 @@
 /**
- * SAP purchase orders — PO list on the left, PO detail with details / item / shipment / risk tabs on the right.
+ * SAP purchase orders — PO list on the left; unified detail + timeline on the right.
  */
 import type { ReactNode } from 'react';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router';
 import {
   Upload,
@@ -24,15 +24,20 @@ import { usePersona } from '../context/PersonaContext';
 import { btnPrimaryClass, btnSecondaryClass, contentCanvasClass } from '../lib/sapTheme';
 import {
   buildPoRiskImpact,
+  buildSourcingProposal,
   getPoDisplayStatus,
   getPoLineCount,
   getPoNetValue,
   getPoOrderLines,
   getAllPurchaseOrders,
+  getPurchasingLaneForPo,
+  getShipmentEtaIso,
+  getShipmentForPo,
   isFillInPurchaseOrder,
   poVisibleToPersona,
   type PoRiskImpact,
   type SapPurchaseOrder,
+  type TrackShipment,
 } from '../lib/trackingFlow';
 import {
   looksLikeSampleAsn,
@@ -44,17 +49,16 @@ import {
   createPoFromFruitsRfqShipping,
   FRUITS_RFQ_SUPPLIER,
   getRfqsAwaitingShipping,
+  getRfqAlternateSupplierOptions,
   getRfqDropQty,
-  loadFruitsRfqs,
   type FruitsRfq,
 } from '../lib/fruitsRfqFlow';
+import { loadBusinessRules } from '../lib/businessRules';
 
 import { SupplierRfqPortal } from '../components/supplier/SupplierRfqPortal';
 
 const SUPPLIER_NAME = FRUITS_RFQ_SUPPLIER;
 const STORAGE_KEY = 'freshguard-active-shipments-v6';
-
-type WizardStep = 'details' | 'item' | 'shipment' | 'risk';
 
 type PoStatusFilter = 'all' | 'in-transit' | 'asn-submitted' | 'received';
 type PoRiskFilter = 'all' | 'late' | 'early' | 'on-time';
@@ -72,6 +76,24 @@ const PO_RISK_FILTER_LABELS: Record<PoRiskFilter, string> = {
   early: 'Early',
   'on-time': 'On time',
 };
+
+const STAGE_LABELS: Record<TrackShipment['stage'], string> = {
+  origin: 'Origin / supplier',
+  ocean: 'Ocean transit',
+  customs: 'Customs clearance',
+  inland: 'Inland haulage',
+  dc_arrival: 'DC arrival',
+  delivered: 'Delivered',
+};
+
+const STAGE_ORDER: TrackShipment['stage'][] = [
+  'origin',
+  'ocean',
+  'customs',
+  'inland',
+  'dc_arrival',
+  'delivered',
+];
 
 function toDateInputValue(raw?: string): string {
   if (!raw) return new Date().toISOString().slice(0, 10);
@@ -92,7 +114,7 @@ function statusBadge(status: SapPurchaseOrder['status']) {
   return (
     <span
       className={cn(
-        'text-[10px] font-bold uppercase px-2 py-0.5 rounded border whitespace-nowrap shrink-0',
+        'text-[11px] font-bold uppercase px-2 py-0.5 rounded border whitespace-nowrap shrink-0',
         styles[status]
       )}
     >
@@ -104,7 +126,7 @@ function statusBadge(status: SapPurchaseOrder['status']) {
 function DetailField({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div>
-      <dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{label}</dt>
+      <dt className="text-[11px] font-bold uppercase tracking-wide text-slate-400">{label}</dt>
       <dd className="text-sm font-medium text-slate-800 dark:text-slate-100 mt-0.5">
         {value === undefined || value === null || value === '' ? '—' : value}
       </dd>
@@ -122,7 +144,7 @@ function RiskChip({ risk }: { risk: PoRiskImpact }) {
   return (
     <span
       className={cn(
-        'text-[10px] font-bold uppercase px-1.5 py-0.5 rounded border',
+        'text-[11px] font-bold uppercase px-1.5 py-0.5 rounded border',
         risk.severity === 'high'
           ? 'bg-rose-50 text-rose-800 border-rose-200'
           : 'bg-amber-50 text-amber-900 border-amber-200'
@@ -146,7 +168,7 @@ function RiskStat({
 }) {
   return (
     <div className="px-3 py-2.5">
-      <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">{label}</div>
+      <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">{label}</div>
       <div
         className={cn(
           'text-lg font-bold tabular-nums mt-0.5 text-slate-800 dark:text-slate-100',
@@ -155,8 +177,170 @@ function RiskStat({
       >
         {value}
       </div>
-      <div className="text-[10px] text-slate-400">{sub}</div>
+      <div className="text-[11px] text-slate-400">{sub}</div>
     </div>
+  );
+}
+
+type TimelineTone = 'done' | 'current' | 'upcoming' | 'alert';
+
+type TimelineMilestone = {
+  id: string;
+  label: string;
+  when: string;
+  tone: TimelineTone;
+};
+
+function formatTimelineDate(isoOrLabel: string | undefined): string {
+  if (!isoOrLabel) return '—';
+  const d = new Date(isoOrLabel.includes('T') ? isoOrLabel : `${isoOrLabel}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return isoOrLabel;
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+function buildPoTimeline(
+  po: SapPurchaseOrder,
+  shipment: TrackShipment | undefined,
+  risk: PoRiskImpact | undefined
+): TimelineMilestone[] {
+  const sd = po.shipmentDetail;
+  const milestones: TimelineMilestone[] = [];
+  const stageIdx = shipment ? STAGE_ORDER.indexOf(shipment.stage) : -1;
+
+  milestones.push({
+    id: 'asn',
+    label: 'ASN created',
+    when: formatTimelineDate(sd?.shipDate || po.createdDate),
+    tone: sd?.asnNumber || shipment ? 'done' : 'upcoming',
+  });
+
+  if (shipment) {
+    for (const stage of STAGE_ORDER) {
+      if (stage === 'origin' || stage === 'delivered') continue;
+      const idx = STAGE_ORDER.indexOf(stage);
+      let tone: TimelineTone = 'upcoming';
+      if (idx < stageIdx) tone = 'done';
+      else if (idx === stageIdx) tone = 'current';
+      milestones.push({
+        id: stage,
+        label: STAGE_LABELS[stage],
+        when: idx === stageIdx ? 'In progress' : idx < stageIdx ? 'Completed' : 'Pending',
+        tone,
+      });
+    }
+  } else if (sd?.asnNumber) {
+    milestones.push({
+      id: 'pickup',
+      label: 'Picked up by carrier',
+      when: formatTimelineDate(sd.shipDate),
+      tone: 'done',
+    });
+  }
+
+  if (risk && risk.eventStatus === 'delayed') {
+    milestones.push({
+      id: 'delay',
+      label: 'Delay reported',
+      when: `+${risk.delayDays}d vs plan`,
+      tone: 'alert',
+    });
+  } else if (risk && risk.eventStatus === 'early') {
+    milestones.push({
+      id: 'early',
+      label: 'Early arrival signal',
+      when: `${Math.abs(risk.delayDays)}d ahead`,
+      tone: 'current',
+    });
+  }
+
+  const etaIso = shipment ? getShipmentEtaIso(shipment) : undefined;
+  const expectedWhen =
+    (risk?.revisedEta ? formatTimelineDate(risk.revisedEta) : undefined) ||
+    (etaIso?.revised ? formatTimelineDate(etaIso.revised) : undefined) ||
+    formatTimelineDate(sd?.eta?.replace(/^ETA\s+/i, '') || po.deliveryDate);
+
+  milestones.push({
+    id: 'expected',
+    label: 'Expected delivery',
+    when: expectedWhen,
+    tone:
+      shipment?.stage === 'delivered'
+        ? 'done'
+        : risk?.eventStatus === 'delayed'
+          ? 'alert'
+          : stageIdx >= STAGE_ORDER.indexOf('dc_arrival')
+            ? 'current'
+            : 'upcoming',
+  });
+
+  if (shipment?.stage === 'delivered') {
+    milestones.push({
+      id: 'delivered',
+      label: 'Delivered to DC',
+      when: expectedWhen,
+      tone: 'done',
+    });
+  }
+
+  return milestones;
+}
+
+function PoShipmentTimeline({ milestones }: { milestones: TimelineMilestone[] }) {
+  if (milestones.length === 0) {
+    return <p className="text-xs text-slate-500">No shipment milestones yet.</p>;
+  }
+
+  return (
+    <ol className="relative space-y-0 pl-0">
+      {milestones.map((m, i) => {
+        const isLast = i === milestones.length - 1;
+        return (
+          <li key={m.id} className="relative flex gap-3 pb-5 last:pb-0">
+            {!isLast && (
+              <span
+                className="absolute left-[7px] top-4 bottom-0 w-px bg-slate-200 dark:bg-slate-700"
+                aria-hidden
+              />
+            )}
+            <span
+              className={cn(
+                'relative z-10 mt-1.5 h-3.5 w-3.5 shrink-0 rounded-full border-2',
+                m.tone === 'done' && 'border-emerald-500 bg-emerald-500',
+                m.tone === 'current' &&
+                  'border-sky-500 bg-sky-500 ring-4 ring-sky-100 dark:ring-sky-900/40',
+                m.tone === 'upcoming' &&
+                  'border-slate-300 bg-white dark:border-slate-600 dark:bg-slate-900',
+                m.tone === 'alert' &&
+                  'border-orange-500 bg-orange-500 ring-4 ring-orange-100 dark:ring-orange-900/30'
+              )}
+              aria-hidden
+            />
+            <div className="min-w-0 pt-0.5">
+              <div
+                className={cn(
+                  'text-sm font-semibold leading-snug',
+                  m.tone === 'alert'
+                    ? 'text-orange-700 dark:text-orange-400'
+                    : 'text-slate-800 dark:text-slate-100'
+                )}
+              >
+                {m.label}
+              </div>
+              <div
+                className={cn(
+                  'text-xs mt-0.5',
+                  m.tone === 'alert'
+                    ? 'text-orange-600 dark:text-orange-400/90'
+                    : 'text-slate-500'
+                )}
+              >
+                {m.when}
+              </div>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
 
@@ -165,7 +349,6 @@ export default function Orders() {
   const isSupplier = persona === 'supplier';
   const isFruitsBuyer = persona === 'dc_purchasing_fruits';
   const [orders, setOrders] = useState<SapPurchaseOrder[]>(() => getAllPurchaseOrders());
-  const [fruitsRfqs, setFruitsRfqs] = useState<FruitsRfq[]>(() => loadFruitsRfqs());
   const [awaitingRfqs, setAwaitingRfqs] = useState<FruitsRfq[]>(() =>
     getRfqsAwaitingShipping(SUPPLIER_NAME)
   );
@@ -178,7 +361,6 @@ export default function Orders() {
     if (fromQuery && all.some((o) => o.po === fromQuery)) return fromQuery;
     return all.find((o) => isFillInPurchaseOrder(o))?.po ?? all.find((o) => o.shipmentDetail)?.po ?? null;
   });
-  const [wizardStep, setWizardStep] = useState<WizardStep>('details');
   const [asnOpen, setAsnOpen] = useState(false);
   const [linkedPoIds, setLinkedPoIds] = useState<string[]>([]);
   const [asnFields, setAsnFields] = useState({
@@ -195,6 +377,8 @@ export default function Orders() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PoStatusFilter>('all');
   const [riskFilter, setRiskFilter] = useState<PoRiskFilter>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [linkedRfqId, setLinkedRfqId] = useState<string | null>(null);
   const [asnMode, setAsnMode] = useState<'po' | 'rfq'>('po');
   const [pomsSuccess, setPomsSuccess] = useState<{ poNumber: string; rfqId: string; item: string } | null>(
@@ -202,7 +386,6 @@ export default function Orders() {
   );
 
   const refreshFruitsRfqState = () => {
-    setFruitsRfqs(loadFruitsRfqs());
     setAwaitingRfqs(getRfqsAwaitingShipping(SUPPLIER_NAME));
     setOrders(getAllPurchaseOrders());
   };
@@ -213,6 +396,24 @@ export default function Orders() {
     const fromQuery = params.get('po');
     if (fromQuery) setSelectedPo(fromQuery);
   }, []);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [filterOpen]);
 
   const visibleOrders = useMemo(
     () =>
@@ -289,6 +490,36 @@ export default function Orders() {
   const eligiblePos = visibleOrders.filter((o) => !o.shipmentDetail);
 
   const selectedRisk = selected ? (riskByPo.get(selected.po) ?? null) : null;
+  const selectedShipment = selected ? getShipmentForPo(selected) : undefined;
+  const selectedTimeline = useMemo(
+    () => (selected ? buildPoTimeline(selected, selectedShipment, selectedRisk ?? undefined) : []),
+    [selected, selectedShipment, selectedRisk]
+  );
+  const altSupplierName = useMemo(() => {
+    if (!selected || isFillInPurchaseOrder(selected)) return null;
+    const delayed =
+      selectedRisk?.eventStatus === 'delayed' || selectedShipment?.eventStatus === 'delayed';
+    if (!delayed) return null;
+
+    const maxDays = loadBusinessRules().maxShipDaysForAltSupplier;
+    if (getPurchasingLaneForPo(selected) === 'fruits') {
+      const { options, recommendedOptionId } = getRfqAlternateSupplierOptions(
+        selected.item,
+        selected.supplier,
+        maxDays
+      );
+      const recommended =
+        options.find((o) => o.id === recommendedOptionId) ?? options[0];
+      return recommended?.supplierName ?? null;
+    }
+
+    if (!selectedShipment) return null;
+    const proposal = buildSourcingProposal(selectedShipment);
+    const recommended =
+      proposal?.options.find((o) => o.id === proposal.recommendedOptionId) ??
+      proposal?.options[0];
+    return recommended?.supplierName ?? null;
+  }, [selected, selectedRisk, selectedShipment]);
 
   useEffect(() => {
     if (!selected) setDetailExpanded(false);
@@ -305,7 +536,6 @@ export default function Orders() {
 
   const selectPo = (po: string) => {
     setSelectedPo(po);
-    setWizardStep('details');
   };
 
   const togglePo = (po: string) => {
@@ -521,7 +751,7 @@ export default function Orders() {
     <div
       className={cn(
         contentCanvasClass,
-        'p-3 sm:p-4 w-full h-full min-h-0 flex flex-col gap-3 overflow-hidden text-slate-900 dark:text-slate-100'
+        'p-3 sm:p-4 w-full h-full min-h-0 flex flex-col gap-3 overflow-y-auto text-slate-900 dark:text-slate-100'
       )}
     >
       {!detailExpanded && (
@@ -529,99 +759,118 @@ export default function Orders() {
           {isFruitsBuyer && (
             <Link to="/fruits-rfq" className={btnSecondaryClass}>
               <FileText className="w-4 h-4" />
-              Request for Quote
+              Contracts
             </Link>
           )}
         </PageHeader>
       )}
 
-      {isFruitsBuyer && fruitsRfqs.some((r) => r.status === 'awarded') && !detailExpanded && (
-        <div className="shrink-0 rounded-xl border border-blue-200 bg-blue-50/80 dark:bg-blue-950/20 px-4 py-3 text-sm text-[#2F5472] flex items-start gap-2">
-          <FileText className="w-4 h-4 shrink-0 mt-0.5" />
-          <span>
-            {fruitsRfqs.filter((r) => r.status === 'awarded').length} awarded RFQ(s) awaiting supplier
-            shipping. PO is created when ASN is submitted — no PO exists until then.
-          </span>
-        </div>
-      )}
-
       <div
         className={cn(
-          'flex-1 min-h-0 grid gap-3 grid-rows-1',
+          'grid gap-3 items-start',
           detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(220px,280px)_1fr]'
         )}
       >
-        {/* Panel 1 — PO list (pinned shell, list scrolls inside) */}
+        {/* Panel 1 — PO list */}
         <section
           className={cn(
-            'min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
+            'rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md',
             detailExpanded && 'hidden'
           )}
         >
           <div className="shrink-0 px-4 py-3 border-b border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-900">
-            <h2 className="text-xs font-bold uppercase tracking-wide flex items-center gap-1.5 text-slate-900 dark:text-white">
-              <Filter className="w-3.5 h-3.5" />
+            <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">
               SAP PO list
             </h2>
-            <p className="text-[10px] text-slate-500 mt-0.5">
+            <p className="text-[11px] text-slate-500 mt-0.5">
               {filteredListedOrders.length} of {listedOrders.length} with ASN
+              {statusFilter !== 'all' ? ` · ${PO_STATUS_FILTER_LABELS[statusFilter]}` : ''}
+              {riskFilter !== 'all' ? ` · ${PO_RISK_FILTER_LABELS[riskFilter]}` : ''}
             </p>
           </div>
 
-          <div className="shrink-0 p-3 space-y-2 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search PO number, item, container…"
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Status</div>
-              <div className="flex flex-wrap gap-1">
-                {(Object.keys(PO_STATUS_FILTER_LABELS) as PoStatusFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setStatusFilter(f)}
-                    className={cn(
-                      'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
-                      statusFilter === f
-                        ? 'bg-[#4684AD] text-white border-[#4684AD]'
-                        : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
-                    )}
-                  >
-                    {PO_STATUS_FILTER_LABELS[f]}
-                  </button>
-                ))}
+          <div className="shrink-0 p-3 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search PO number, item, container…"
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
+                />
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400">Delivery risk</div>
-              <div className="flex flex-wrap gap-1">
-                {(Object.keys(PO_RISK_FILTER_LABELS) as PoRiskFilter[]).map((f) => (
-                  <button
-                    key={f}
-                    type="button"
-                    onClick={() => setRiskFilter(f)}
-                    className={cn(
-                      'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
-                      riskFilter === f
-                        ? 'bg-[#4684AD] text-white border-[#4684AD]'
-                        : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
-                    )}
+              <div className="relative shrink-0" ref={filterRef}>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((v) => !v)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                    statusFilter !== 'all' || riskFilter !== 'all' || filterOpen
+                      ? 'border-[#4684AD] bg-[#C0D5E5]/50 text-[#2F5472]'
+                      : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+                  )}
+                  aria-expanded={filterOpen}
+                  aria-haspopup="listbox"
+                  title="Filter by status and delivery risk"
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Filter
+                </button>
+                {filterOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute right-0 top-full z-20 mt-1 w-52 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1"
                   >
-                    {PO_RISK_FILTER_LABELS[f]}
-                  </button>
-                ))}
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      Status
+                    </div>
+                    {(Object.keys(PO_STATUS_FILTER_LABELS) as PoStatusFilter[]).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        role="option"
+                        aria-selected={statusFilter === f}
+                        onClick={() => setStatusFilter(f)}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                          statusFilter === f
+                            ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {PO_STATUS_FILTER_LABELS[f]}
+                      </button>
+                    ))}
+                    <div className="my-1 border-t border-slate-100 dark:border-slate-800" />
+                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      Delivery risk
+                    </div>
+                    {(Object.keys(PO_RISK_FILTER_LABELS) as PoRiskFilter[]).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        role="option"
+                        aria-selected={riskFilter === f}
+                        onClick={() => setRiskFilter(f)}
+                        className={cn(
+                          'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                          riskFilter === f
+                            ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                            : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                        )}
+                      >
+                        {PO_RISK_FILTER_LABELS[f]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800">
             {listedOrders.length === 0 ? (
               <p className="p-4 text-sm text-slate-500">No POs with ASN yet.</p>
             ) : filteredListedOrders.length === 0 ? (
@@ -648,7 +897,7 @@ export default function Orders() {
                       </span>
                       <div className="flex items-center gap-1 shrink-0">
                         {isFillInPurchaseOrder(o) && (
-                          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
                             Fill-in
                           </span>
                         )}
@@ -673,7 +922,7 @@ export default function Orders() {
                       <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
                         <RiskChip risk={risk} />
                         {risk.oosGapDays > 0 && (
-                          <span className="text-[10px] font-semibold text-rose-700">
+                          <span className="text-[11px] font-semibold text-rose-700">
                             {risk.oosGapDays}d OOS gap
                           </span>
                         )}
@@ -686,39 +935,35 @@ export default function Orders() {
           </div>
         </section>
 
-        {/* Panel 2 — PO detail (pinned chrome, tab body scrolls) */}
-        <section className="min-h-0 h-full flex flex-col overflow-hidden rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md">
+        {/* Panel 2 — PO detail: risk + header details + items + shipment | timeline */}
+        <section className="rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-md">
           {!selected ? (
-            <div className="flex-1 flex items-center justify-center p-8 text-sm text-slate-400">
+            <div className="flex items-center justify-center p-8 text-sm text-slate-400">
               Select a PO from the list
             </div>
           ) : (
             <>
-              <div className="shrink-0 bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-700">
-                <div className="px-4 py-3 flex items-start justify-between gap-3 bg-white dark:bg-slate-900">
+              <div className="bg-white dark:bg-slate-900 border-b border-slate-200/80 dark:border-slate-700">
+                <div className="px-4 pt-3 pb-2 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">PO detail</h2>
+                    <h2 className="text-xs font-bold uppercase tracking-wide text-slate-900 dark:text-white">
+                      PO detail
+                    </h2>
                     <p className="font-code text-sm font-bold mt-0.5">{selected.po}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5 truncate">
+                    <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       {selected.item} · {selected.supplier}
                       {isFillInPurchaseOrder(selected) && ' · Alt-supplier fill-in'}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     {isFillInPurchaseOrder(selected) && (
-                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
                         Fill-in
                       </span>
                     )}
                     {statusBadge(getPoDisplayStatus(selected))}
                     {selectedRisk && selectedRisk.severity !== 'none' && (
-                      <button
-                        type="button"
-                        onClick={() => setWizardStep('risk')}
-                        className="hover:opacity-80 transition-opacity"
-                      >
-                        <RiskChip risk={selectedRisk} />
-                      </button>
+                      <RiskChip risk={selectedRisk} />
                     )}
                     <button
                       type="button"
@@ -736,352 +981,313 @@ export default function Orders() {
                   </div>
                 </div>
 
-                <div className="flex border-b border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900">
-              {(
-                [
-                  { id: 'details' as const, label: 'Details' },
-                  { id: 'item' as const, label: 'Item' },
-                  { id: 'shipment' as const, label: 'Shipment' },
-                  { id: 'risk' as const, label: 'Delivery risk' },
-                ] as const
-              ).map((step) => (
-                <button
-                  key={step.id}
-                  type="button"
-                  onClick={() => setWizardStep(step.id)}
-                  className={cn(
-                    'flex-1 py-2.5 text-xs font-bold border-b-2 transition-colors min-w-0',
-                    wizardStep === step.id
-                      ? 'border-[#4684AD] text-[#4684AD] bg-[#C0D5E5]/50 dark:bg-blue-950/30'
-                      : 'border-transparent text-slate-400 hover:text-slate-600',
-                    step.id === 'risk' &&
-                      selectedRisk &&
-                      selectedRisk.severity !== 'none' &&
-                      wizardStep !== 'risk' &&
-                      'text-amber-700'
-                  )}
-                >
-                  {step.label}
-                </button>
-              ))}
-                </div>
+                <dl className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-2">
+                  <DetailField label="Supplier" value={selected.supplier} />
+                  <DetailField label="Buyer" value={selected.buyer} />
+                  <DetailField
+                    label="Ordered qty"
+                    value={`${selected.orderedQty.toLocaleString()} ${selected.unit}`}
+                  />
+                  <DetailField label="Delivery date" value={selected.deliveryDate} />
+                  <DetailField label="Destination" value={selected.destination} />
+                  <DetailField label="Payment terms" value={selected.paymentTerms} />
+                  <DetailField label="Created" value={selected.createdDate} />
+                  <DetailField
+                    label="Net value"
+                    value={`${selected.itemDetail.currency} ${getPoNetValue(selected).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  />
+                  <DetailField label="Purch. org" value={selected.purchasingOrg} />
+                  <DetailField label="Company code" value={selected.companyCode} />
+                </dl>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto p-4">
-              {wizardStep === 'details' && (
-                <div className="space-y-4">
-                  <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                      <DetailField label="Supplier" value={selected.supplier} />
-                      <DetailField label="Buyer" value={selected.buyer} />
-                      <DetailField label="Company code" value={selected.companyCode} />
-                      <DetailField label="Purch. org" value={selected.purchasingOrg} />
-                      <DetailField
-                        label="Ordered qty"
-                        value={`${selected.orderedQty.toLocaleString()} ${selected.unit}`}
-                      />
-                      <DetailField label="Delivery date" value={selected.deliveryDate} />
-                      <DetailField label="Destination" value={selected.destination} />
-                      <DetailField label="Payment terms" value={selected.paymentTerms} />
-                      <DetailField label="Created" value={selected.createdDate} />
-                      <DetailField
-                        label="Net value"
-                        value={`${selected.itemDetail.currency} ${getPoNetValue(selected).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                      />
-                  </dl>
-                </div>
-              )}
-
-              {wizardStep === 'item' && (
-                <div className="space-y-4">
-                  {getPoOrderLines(selected).map((line) => (
-                    <div
-                      key={line.lineNumber}
-                      className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 bg-slate-50/50 dark:bg-slate-950/40"
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                        <span className="text-sm font-bold text-[#2F5472] dark:text-blue-300">
-                          Line {line.lineNumber} · {line.item}
-                        </span>
-                        <span className="font-code text-[10px] text-slate-400">{line.sku}</span>
-                      </div>
-                      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        <DetailField label="Material number" value={line.materialNumber} />
-                        <div className="col-span-full sm:col-span-2 lg:col-span-3">
-                          <DetailField label="Description" value={line.description} />
-                        </div>
-                        <DetailField
-                          label="Ordered / confirmed"
-                          value={`${line.orderedQty.toLocaleString()} / ${line.confirmedQty.toLocaleString()} ${line.unit}`}
-                        />
-                        <DetailField
-                          label="Unit price"
-                          value={`${line.currency} ${line.unitPrice.toFixed(2)}`}
-                        />
-                        <DetailField label="Line value" value={`${line.currency} ${(line.unitPrice * line.orderedQty).toLocaleString()}`} />
-                        <DetailField label="Shelf life" value={`${line.shelfLifeDays} days`} />
-                        <DetailField label="Storage temp" value={line.storageTemp} />
-                        <DetailField label="Storage location" value={line.storageLocation} />
-                        <DetailField label="Net weight" value={`${line.netWeightKg.toLocaleString()} kg`} />
-                        <DetailField label="Country of origin" value={line.countryOfOrigin} />
-                      </dl>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {wizardStep === 'shipment' && (
-                <div className="space-y-4">
-                  {!selected.shipmentDetail ? (
-                    <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
-                      <Truck className="w-8 h-8 mx-auto text-slate-300 mb-2" />
-                      No ASN submitted yet.
-                      {isSupplier && (
-                        <p className="mt-2 text-xs">
-                          Use <strong>Create / upload ASN</strong> to attach shipment details.
-                        </p>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                        <DetailField label="ASN number" value={selected.shipmentDetail.asnNumber} />
-                        <DetailField label="Container" value={selected.shipmentDetail.containerNumber} />
-                        <DetailField label="Ship date" value={selected.shipmentDetail.shipDate} />
-                        <DetailField label="ETA" value={selected.shipmentDetail.eta} />
-                        <DetailField label="Original ETA" value={selected.shipmentDetail.originalEta} />
-                        <DetailField label="Transport mode" value={selected.shipmentDetail.transportMode} />
-                        <DetailField label="Origin" value={selected.shipmentDetail.origin} />
-                        <DetailField label="Destination" value={selected.shipmentDetail.destination} />
-                        <DetailField label="Port of loading" value={selected.shipmentDetail.portOfLoading} />
-                        <DetailField label="Port of discharge" value={selected.shipmentDetail.portOfDischarge} />
-                        <DetailField label="Carrier" value={selected.shipmentDetail.carrier} />
-                        <DetailField label="Vessel" value={selected.shipmentDetail.vesselName} />
-                        <DetailField label="Voyage" value={selected.shipmentDetail.voyageNumber} />
-                        <DetailField label="Booking" value={selected.shipmentDetail.bookingNumber} />
-                        <DetailField label="Bill of lading" value={selected.shipmentDetail.billOfLading} />
-                        <DetailField label="Seal" value={selected.shipmentDetail.sealNumber} />
-                        <DetailField label="Incoterms" value={selected.shipmentDetail.incoterms} />
-                        <DetailField label="Customs" value={selected.shipmentDetail.customsStatus} />
-                        <DetailField label="Temp range" value={selected.shipmentDetail.tempRange} />
-                        <DetailField label="Freight forwarder" value={selected.shipmentDetail.freightForwarder} />
-                      </dl>
-
-                      <div className="space-y-2">
-                        <h3 className="text-xs font-bold text-slate-500">Cargo lines</h3>
-                        {selected.shipmentDetail.cargoLines.map((line) => (
-                          <div
-                            key={`${line.poNumber}-${line.lotNumber}`}
-                            className="rounded-lg border border-slate-200 dark:border-slate-700 p-3 text-xs space-y-2 bg-slate-50/50 dark:bg-slate-950/40"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-2">
-                              <span className="font-bold text-[#2F5472]">{line.item}</span>
-                              <span className="font-code text-[10px] text-slate-400">{line.poNumber}</span>
-                            </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              <span>
-                                <strong>Qty:</strong> {line.quantity.toLocaleString()} {line.unit}
-                              </span>
-                              <span>
-                                <strong>Lot:</strong> {line.lotNumber}
-                              </span>
-                              <span>
-                                <strong>Pallets:</strong> {line.palletCount}
-                              </span>
-                              <span className="flex items-center gap-1">
-                                <Calendar className="w-3 h-3" />
-                                Harvest {line.harvestDate}
-                              </span>
-                              <span>
-                                <strong>BBD:</strong> {line.bestBefore}
-                              </span>
-                              <span>
-                                <strong>Gross wt:</strong> {line.grossWeightKg.toLocaleString()} kg
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-
-              {wizardStep === 'risk' && (
-                <div className="space-y-4">
+              <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(200px,240px)]">
+                <div className="p-4 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-700">
+                  {/* Compact delivery risk */}
                   {!selectedRisk ? (
-                    <div className="rounded-lg border border-dashed border-slate-300 p-6 text-center text-sm text-slate-500">
+                    <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-500">
                       No shipment linked yet — risk appears once an ASN is submitted.
                     </div>
                   ) : selectedRisk.severity === 'none' ? (
-                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 text-sm text-emerald-800">
-                      On plan — arriving {formatShortDate(selectedRisk.revisedEta)}, stores shelved{' '}
-                      {formatShortDate(selectedRisk.storeShelfDate)}. No downstream action needed.
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50/60 dark:bg-emerald-950/20 px-3 py-2.5 text-xs text-emerald-800 flex items-start gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span>
+                        On plan — DC {formatShortDate(selectedRisk.revisedEta)}, store shelf{' '}
+                        {formatShortDate(selectedRisk.storeShelfDate)}.
+                      </span>
                     </div>
                   ) : (
-                    <>
+                    <div
+                      className={cn(
+                        'rounded-lg border overflow-hidden',
+                        selectedRisk.severity === 'high'
+                          ? 'border-rose-200 dark:border-rose-900'
+                          : 'border-amber-200 dark:border-amber-900'
+                      )}
+                    >
                       <div
                         className={cn(
-                          'rounded-lg border overflow-hidden',
+                          'px-3 py-2 flex items-center gap-1.5 text-xs font-bold',
                           selectedRisk.severity === 'high'
-                            ? 'border-rose-200 dark:border-rose-900'
-                            : 'border-amber-200 dark:border-amber-900'
+                            ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30'
+                            : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30'
                         )}
                       >
-                        <div
-                          className={cn(
-                            'px-3 py-2 flex items-center gap-1.5 text-xs font-bold',
-                            selectedRisk.severity === 'high'
-                              ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30'
-                              : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30'
-                          )}
-                        >
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          {selectedRisk.headline}
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                          <RiskStat
-                            label="Planned DC"
-                            value={formatShortDate(selectedRisk.originalEta)}
-                            sub="original ETA"
-                          />
-                          <RiskStat
-                            label="DC arrival"
-                            value={formatShortDate(selectedRisk.revisedEta)}
-                            sub={
-                              selectedRisk.delayDays > 0
-                                ? `+${selectedRisk.delayDays}d vs plan`
-                                : `${Math.abs(selectedRisk.delayDays)}d early`
-                            }
-                            valueClass="text-amber-800"
-                          />
-                          <RiskStat
-                            label="Store shelf"
-                            value={formatShortDate(selectedRisk.storeShelfDate)}
-                            sub={`DC + ${selectedRisk.storeTransitBufferDays}d dock-to-shelf`}
-                            valueClass="text-[#2F5472]"
-                          />
-                          <RiskStat
-                            label="Stock at risk"
-                            value={
-                              selectedRisk.oosGapDays > 0 ? `${selectedRisk.oosGapDays}d` : 'None'
-                            }
-                            sub={
-                              selectedRisk.oosGapDays > 0
-                                ? `gap from ${formatShortDate(selectedRisk.onHandExpiresDate)}`
-                                : 'covered until store'
-                            }
-                            valueClass={
-                              selectedRisk.oosGapDays > 0 ? 'text-rose-700' : 'text-emerald-700'
-                            }
-                          />
-                        </div>
+                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                        <span className="min-w-0 truncate">{selectedRisk.headline}</span>
                       </div>
-
-                      <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-slate-800">
-                          <RiskStat
-                            label="Stores affected"
-                            value={`${selectedRisk.storesAtRisk}`}
-                            sub={`of ${selectedRisk.storesTotal} on this item`}
-                            valueClass={
-                              selectedRisk.storesAtRisk > 0 ? 'text-rose-700' : 'text-emerald-700'
-                            }
-                          />
-                          <RiskStat
-                            label="Transfers"
-                            value={`${selectedRisk.moveCount}`}
-                            sub={`${selectedRisk.casesToMove} cases to cover`}
-                            valueClass="text-[#2F5472]"
-                          />
-                          <RiskStat
-                            label="Promotions"
-                            value={`${selectedRisk.promosAtRisk}`}
-                            sub={`${selectedRisk.promoStoreChanges} store changes`}
-                            valueClass="text-violet-700"
-                          />
-                          <RiskStat
-                            label="Pricing"
-                            value={
-                              selectedRisk.markdownPercent != null
-                                ? `${selectedRisk.markdownPercent}%`
-                                : 'Standard'
-                            }
-                            sub="markdown on affected units"
-                            valueClass="text-amber-800"
-                          />
-                        </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                        <RiskStat
+                          label="Planned DC"
+                          value={formatShortDate(selectedRisk.originalEta)}
+                          sub="original ETA"
+                        />
+                        <RiskStat
+                          label="DC arrival"
+                          value={formatShortDate(selectedRisk.revisedEta)}
+                          sub={
+                            selectedRisk.delayDays > 0
+                              ? `+${selectedRisk.delayDays}d vs plan`
+                              : `${Math.abs(selectedRisk.delayDays)}d early`
+                          }
+                          valueClass="text-amber-800"
+                        />
+                        <RiskStat
+                          label="Store shelf"
+                          value={formatShortDate(selectedRisk.storeShelfDate)}
+                          sub={`${selectedRisk.storesAtRisk} stores · ${selectedRisk.moveCount} transfers`}
+                          valueClass="text-[#2F5472]"
+                        />
+                        <RiskStat
+                          label="Stock at risk"
+                          value={
+                            selectedRisk.oosGapDays > 0 ? `${selectedRisk.oosGapDays}d` : 'None'
+                          }
+                          sub={
+                            selectedRisk.promosAtRisk > 0
+                              ? `${selectedRisk.promosAtRisk} promo${selectedRisk.promosAtRisk === 1 ? '' : 's'}`
+                              : 'no promo impact'
+                          }
+                          valueClass={
+                            selectedRisk.oosGapDays > 0 ? 'text-rose-700' : 'text-emerald-700'
+                          }
+                        />
                       </div>
+                    </div>
+                  )}
 
-                      {isSupplier ? (
-                        <section className="space-y-2">
-                          <h3 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
-                            Requested from you
-                          </h3>
-                          <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
-                            {selectedRisk.supplierRequests.map((req) => (
-                              <div key={req.id} className="px-3 py-2.5">
-                                <div className="flex items-start justify-between gap-3">
-                                  <span className="text-xs font-semibold text-slate-900 dark:text-slate-100">
-                                    {req.label}
-                                  </span>
-                                  <span className="text-[10px] tabular-nums text-slate-400 shrink-0">
-                                    by {formatShortDate(req.dueDate)}
+                  {/* Items */}
+                  <section className="space-y-2">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Items and quantity
+                    </h3>
+                    <div className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 dark:bg-slate-950/60 text-[11px] uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-700">
+                            <th className="text-left font-semibold px-3 py-2">PO line</th>
+                            <th className="text-left font-semibold px-3 py-2">Item</th>
+                            <th className="text-right font-semibold px-3 py-2">Ordered</th>
+                            <th className="text-right font-semibold px-3 py-2 hidden sm:table-cell">
+                              Confirmed
+                            </th>
+                            <th className="text-right font-semibold px-3 py-2 hidden md:table-cell">
+                              Unit price
+                            </th>
+                            <th className="text-right font-semibold px-3 py-2">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                          {getPoOrderLines(selected).map((line) => (
+                            <tr key={line.lineNumber} className="bg-white dark:bg-slate-900">
+                              <td className="px-3 py-2.5 font-code text-slate-500">{line.lineNumber}</td>
+                              <td className="px-3 py-2.5">
+                                <div className="font-semibold text-slate-800 dark:text-slate-100">
+                                  {line.item}
+                                </div>
+                                <div className="text-[11px] text-slate-400 font-code mt-0.5">
+                                  {line.sku}
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 text-right tabular-nums font-medium">
+                                {line.orderedQty.toLocaleString()} {line.unit}
+                              </td>
+                              <td className="px-3 py-2.5 text-right tabular-nums hidden sm:table-cell text-slate-600">
+                                {line.confirmedQty.toLocaleString()}
+                              </td>
+                              <td className="px-3 py-2.5 text-right tabular-nums hidden md:table-cell text-slate-600">
+                                {line.currency} {line.unitPrice.toFixed(2)}
+                              </td>
+                              <td className="px-3 py-2.5 text-right tabular-nums font-semibold text-slate-800 dark:text-slate-100">
+                                {line.currency}{' '}
+                                {(line.unitPrice * line.orderedQty).toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {getPoOrderLines(selected)[0] && (
+                      <dl className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1">
+                        <DetailField
+                          label="Shelf life"
+                          value={`${getPoOrderLines(selected)[0].shelfLifeDays} days`}
+                        />
+                        <DetailField
+                          label="Storage temp"
+                          value={getPoOrderLines(selected)[0].storageTemp}
+                        />
+                        <DetailField
+                          label="Origin"
+                          value={getPoOrderLines(selected)[0].countryOfOrigin}
+                        />
+                        <DetailField
+                          label="Storage loc."
+                          value={getPoOrderLines(selected)[0].storageLocation}
+                        />
+                      </dl>
+                    )}
+                  </section>
+
+                  {/* Shipment */}
+                  <section className="space-y-2">
+                    <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                      Shipment details
+                    </h3>
+                    {!selected.shipmentDetail ? (
+                      <div className="rounded-lg border border-dashed border-slate-300 p-5 text-center text-sm text-slate-500">
+                        <Truck className="w-7 h-7 mx-auto text-slate-300 mb-2" />
+                        No ASN submitted yet.
+                        {isSupplier && (
+                          <p className="mt-2 text-xs">
+                            Use <strong>Create / upload ASN</strong> to attach shipment details.
+                          </p>
+                        )}
+                      </div>
+                    ) : (
+                      <>
+                        <dl className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                          <DetailField label="ASN number" value={selected.shipmentDetail.asnNumber} />
+                          <DetailField
+                            label="Container"
+                            value={selected.shipmentDetail.containerNumber}
+                          />
+                          <DetailField label="Ship date" value={selected.shipmentDetail.shipDate} />
+                          <DetailField label="ETA" value={selected.shipmentDetail.eta} />
+                          <DetailField
+                            label="Original ETA"
+                            value={selected.shipmentDetail.originalEta}
+                          />
+                          <DetailField
+                            label="Transport mode"
+                            value={selected.shipmentDetail.transportMode}
+                          />
+                          <DetailField label="Carrier" value={selected.shipmentDetail.carrier} />
+                          <DetailField label="Vessel" value={selected.shipmentDetail.vesselName} />
+                          <DetailField
+                            label="Voyage"
+                            value={selected.shipmentDetail.voyageNumber}
+                          />
+                          <DetailField label="Origin" value={selected.shipmentDetail.origin} />
+                          <DetailField
+                            label="Destination"
+                            value={selected.shipmentDetail.destination}
+                          />
+                          <DetailField
+                            label="Incoterms"
+                            value={selected.shipmentDetail.incoterms}
+                          />
+                          <DetailField
+                            label="Bill of lading"
+                            value={selected.shipmentDetail.billOfLading}
+                          />
+                          <DetailField
+                            label="Customs"
+                            value={selected.shipmentDetail.customsStatus}
+                          />
+                          <DetailField
+                            label="Temp range"
+                            value={selected.shipmentDetail.tempRange}
+                          />
+                        </dl>
+
+                        {selected.shipmentDetail.cargoLines.length > 0 && (
+                          <div className="space-y-2 pt-1">
+                            <h4 className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+                              Cargo lines
+                            </h4>
+                            {selected.shipmentDetail.cargoLines.map((line) => (
+                              <div
+                                key={`${line.poNumber}-${line.lotNumber}`}
+                                className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2.5 text-xs bg-slate-50/50 dark:bg-slate-950/40"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
+                                  <span className="font-bold text-[#2F5472]">{line.item}</span>
+                                  <span className="font-code text-[11px] text-slate-400">
+                                    {line.poNumber}
                                   </span>
                                 </div>
-                                <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                                  {req.detail}
-                                </p>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 text-slate-600 dark:text-slate-300">
+                                  <span>
+                                    <strong className="text-slate-500 font-medium">Qty:</strong>{' '}
+                                    {line.quantity.toLocaleString()} {line.unit}
+                                  </span>
+                                  <span>
+                                    <strong className="text-slate-500 font-medium">Lot:</strong>{' '}
+                                    {line.lotNumber}
+                                  </span>
+                                  <span>
+                                    <strong className="text-slate-500 font-medium">Pallets:</strong>{' '}
+                                    {line.palletCount}
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Calendar className="w-3 h-3 text-slate-400" />
+                                    Harvest {line.harvestDate}
+                                  </span>
+                                  <span>
+                                    <strong className="text-slate-500 font-medium">BBD:</strong>{' '}
+                                    {line.bestBefore}
+                                  </span>
+                                  <span>
+                                    <strong className="text-slate-500 font-medium">Gross wt:</strong>{' '}
+                                    {line.grossWeightKg.toLocaleString()} kg
+                                  </span>
+                                </div>
                               </div>
                             ))}
                           </div>
-                          {selectedRisk.exposureValue > 0 && (
-                            <div className="rounded-lg border border-rose-200 bg-rose-50/60 dark:bg-rose-950/20 px-3 py-2.5">
-                              <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
-                                Claim exposure on this PO
-                              </div>
-                              <div className="text-lg font-bold tabular-nums text-rose-700 mt-0.5">
-                                {selectedRisk.currency}{' '}
-                                {selectedRisk.exposureValue.toLocaleString()}
-                              </div>
-                              <div className="text-[10px] text-slate-500">
-                                {selectedRisk.markdownPercent}% markdown on affected units
-                              </div>
-                            </div>
-                          )}
-                        </section>
-                      ) : (
-                        <section className="space-y-2">
-                          <h3 className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
-                            Raised with supplier
-                          </h3>
-                          <div className="rounded-lg border border-slate-200 dark:border-slate-700 divide-y divide-slate-100 dark:divide-slate-800">
-                            {selectedRisk.supplierRequests.map((req) => (
-                              <div
-                                key={req.id}
-                                className="px-3 py-2.5 flex items-start justify-between gap-3"
-                              >
-                                <span className="text-xs text-slate-700 dark:text-slate-200">
-                                  {req.label}
-                                </span>
-                                <span className="text-[10px] tabular-nums text-slate-400 shrink-0">
-                                  by {formatShortDate(req.dueDate)}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
+                        )}
+                      </>
+                    )}
+                  </section>
 
-                          <Link
-                            to="/"
-                            className="inline-flex items-center gap-1 text-xs font-semibold text-[#4684AD] hover:underline"
-                          >
-                            Open Shipment Intelligence for {selectedRisk.containerNumber}
-                          </Link>
-                        </section>
-                      )}
-                    </>
+                  {altSupplierName && (
+                    <div className="pt-1">
+                      <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Alt supplier
+                      </div>
+                      <div className="text-lg font-bold text-slate-900 dark:text-white mt-1">
+                        {altSupplierName}
+                      </div>
+                    </div>
                   )}
                 </div>
-              )}
+
+                {/* Timeline */}
+                <aside className="p-4 bg-slate-50/40 dark:bg-slate-950/30 lg:sticky lg:top-3 self-start">
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 mb-4">
+                    Shipment milestones
+                  </h3>
+                  <PoShipmentTimeline milestones={selectedTimeline} />
+                  {selectedShipment && (
+                    <p className="mt-4 text-[11px] text-slate-400 leading-relaxed">
+                      Stage: {STAGE_LABELS[selectedShipment.stage]}
+                      {selectedShipment.containerNumber
+                        ? ` · ${selectedShipment.containerNumber}`
+                        : ''}
+                    </p>
+                  )}
+                </aside>
               </div>
             </>
           )}
@@ -1098,7 +1304,7 @@ export default function Orders() {
               </h2>
               <p className="text-xs text-slate-500 mt-1">
                 {asnMode === 'rfq'
-                  ? 'Request for Quote flow — shipping upload creates the purchase order'
+                  ? 'Contract flow — shipping upload creates the purchase order'
                   : 'One container · multiple POs · photo OCR or manual entry'}
               </p>
             </div>
@@ -1221,7 +1427,7 @@ export default function Orders() {
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="block space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">ASN number</span>
+                  <span className="text-[11px] font-bold uppercase text-slate-400">ASN number</span>
                   <input
                     value={asnFields.asnNumber}
                     onChange={(e) => setAsnFields((f) => ({ ...f, asnNumber: e.target.value }))}
@@ -1229,7 +1435,7 @@ export default function Orders() {
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Container</span>
+                  <span className="text-[11px] font-bold uppercase text-slate-400">Container</span>
                   <input
                     value={asnFields.containerNumber}
                     onChange={(e) => setAsnFields((f) => ({ ...f, containerNumber: e.target.value }))}
@@ -1237,7 +1443,7 @@ export default function Orders() {
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">Ship date</span>
+                  <span className="text-[11px] font-bold uppercase text-slate-400">Ship date</span>
                   <input
                     type="date"
                     value={asnFields.shipDate}
@@ -1246,7 +1452,7 @@ export default function Orders() {
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">ETA</span>
+                  <span className="text-[11px] font-bold uppercase text-slate-400">ETA</span>
                   <input
                     value={asnFields.eta}
                     onChange={(e) => setAsnFields((f) => ({ ...f, eta: e.target.value }))}

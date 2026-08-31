@@ -32,7 +32,7 @@ export function PageHeader({
     >
       <div className="min-w-0">
         {eyebrow && (
-          <span className="text-[10px] font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase block">
+          <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 tracking-wide uppercase block">
             {eyebrow}
           </span>
         )}
@@ -55,6 +55,7 @@ export function Panel({
   children,
   className,
   bodyClassName,
+  titleClassName,
 }: {
   title?: string;
   subtitle?: string;
@@ -62,6 +63,7 @@ export function Panel({
   children: ReactNode;
   className?: string;
   bodyClassName?: string;
+  titleClassName?: string;
 }) {
   return (
     <div
@@ -73,7 +75,14 @@ export function Panel({
       {title && (
         <div className="px-4 py-2.5 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between gap-2">
           <div className="min-w-0">
-            <h3 className="text-xs font-bold tracking-tight text-slate-900 dark:text-white">{title}</h3>
+            <h3
+              className={cn(
+                'text-[13px] font-bold tracking-tight text-slate-900 dark:text-white',
+                titleClassName
+              )}
+            >
+              {title}
+            </h3>
             {subtitle && (
               <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5 font-normal normal-case tracking-normal">
                 {subtitle}
@@ -129,11 +138,11 @@ export function StatCard({
           <div className="flex items-center gap-2 min-w-0">
             <span className={cn('h-1 w-4 rounded-full shrink-0', t.bar)} />
             <div className="min-w-0">
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 truncate leading-tight">
+              <div className="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 truncate leading-tight">
                 {label}
               </div>
               {sub && (
-                <div className="text-[10px] text-slate-500 dark:text-slate-400 truncate leading-tight">
+                <div className="text-[11px] text-slate-500 dark:text-slate-400 truncate leading-tight">
                   {sub}
                 </div>
               )}
@@ -146,13 +155,13 @@ export function StatCard({
       ) : (
         <div className="relative">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {label}
             </div>
             <span className={cn('h-1 w-6 rounded-full shrink-0', t.bar)} />
           </div>
           <div className={cn('text-xl font-bold mt-1 tracking-tight', t.value)}>{value}</div>
-          {sub && <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>}
+          {sub && <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>}
         </div>
       )}
     </div>

@@ -180,7 +180,7 @@ export function ShipmentCalendar({
               <Filter className="w-3.5 h-3.5" />
               Filters
               {activeFilters > 0 && (
-                <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] flex items-center justify-center">
+                <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[11px] flex items-center justify-center">
                   {activeFilters}
                 </span>
               )}
@@ -191,7 +191,7 @@ export function ShipmentCalendar({
         {filtersOpen && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-slate-100 dark:border-white/10">
             <label className="space-y-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                 Supplier
               </span>
               <select
@@ -208,7 +208,7 @@ export function ShipmentCalendar({
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Status
               </span>
               <select
@@ -223,7 +223,7 @@ export function ShipmentCalendar({
               </select>
             </label>
             <label className="space-y-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
                 Transport
               </span>
               <select
@@ -259,7 +259,7 @@ export function ShipmentCalendar({
       <div className="flex min-h-0 flex-1 overflow-auto">
         {/* Sticky supplier column */}
         <div className="sticky left-0 z-20 shrink-0 w-[200px] sm:w-[240px] border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-[4px_0_12px_rgba(0,0,0,0.06)]">
-          <div className="h-12 px-3 flex items-center text-[10px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
+          <div className="h-12 px-3 flex items-center text-[11px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
             Supplier
           </div>
           {rows.length === 0 ? (
@@ -284,7 +284,7 @@ export function ShipmentCalendar({
                     <div className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">
                       {row.vendor}
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">
+                    <div className="text-[11px] text-slate-500 mt-0.5">
                       {barCount} lot{barCount === 1 ? '' : 's'}
                       {row.delayed > 0 ? ` · ${row.delayed} delayed` : ' · on track'}
                     </div>
@@ -307,7 +307,7 @@ export function ShipmentCalendar({
                 className="flex-1 border-r border-slate-200/80 dark:border-slate-800 px-0.5 flex flex-col items-center justify-center"
                 style={{ minWidth: colMin }}
               >
-                <span className="text-[10px] font-bold text-slate-700 dark:text-slate-200">
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200">
                   {col.label}
                 </span>
                 {col.subLabel && (
@@ -355,7 +355,7 @@ export function ShipmentCalendar({
                         onMouseEnter={() => setHoverId(s.id)}
                         onMouseLeave={() => setHoverId(null)}
                         className={cn(
-                          'absolute h-[18px] rounded-full border text-[9px] font-bold text-white px-2 flex items-center gap-1 overflow-hidden shadow-sm transition-transform',
+                          'absolute h-[18px] rounded-full border text-[11px] font-bold text-white px-2 flex items-center gap-1 overflow-hidden shadow-sm transition-transform',
                           STATUS_BAR[s.status],
                           hoverId === s.id && 'ring-2 ring-offset-1 ring-sky-400 z-10 scale-[1.02]'
                         )}
@@ -386,25 +386,25 @@ export function ShipmentCalendar({
 
         {/* Right summary rail */}
         <div className="hidden lg:flex sticky right-0 z-20 w-[180px] shrink-0 flex-col border-l border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-950">
-          <div className="h-12 px-3 flex items-center text-[10px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800">
+          <div className="h-12 px-3 flex items-center text-[11px] font-bold uppercase tracking-wide text-slate-500 border-b border-slate-200 dark:border-slate-800">
             Period summary
           </div>
           <div className="p-3 space-y-3 text-xs">
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-400">In view</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-400">In view</div>
               <div className="flex justify-between"><span>Total lots</span><strong>{summary.total}</strong></div>
               <div className="flex justify-between text-emerald-700 dark:text-emerald-400"><span>On-time</span><strong>{summary['on-time']}</strong></div>
               <div className="flex justify-between text-rose-600"><span>Delayed</span><strong>{summary.delayed}</strong></div>
               <div className="flex justify-between text-[#4684AD]"><span>Delivered</span><strong>{summary.delivered}</strong></div>
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 space-y-1.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-400">Transport</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-400">Transport</div>
               <div className="flex justify-between items-center gap-1"><span className="inline-flex items-center gap-1"><Ship className="w-3 h-3" /> Sea</span><strong>{summary.ocean}</strong></div>
               <div className="flex justify-between items-center gap-1"><span className="inline-flex items-center gap-1"><Truck className="w-3 h-3" /> Land</span><strong>{summary.road}</strong></div>
             </div>
             <div className="rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3 space-y-2">
-              <div className="text-[10px] font-semibold uppercase text-slate-400">Legend</div>
-              <div className="space-y-1.5 text-[10px]">
+              <div className="text-[11px] font-semibold uppercase text-slate-400">Legend</div>
+              <div className="space-y-1.5 text-[11px]">
                 <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-emerald-500" /> On-time</div>
                 <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-rose-500" /> Delayed</div>
                 <div className="flex items-center gap-2"><span className="w-6 h-2.5 rounded-full bg-[#C0D5E5]/300" /> Delivered</div>

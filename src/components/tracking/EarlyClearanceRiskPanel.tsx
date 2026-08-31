@@ -112,7 +112,7 @@ export function EarlyClearanceRiskPanel({
       </div>
 
       <div className="rounded-lg border border-amber-300 bg-amber-50/70 dark:bg-amber-950/20 px-4 py-3">
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
           Why clear now
         </div>
         <p className="text-sm font-bold mt-1 text-slate-900 dark:text-slate-100">
@@ -173,12 +173,12 @@ export function EarlyClearanceRiskPanel({
                       {opt.title}
                     </h5>
                     {isRec && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
+                      <span className="text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-100 text-violet-800">
                         Recommended
                       </span>
                     )}
                     {isSelected && (
-                      <span className="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#C0D5E5] text-[#2F5472]">
+                      <span className="text-[11px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#C0D5E5] text-[#2F5472]">
                         Selected
                       </span>
                     )}
@@ -231,12 +231,12 @@ export function EarlyClearanceRiskPanel({
       {clearanceAction && !hideApproval && (
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Approval
             </span>
             <span
               className={cn(
-                'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+                'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
                 clearanceAction.status === 'pending_approval' ||
                   clearanceAction.status === 'pending_category_approval'
                   ? 'bg-amber-100 text-amber-900 border-amber-200'

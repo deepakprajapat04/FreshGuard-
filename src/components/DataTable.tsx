@@ -247,7 +247,7 @@ export function DataTable<T>({
               Filters
               {filterBarOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               {activeFilterCount > 0 && (
-                <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[9px] flex items-center justify-center">
+                <span className="min-w-[16px] h-4 px-1 rounded-full bg-rose-500 text-[11px] flex items-center justify-center">
                   {activeFilterCount}
                 </span>
               )}
@@ -265,7 +265,7 @@ export function DataTable<T>({
               </button>
               {columnsOpen && (
                 <div className="absolute right-0 top-full mt-1 z-40 w-56 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-xl p-2">
-                  <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-2 py-1 mb-1">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400 px-2 py-1 mb-1">
                     Hide / unhide columns
                   </div>
                   {columns.map((col) => (
@@ -315,7 +315,7 @@ export function DataTable<T>({
               .filter((c) => c.filterable !== false)
               .map((col) => (
                 <div key={col.key} className="space-y-1">
-                  <label className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                     {col.label}
                   </label>
                   {col.filterType === 'select' ? (

@@ -204,7 +204,7 @@ export default function Dashboard() {
       render: (item) => (
         <span
           className={cn(
-            'px-2.5 py-1 rounded text-[10px] font-mono font-bold uppercase border',
+            'px-2.5 py-1 rounded text-[11px] font-mono font-bold uppercase border',
             item.risk === 'high'
               ? 'bg-rose-50 dark:bg-rose-950/25 border-rose-200 text-rose-700'
               : item.risk === 'medium'
@@ -237,7 +237,7 @@ export default function Dashboard() {
       render: (item) =>
         item.risk !== 'low' ? (
           item.applied ? (
-            <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 rounded font-bold font-mono text-[10px] uppercase">
+            <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900 rounded font-bold font-mono text-[11px] uppercase">
               Applied ✓
             </span>
           ) : (
@@ -433,7 +433,7 @@ export default function Dashboard() {
         {/* Main Chart Column (Buyer: Category Shrinkage, Vendor: Dispatched Volume Trends) */}
         <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-md overflow-hidden flex flex-col justify-between">
           <div className="px-4 py-2 bg-white dark:bg-slate-900 text-slate-900 dark:text-white border border-slate-200 dark:border-slate-800">
-            <span className="text-[9px] font-extrabold text-[#4684AD] dark:text-[#C0D5E5] font-mono uppercase tracking-widest block">Analytics</span>
+            <span className="text-[11px] font-extrabold text-[#4684AD] dark:text-[#C0D5E5] font-mono uppercase tracking-widest block">Analytics</span>
             <h3 className="text-xs font-black uppercase tracking-tight mt-0.5">
               {isVendor ? 'Dispatched Volume Trends' : 'Shrinkage by Category'}
             </h3>
@@ -450,7 +450,7 @@ export default function Dashboard() {
                 className="space-y-4 w-full"
               >
                 <div>
-                  <span className="text-[9px] font-extrabold text-emerald-500 font-mono uppercase tracking-widest block">Waste Telemetry</span>
+                  <span className="text-[11px] font-extrabold text-emerald-500 font-mono uppercase tracking-widest block">Waste Telemetry</span>
                   <h3 className="text-base font-black text-slate-950 dark:text-slate-100 uppercase tracking-tight">
                     Shrinkage by Category (%)
                   </h3>
@@ -504,7 +504,7 @@ export default function Dashboard() {
                 className="space-y-4 w-full"
               >
                 <div>
-                  <span className="text-[9px] font-extrabold text-purple-500 font-mono uppercase tracking-widest block font-bold">Inbound Volume</span>
+                  <span className="text-[11px] font-extrabold text-purple-500 font-mono uppercase tracking-widest block font-bold">Inbound Volume</span>
                   <h3 className="text-base font-black text-slate-950 dark:text-slate-100 uppercase tracking-tight">
                     Your Dispatched Volume Output Trends
                   </h3>
@@ -614,7 +614,7 @@ export default function Dashboard() {
               </div>
               <div className="p-6 flex flex-col justify-between flex-1">
               <div>
-                <span className="text-[9px] font-extrabold text-blue-500 font-mono uppercase tracking-widest block font-bold">Comparative scorecard</span>
+                <span className="text-[11px] font-extrabold text-blue-500 font-mono uppercase tracking-widest block font-bold">Comparative scorecard</span>
                 <h3 className="text-base font-black text-slate-950 dark:text-slate-100 uppercase tracking-tight">Vendor Performance Index</h3>
                 <p className="text-xs text-slate-500 font-medium">Visualizing Quality Score vs Delivery OTIF values</p>
               </div>
@@ -666,7 +666,7 @@ export default function Dashboard() {
               </div>
               <div className="p-6 border-b border-slate-150 dark:border-slate-805 bg-slate-50/50 dark:bg-slate-950/20 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
                 <div>
-                  <span className="text-[9px] font-extrabold text-purple-500 font-mono uppercase tracking-widest block font-bold">Operational compliance</span>
+                  <span className="text-[11px] font-extrabold text-purple-500 font-mono uppercase tracking-widest block font-bold">Operational compliance</span>
                   <h3 className="text-base font-black text-slate-950 dark:text-slate-100 uppercase tracking-tight">Your Pending Bids &amp; Active SLA Checkpoints</h3>
                   <p className="text-xs text-slate-500 font-medium">Fulfillment benchmarks, direct pricing bids, and quality assurance checkpoints</p>
                 </div>
@@ -696,9 +696,9 @@ export default function Dashboard() {
                     
                     <div className="space-y-1 flex-1">
                       <div className="flex justify-between items-center gap-2">
-                        <span className="text-[9px] font-bold font-mono uppercase tracking-wider text-slate-400">{item.type}</span>
+                        <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-slate-400">{item.type}</span>
                         <span className={cn(
-                          "px-2 py-0.5 rounded text-[9px] font-mono font-black uppercase border",
+                          "px-2 py-0.5 rounded text-[11px] font-mono font-black uppercase border",
                           item.status === 'compliant'
                             ? "bg-emerald-50 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-400 border-emerald-250"
                             : "bg-amber-50 dark:bg-amber-955 text-amber-700 dark:text-amber-400 border-amber-250"
@@ -750,7 +750,7 @@ function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
             <Icon className="w-3.5 h-3.5 shrink-0" />
           </div>
           
-          <div className={cn("flex items-center text-[9px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-full border",
+          <div className={cn("flex items-center text-[11px] font-bold font-mono uppercase px-1.5 py-0.5 rounded-full border",
             isPositive 
               ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
               : "bg-rose-50 border-rose-200 text-rose-700"
@@ -762,7 +762,7 @@ function KPICard({ title, value, change, trend, icon: Icon, color }: any) {
 
         <div>
           <div className="flex items-center justify-between gap-2">
-            <h4 className="text-slate-500 text-[9px] font-bold font-mono uppercase tracking-wider">{title}</h4>
+            <h4 className="text-slate-500 text-[11px] font-bold font-mono uppercase tracking-wider">{title}</h4>
             <span className={cn('h-1 w-6 rounded-full', barTone)} />
           </div>
           <div className={cn('text-xl font-black mt-0.5 tracking-tight', valueTone)}>{value}</div>

@@ -10,6 +10,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { PersonaProvider } from './context/PersonaContext';
 import { NotificationsProvider } from './context/NotificationsContext';
 import TrackingHub from './pages/TrackingHub';
+import HealthCheck from './pages/HealthCheck';
 import Orders from './pages/Orders';
 import Actions from './pages/Actions';
 import Logistics from './pages/Logistics';
@@ -28,7 +29,8 @@ export default function App() {
             <PersonaRouteGuard />
             <Layout>
               <Routes>
-                <Route path="/" element={<TrackingHub />} />
+                <Route path="/" element={<HealthCheck />} />
+                <Route path="/tracking" element={<TrackingHub />} />
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/actions" element={<Actions />} />
                 <Route path="/logistics" element={<Logistics />} />

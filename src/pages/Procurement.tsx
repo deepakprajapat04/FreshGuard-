@@ -1660,7 +1660,7 @@ export default function Procurement() {
                 <h2 className="text-xs font-black font-mono uppercase tracking-wider text-[#C0D5E5]">
                   {isVendor ? 'Open Buyer Requests' : 'Active Demands'}
                 </h2>
-                <p className="text-[10px] text-slate-400 mt-0.5">
+                <p className="text-[11px] text-slate-400 mt-0.5">
                   {isVendor ? 'Available Orders' : 'Requirements Pipeline'}
                 </p>
               </div>
@@ -1743,7 +1743,7 @@ export default function Procurement() {
                       )}
                     >
                       <div className="flex justify-between items-center w-full">
-                        <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 font-mono">{bid.id}</span>
+                        <span className="text-[11px] font-bold text-slate-400 dark:text-slate-500 font-mono">{bid.id}</span>
                         <div className="flex items-center gap-1">
                           <span className={cn(
                             'text-[8px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide',
@@ -1754,7 +1754,7 @@ export default function Procurement() {
                             {bid.orderType === 'repeat' ? 'Repeat' : 'One-time'}
                           </span>
                           <span className={cn(
-                            "text-[9px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide",
+                            "text-[11px] font-extrabold px-1.5 py-0.5 rounded uppercase tracking-wide",
                             badgeStyle
                           )}>
                             {badgeText}
@@ -1769,7 +1769,7 @@ export default function Procurement() {
                         }
                       </h4>
 
-                      <div className="flex items-center gap-2 text-[10px] text-slate-400 dark:text-slate-500 pt-1.5 border-t border-slate-100 dark:border-slate-800/50 mt-1">
+                      <div className="flex items-center gap-2 text-[11px] text-slate-400 dark:text-slate-500 pt-1.5 border-t border-slate-100 dark:border-slate-800/50 mt-1">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3 text-slate-400" />
                           <span>{bid.deadline}</span>
@@ -1821,24 +1821,24 @@ export default function Procurement() {
                       <FileSignature className="w-4 h-4" />
                       Formulate &amp; Submit Quotation
                     </h2>
-                    <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
                       Requirement targets for: <span className="font-bold text-slate-700 dark:text-slate-300">{selectedBid.item}</span>
                     </p>
                   </div>
                   <div className="p-3 bg-red-500/5 dark:bg-red-500/10 rounded-xl border border-amber-500/20 space-y-2 font-mono">
-                    <span className="text-[9px] font-extrabold text-amber-800 dark:text-amber-400 uppercase tracking-widest block">Buyer's Strict Core Targets:</span>
+                    <span className="text-[11px] font-extrabold text-amber-800 dark:text-amber-400 uppercase tracking-widest block">Buyer's Strict Core Targets:</span>
                     <div className="flex flex-wrap gap-2">
-                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm text-[10px]">
+                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm text-[11px]">
                         <Thermometer className="w-3.5 h-3.5 text-blue-500" />
                         <span className="text-slate-500 dark:text-slate-404">Target Temp:</span>
                         <span className="font-extrabold text-slate-800 dark:text-slate-200">{selectedBid.specifications.targetColdChainTemp || '4°C'}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm text-[10px]">
+                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm text-[11px]">
                         <Clock className="w-3.5 h-3.5 text-indigo-500" />
                         <span className="text-slate-500 dark:text-slate-404">Max Transit:</span>
                         <span className="font-extrabold text-slate-800 dark:text-slate-200">{selectedBid.specifications.maxTransitTime || '36 hours'}</span>
                       </div>
-                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm text-[10px]">
+                      <div className="flex items-center gap-1.5 bg-white dark:bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-200 dark:border-slate-800 shadow-sm text-[11px]">
                         <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
                         <span className="text-slate-500 dark:text-slate-404">Min Shelf Life:</span>
                         <span className="font-extrabold text-slate-800 dark:text-slate-200">{selectedBid.specifications.minShelfLife || '14 days'}</span>
@@ -1986,7 +1986,7 @@ export default function Procurement() {
                         <FileText className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                         Received Quotes &amp; SLA Matrix
                       </h2>
-                      <p className="text-[10px] text-slate-450 dark:text-slate-500 mt-0.5">
+                      <p className="text-[11px] text-slate-450 dark:text-slate-500 mt-0.5">
                         Viewing Bids for: <span className="font-bold text-slate-755 dark:text-slate-300">{selectedBid.item}</span>
                         {' · '}
                         <span className={selectedBid.orderType === 'repeat' ? 'text-violet-600 dark:text-violet-400 font-semibold' : ''}>
@@ -2051,15 +2051,15 @@ export default function Procurement() {
 
                   {/* Biological Parameters */}
                   <div className="flex flex-col gap-1.5 pt-1.5 border-t border-slate-100 dark:border-slate-850">
-                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-[#A1A1AA] text-slate-400 dark:text-slate-500">Biological Parameters &amp; Requirements:</span>
+                    <span className="text-[11px] font-extrabold uppercase tracking-widest text-[#A1A1AA] text-slate-400 dark:text-slate-500">Biological Parameters &amp; Requirements:</span>
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[9px] bg-[#C0D5E5]/30 dark:bg-sky-950/30 text-[#2F5472] dark:text-sky-404 border border-sky-100/50 dark:border-sky-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
+                      <span className="text-[11px] bg-[#C0D5E5]/30 dark:bg-sky-950/30 text-[#2F5472] dark:text-sky-404 border border-sky-100/50 dark:border-sky-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
                         Target Temp: {selectedBid.specifications.targetColdChainTemp || '4°C'}
                       </span>
-                      <span className="text-[9px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-404 border border-indigo-100/50 dark:border-indigo-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
+                      <span className="text-[11px] bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-404 border border-indigo-100/50 dark:border-indigo-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
                         Max Transit: {selectedBid.specifications.maxTransitTime || '36 hrs'}
                       </span>
-                      <span className="text-[9px] bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-404 border border-teal-100/50 dark:border-teal-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
+                      <span className="text-[11px] bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-404 border border-teal-100/50 dark:border-teal-900/30 px-1.5 py-0.5 rounded font-mono font-extrabold">
                         Min Shelf Life: {selectedBid.specifications.minShelfLife || '14 days'}
                       </span>
                     </div>
@@ -2091,7 +2091,7 @@ export default function Procurement() {
                             <button
                               type="button"
                               onClick={() => setCompareQuoteIds([])}
-                              className="text-[10px] font-bold uppercase text-indigo-600 dark:text-indigo-300 hover:underline"
+                              className="text-[11px] font-bold uppercase text-indigo-600 dark:text-indigo-300 hover:underline"
                             >
                               Clear
                             </button>
@@ -2168,13 +2168,13 @@ export default function Procurement() {
                                           onChange={() => toggleCompareQuote(quote.id)}
                                           className="w-3.5 h-3.5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
                                         />
-                                        <span className="text-[9px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                                        <span className="text-[11px] font-bold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
                                           Compare
                                         </span>
                                       </label>
                                     )}
                                     <h4 className="font-extrabold text-slate-900 dark:text-slate-100 text-sm tracking-tight">{quote.vendor}</h4>
-                                    <span className="text-[10px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold">
+                                    <span className="text-[11px] bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-0.5 rounded-full font-bold">
                                       Reliability: {quote.qualityIndex}
                                     </span>
                                   </div>
@@ -2190,7 +2190,7 @@ export default function Procurement() {
                                   <div className="text-lg font-extrabold text-slate-900 dark:text-slate-100 leading-tight">
                                     ${(quote.pricePerCase || quote.pricePerUnit).toFixed(2)}
                                   </div>
-                                  <span className="text-[10px] text-slate-400 dark:text-slate-550 block mt-0.5">
+                                  <span className="text-[11px] text-slate-400 dark:text-slate-550 block mt-0.5">
                                     Base Sourcing Value: ${baseQuotePrice.toLocaleString()}
                                   </span>
                                 </div>
@@ -2199,22 +2199,22 @@ export default function Procurement() {
                               {/* Typography Attributes Grid (Responsively configured grid) */}
                               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5 p-4 bg-slate-55 dark:bg-slate-950 rounded-xl text-xs border border-slate-200/50 dark:border-slate-800 w-full max-w-full">
                                 <div>
-                                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Est. Delivery</span>
+                                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Est. Delivery</span>
                                   <span className="font-semibold text-slate-800 dark:text-slate-200 mt-1 block">{quote.eta}</span>
                                 </div>
                                 <div>
-                                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Harvest Batch Age</span>
+                                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Harvest Batch Age</span>
                                   <span className="font-semibold text-slate-800 dark:text-slate-200 mt-1 block">{harvestAgeText}</span>
                                 </div>
                                 <div>
-                                  <span className="text-[9px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Thermal Fleet Spec</span>
+                                  <span className="text-[11px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">Thermal Fleet Spec</span>
                                   <span className="font-semibold text-emerald-600 dark:text-emerald-400 mt-1 block">{quote.fleetSpecification || 'Ambient'}</span>
                                 </div>
                               </div>
 
                               {/* AI Risk Segment */}
                               <div className="space-y-1.5 font-sans w-full">
-                                <span className="text-[10px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">AI Shrinkage &amp; Biological Prediction</span>
+                                <span className="text-[11px] font-bold text-slate-400 dark:text-slate-505 uppercase tracking-wider block">AI Shrinkage &amp; Biological Prediction</span>
                                 <div className={cn("px-3.5 py-2.5 rounded-lg border text-xs font-semibold flex items-center gap-2.5", riskBadgeBg)}>
                                   <Sparkles className="w-4 h-4 shrink-0 animate-pulse text-indigo-500 dark:text-indigo-400" />
                                   <span>{riskLabel}</span>
@@ -2228,7 +2228,7 @@ export default function Procurement() {
                                     <Calculator className="w-3.5 h-3.5 text-indigo-500" />
                                     <span>AI Sourcing True-Cost Analysis</span>
                                   </div>
-                                  <p className="text-[10px] text-slate-550 dark:text-slate-404 mt-1">
+                                  <p className="text-[11px] text-slate-550 dark:text-slate-404 mt-1">
                                     Reflects base quote + cold-chain route shrinkage/waste ({wastePct}%) prediction.
                                   </p>
                                 </div>
@@ -2240,7 +2240,7 @@ export default function Procurement() {
 
                               {/* Award button */}
                               <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mt-1 w-full">
-                                <span className="text-[10px] text-slate-400 max-w-[100%] sm:max-w-[60%]">
+                                <span className="text-[11px] text-slate-400 max-w-[100%] sm:max-w-[60%]">
                                   Notes: <em className="text-slate-650 dark:text-slate-350">{quote.notes}</em>
                                 </span>
 
@@ -2278,11 +2278,11 @@ export default function Procurement() {
                               
                               {/* Chat Header */}
                               <div className="border-b border-slate-200/50 dark:border-slate-800 pb-2 mb-3 flex items-center justify-between">
-                                <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest flex items-center gap-1">
                                   <MessageSquare className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
                                   Supplier Negotiations
                                 </span>
-                                <span className="text-[9px] text-slate-415 dark:text-slate-550 font-mono">Live Link</span>
+                                <span className="text-[11px] text-slate-415 dark:text-slate-550 font-mono">Live Link</span>
                               </div>
 
                               {/* Chat Message Scroll frame */}
@@ -2292,7 +2292,7 @@ export default function Procurement() {
                                   const isBuyer = msg.sender.includes('Sarah M.');
                                   return (
                                     <div key={index} className={cn("flex flex-col gap-1", isSelf ? "items-end" : "items-start")}>
-                                      <div className="flex items-center gap-1 text-[9px] text-slate-400 dark:text-slate-505 font-bold">
+                                      <div className="flex items-center gap-1 text-[11px] text-slate-400 dark:text-slate-505 font-bold">
                                         <span>{msg.sender.split(' Rep')[0]}</span>
                                         <span>•</span>
                                         <span>{msg.time}</span>
@@ -2312,7 +2312,7 @@ export default function Procurement() {
                                 })}
 
                                 {(negotiationsDB[quote.id] || []).length === 0 && (
-                                  <div className="text-center py-6 text-[10px] text-slate-400 italic">
+                                  <div className="text-center py-6 text-[11px] text-slate-400 italic">
                                     No live negotiation comments initialized yet. Submit a comment below.
                                   </div>
                                 )}
@@ -2393,7 +2393,7 @@ export default function Procurement() {
                     <div className={cn("flex flex-col max-w-[80%]", msg.isSelf ? "items-end" : "items-start")}>
                       <div className="flex items-baseline gap-2 mb-0.5">
                         <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{msg.sender}</span>
-                        <span className="text-[9px] text-slate-400 dark:text-slate-500">{msg.time}</span>
+                        <span className="text-[11px] text-slate-400 dark:text-slate-500">{msg.time}</span>
                       </div>
                       <div className={cn(
                         "text-xs rounded-lg p-2.5 shadow-sm",
@@ -2522,7 +2522,7 @@ export default function Procurement() {
                 render: (row) => (
                   <div>
                     <div className="font-semibold text-slate-800 dark:text-slate-200">{row.item}</div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">Ref: {row.requirementId}</div>
+                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">Ref: {row.requirementId}</div>
                   </div>
                 ),
               },
@@ -2544,7 +2544,7 @@ export default function Procurement() {
                 render: (row) => (
                   <span
                     className={cn(
-                      'px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-sm',
+                      'px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider shadow-sm',
                       row.status === 'Active'
                         ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400'
                         : 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-400'
@@ -2593,7 +2593,7 @@ export default function Procurement() {
                 render: (row) => (
                   <div>
                     <div className="font-semibold">{row.item}</div>
-                    <div className="text-[10px] text-slate-400 font-mono mt-0.5">Ref: {row.requirementId}</div>
+                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">Ref: {row.requirementId}</div>
                   </div>
                 ),
               },
@@ -2611,7 +2611,7 @@ export default function Procurement() {
                   <div>
                     <div>{row.deliveryDate ? formatDisplayDate(row.deliveryDate) : row.date}</div>
                     {row.orderType === 'repeat' && row.cycleIndex != null && (
-                      <div className="text-[9px] text-violet-600 dark:text-violet-400 font-semibold mt-0.5">
+                      <div className="text-[11px] text-violet-600 dark:text-violet-400 font-semibold mt-0.5">
                         Cycle {row.cycleIndex}/{row.cycleTotal}
                       </div>
                     )}
@@ -2637,7 +2637,7 @@ export default function Procurement() {
                 render: (row) => (
                   <span
                     className={cn(
-                      'px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider shadow-sm',
+                      'px-2.5 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider shadow-sm',
                       row.status === 'Fulfilled'
                         ? 'bg-emerald-100 dark:bg-emerald-950/40 text-emerald-800 dark:text-emerald-400'
                         : row.status === 'In Transit'
@@ -2803,7 +2803,7 @@ export default function Procurement() {
                     Draft POs are buyer-only. Adjust delivery date and qty, then confirm to send to the supplier.
                   </p>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Delivery date</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">Delivery date</span>
                     <input
                       type="date"
                       value={draftDeliveryDate}
@@ -2812,7 +2812,7 @@ export default function Procurement() {
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Quantity</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">Quantity</span>
                     <input
                       type="number"
                       min={1}
@@ -2869,36 +2869,36 @@ export default function Procurement() {
                 <div className="p-5 space-y-4 overflow-y-auto">
                   <dl className="grid grid-cols-2 gap-3 text-sm">
                     <div className="col-span-2 rounded-xl bg-slate-50 dark:bg-slate-950/60 border border-slate-100 dark:border-slate-800 p-3">
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Item</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Item</dt>
                       <dd className="font-semibold text-slate-900 dark:text-slate-100 mt-0.5">{poModal.po.item}</dd>
                       <dd className="text-[11px] text-slate-400 font-mono mt-1">Ref: {poModal.po.requirementId}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Vendor</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Vendor</dt>
                       <dd className="font-medium text-slate-800 dark:text-slate-200 mt-0.5">{poModal.po.vendor}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Amount</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Amount</dt>
                       <dd className="font-extrabold text-slate-900 dark:text-slate-100 mt-0.5">{poModal.po.amt}</dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ordered qty</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ordered qty</dt>
                       <dd className="font-semibold tabular-nums mt-0.5">
                         {(poModal.po.orderedQty ?? 0).toLocaleString()} {poModal.po.unit || 'Cases'}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Delivery date</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Delivery date</dt>
                       <dd className="mt-0.5 text-slate-700 dark:text-slate-300">
                         {poModal.po.deliveryDate ? formatDisplayDate(poModal.po.deliveryDate) : poModal.po.date}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Issue date</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Issue date</dt>
                       <dd className="mt-0.5 text-slate-700 dark:text-slate-300">{poModal.po.date}</dd>
                     </div>
                     <div className="col-span-2">
-                      <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Destination</dt>
+                      <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Destination</dt>
                       <dd className="mt-0.5 text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
                         <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         {poModal.po.destination || 'Chicago DC'}
@@ -2907,16 +2907,16 @@ export default function Procurement() {
                     {poModal.po.asnNumber && (
                       <>
                         <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">ASN #</dt>
+                          <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">ASN #</dt>
                           <dd className="font-mono text-xs mt-0.5">{poModal.po.asnNumber}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Container</dt>
+                          <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Container</dt>
                           <dd className="font-mono text-xs mt-0.5">{poModal.po.containerNumber || '—'}</dd>
                         </div>
                         {poModal.po.shipDate && (
                           <div>
-                            <dt className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Ship date</dt>
+                            <dt className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Ship date</dt>
                             <dd className="mt-0.5 text-slate-700 dark:text-slate-300">
                               {/^\d{4}-\d{2}-\d{2}$/.test(poModal.po.shipDate)
                                 ? formatDisplayDate(poModal.po.shipDate)
@@ -3013,14 +3013,14 @@ export default function Procurement() {
 
               <div className="p-5 space-y-4 overflow-y-auto">
                 <label className="block space-y-1.5 rounded-xl border border-dashed border-[#86A8C2] dark:border-sky-800 bg-[#C0D5E5]/50 dark:bg-sky-950/20 p-3 cursor-pointer hover:bg-[#C0D5E5]/30 dark:hover:bg-sky-950/40 transition-colors">
-                  <span className="text-[10px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5] flex items-center gap-1.5">
+                  <span className="text-[11px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5] flex items-center gap-1.5">
                     <Upload className="w-3.5 h-3.5" />
                     Upload packing slip / ASN image
                   </span>
                   <input
                     type="file"
                     accept=".pdf,.png,.jpg,.jpeg,.csv,.txt,image/*,application/pdf"
-                    className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#4684AD] file:text-white file:text-[10px] file:font-bold file:uppercase"
+                    className="block w-full text-xs text-slate-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:bg-[#4684AD] file:text-white file:text-[11px] file:font-bold file:uppercase"
                     onChange={(e) => {
                       const f = e.target.files?.[0];
                       if (f) void handlePackingSlipUpload(f);
@@ -3034,7 +3034,7 @@ export default function Procurement() {
                   {slipScanMsg && (
                     <p className="text-[11px] text-emerald-700 dark:text-emerald-300">{slipScanMsg}</p>
                   )}
-                  <p className="text-[10px] text-slate-400">
+                  <p className="text-[11px] text-slate-400">
                     Captures ASN #, container, seal, vessel/voyage, BOL, booking, ports, ETA, linked POs, and package totals.
                     Try the{' '}
                     <a
@@ -3054,8 +3054,8 @@ export default function Procurement() {
                   asnExtra.vesselName ||
                   asnExtra.billOfLading ||
                   asnExtra.portOfDischarge) && (
-                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/50 p-3 grid grid-cols-2 gap-2 text-[10px]">
-                    <div className="col-span-2 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-950/50 p-3 grid grid-cols-2 gap-2 text-[11px]">
+                    <div className="col-span-2 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                       Captured logistics visibility
                     </div>
                     {asnExtra.shipmentNumber && (
@@ -3149,7 +3149,7 @@ export default function Procurement() {
                 )}
 
                 <div className="space-y-1.5">
-                  <span className="text-[10px] font-bold uppercase text-slate-400">
+                  <span className="text-[11px] font-bold uppercase text-slate-400">
                     Link purchase orders (multi-PO → one container)
                   </span>
                   {asnEligibleOrders.length === 0 ? (
@@ -3197,7 +3197,7 @@ export default function Procurement() {
                     </div>
                   )}
                   {asnLinkedPoIds.length > 1 && (
-                    <p className="text-[10px] text-[#2F5472] dark:text-[#C0D5E5] font-medium">
+                    <p className="text-[11px] text-[#2F5472] dark:text-[#C0D5E5] font-medium">
                       {asnLinkedPoIds.length} POs will share one ASN and container in logistics.
                     </p>
                   )}
@@ -3205,7 +3205,7 @@ export default function Procurement() {
 
                 <div className="grid sm:grid-cols-2 gap-3">
                   <label className="block space-y-1 sm:col-span-2">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">ASN number</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">ASN number</span>
                     <input
                       value={fulfillAsn}
                       onChange={(e) => setFulfillAsn(e.target.value)}
@@ -3214,7 +3214,7 @@ export default function Procurement() {
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Container number</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">Container number</span>
                     <input
                       value={fulfillContainer}
                       onChange={(e) => setFulfillContainer(e.target.value)}
@@ -3223,7 +3223,7 @@ export default function Procurement() {
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Ship date</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">Ship date</span>
                     <input
                       type="date"
                       value={fulfillShipDate}
@@ -3232,7 +3232,7 @@ export default function Procurement() {
                     />
                   </label>
                   <label className="block space-y-1">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">ETA</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">ETA</span>
                     <input
                       value={fulfillEta}
                       onChange={(e) => setFulfillEta(e.target.value)}
@@ -3241,7 +3241,7 @@ export default function Procurement() {
                     />
                   </label>
                   <label className="block space-y-1 sm:col-span-2">
-                    <span className="text-[10px] font-bold uppercase text-slate-400">Shipment notes</span>
+                    <span className="text-[11px] font-bold uppercase text-slate-400">Shipment notes</span>
                     <textarea
                       rows={2}
                       value={fulfillNotes}
@@ -3516,13 +3516,13 @@ export default function Procurement() {
 
                     {newOrderType === 'repeat' && (
                       <div className="rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/60 dark:bg-violet-950/20 p-3 space-y-3">
-                        <div className="text-[10px] font-extrabold uppercase tracking-wider text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
+                        <div className="text-[11px] font-extrabold uppercase tracking-wider text-violet-700 dark:text-violet-300 flex items-center gap-1.5">
                           <RefreshCw className="w-3.5 h-3.5" />
                           Repeat delivery cycle schedule
                         </div>
                         <div className="grid grid-cols-2 gap-3">
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Frequency</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Frequency</label>
                             <select
                               value={newRepeatFrequency}
                               onChange={(e) => setNewRepeatFrequency(e.target.value as RepeatFrequency)}
@@ -3534,13 +3534,13 @@ export default function Procurement() {
                             </select>
                           </div>
                           <div>
-                            <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">Deliveries in window</label>
+                            <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">Deliveries in window</label>
                             <div className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg px-3 py-2 text-sm font-semibold">
                               {repeatPreviewDates.length} draft PO{repeatPreviewDates.length === 1 ? '' : 's'}
                             </div>
                           </div>
                         </div>
-                        <p className="text-[10px] text-violet-700/80 dark:text-violet-300/80">
+                        <p className="text-[11px] text-violet-700/80 dark:text-violet-300/80">
                           Window {formatDisplayDate(newDeliveryDate)} → {formatDisplayDate(newDeliveryEndDate)} ·{' '}
                           {frequencyLabel(newRepeatFrequency)}. After award, draft POs auto-create for each date in range.
                         </p>
@@ -3569,7 +3569,7 @@ export default function Procurement() {
 
                       <div className="grid grid-cols-3 gap-3">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">Min Temp Limit (°F)</label>
+                          <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">Min Temp Limit (°F)</label>
                           <input 
                             type="number" 
                             required
@@ -3579,7 +3579,7 @@ export default function Procurement() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">Max Temp Limit (°F)</label>
+                          <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">Max Temp Limit (°F)</label>
                           <input 
                             type="number" 
                             required
@@ -3589,7 +3589,7 @@ export default function Procurement() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">Target Humidity (%)</label>
+                          <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">Target Humidity (%)</label>
                           <input 
                             type="number" 
                             required
@@ -3602,7 +3602,7 @@ export default function Procurement() {
 
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1 border-t border-slate-150 dark:border-slate-800">
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">Target Cold-Chain Temp (°C)</label>
+                          <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">Target Cold-Chain Temp (°C)</label>
                           <input 
                             type="text" 
                             required
@@ -3613,7 +3613,7 @@ export default function Procurement() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">Max Allowable Transit</label>
+                          <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">Max Allowable Transit</label>
                           <input 
                             type="text" 
                             required
@@ -3624,7 +3624,7 @@ export default function Procurement() {
                           />
                         </div>
                         <div>
-                          <label className="block text-[10px] font-bold text-slate-400 dark:text-slate-500 mb-1">Min Delivery Shelf Life</label>
+                          <label className="block text-[11px] font-bold text-slate-400 dark:text-slate-500 mb-1">Min Delivery Shelf Life</label>
                           <input 
                             type="text" 
                             required
@@ -3653,14 +3653,14 @@ export default function Procurement() {
                         <button
                           type="button"
                           onClick={() => setSelectedVendorNames(matchedVendorsLive.map((v) => v.name))}
-                          className="text-[10px] font-bold uppercase text-[#2F5472] hover:underline"
+                          className="text-[11px] font-bold uppercase text-[#2F5472] hover:underline"
                         >
                           Select all
                         </button>
                         <button
                           type="button"
                           onClick={() => setSelectedVendorNames([])}
-                          className="text-[10px] font-bold uppercase text-slate-500 hover:underline"
+                          className="text-[11px] font-bold uppercase text-slate-500 hover:underline"
                         >
                           Clear
                         </button>
@@ -3694,9 +3694,9 @@ export default function Procurement() {
                             />
                             <div className="min-w-0 flex-1">
                               <span className="text-[11px] font-bold text-slate-800 dark:text-slate-200 block truncate">{v.name}</span>
-                              <span className="text-[9px] text-slate-400 dark:text-slate-500 block truncate">{v.status}</span>
+                              <span className="text-[11px] text-slate-400 dark:text-slate-500 block truncate">{v.status}</span>
                             </div>
-                            <span className="text-[9px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-bold shrink-0">
+                            <span className="text-[11px] bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 px-2 py-0.5 rounded font-mono font-bold shrink-0">
                               IDx: {v.score}%
                             </span>
                           </label>
@@ -3773,13 +3773,13 @@ export default function Procurement() {
                   <table className="w-full text-left text-xs min-w-[640px]">
                     <thead className="bg-slate-50 dark:bg-slate-950/70">
                       <tr>
-                        <th className="px-3 py-3 font-bold text-[10px] uppercase tracking-wide text-slate-500 w-40 sticky left-0 bg-slate-50 dark:bg-slate-950/70 z-10">
+                        <th className="px-3 py-3 font-bold text-[11px] uppercase tracking-wide text-slate-500 w-40 sticky left-0 bg-slate-50 dark:bg-slate-950/70 z-10">
                           Metric
                         </th>
                         {comparedQuotes.map((q) => (
                           <th key={q.id} className="px-3 py-3 font-bold text-slate-900 dark:text-slate-100 min-w-[160px]">
                             <div className="text-sm">{q.vendor}</div>
-                            <div className="text-[10px] font-medium text-slate-400 mt-0.5 normal-case tracking-normal">
+                            <div className="text-[11px] font-medium text-slate-400 mt-0.5 normal-case tracking-normal">
                               Reliability {q.qualityIndex}
                             </div>
                           </th>
@@ -3796,7 +3796,7 @@ export default function Procurement() {
                             return (
                               <span className={cn('font-extrabold font-mono', win && 'text-emerald-600 dark:text-emerald-400')}>
                                 ${m.caseRate.toFixed(2)}
-                                {win && <span className="ml-1.5 text-[9px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
+                                {win && <span className="ml-1.5 text-[11px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
                               </span>
                             );
                           },
@@ -3813,8 +3813,8 @@ export default function Procurement() {
                             return (
                               <span className={cn('font-extrabold font-mono', win && 'text-indigo-600 dark:text-indigo-400')}>
                                 ${m.trueCost.toLocaleString()}
-                                <span className="text-[10px] text-slate-400 font-medium ml-1">({m.wastePct}% waste)</span>
-                                {win && <span className="ml-1.5 text-[9px] uppercase font-bold bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">Best</span>}
+                                <span className="text-[11px] text-slate-400 font-medium ml-1">({m.wastePct}% waste)</span>
+                                {win && <span className="ml-1.5 text-[11px] uppercase font-bold bg-indigo-100 dark:bg-indigo-950/50 text-indigo-700 dark:text-indigo-300 px-1.5 py-0.5 rounded">Best</span>}
                               </span>
                             );
                           },
@@ -3826,7 +3826,7 @@ export default function Procurement() {
                             return (
                               <span className={cn(win && 'font-extrabold text-emerald-600 dark:text-emerald-400')}>
                                 {q.qualityIndex}
-                                {win && <span className="ml-1.5 text-[9px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
+                                {win && <span className="ml-1.5 text-[11px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
                               </span>
                             );
                           },
@@ -3869,7 +3869,7 @@ export default function Procurement() {
                                 )}
                               >
                                 {m.riskLabel}
-                                {win && <span className="text-[9px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
+                                {win && <span className="text-[11px] uppercase font-bold bg-emerald-100 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 px-1.5 py-0.5 rounded">Best</span>}
                               </span>
                             );
                           },
@@ -3882,7 +3882,7 @@ export default function Procurement() {
                         },
                       ] as const).map((row) => (
                         <tr key={row.label} className="hover:bg-slate-50/80 dark:hover:bg-slate-950/40">
-                          <td className="px-3 py-3 font-bold text-[10px] uppercase tracking-wide text-slate-500 sticky left-0 bg-white dark:bg-slate-900 z-10">
+                          <td className="px-3 py-3 font-bold text-[11px] uppercase tracking-wide text-slate-500 sticky left-0 bg-white dark:bg-slate-900 z-10">
                             {row.label}
                           </td>
                           {comparedQuotes.map((q) => (
@@ -3898,7 +3898,7 @@ export default function Procurement() {
               </div>
 
               <div className="px-5 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40 flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[10px] text-slate-500 max-w-md">
+                <p className="text-[11px] text-slate-500 max-w-md">
                   Green / indigo <strong>Best</strong> tags highlight the strongest metric per row. Award from here or close and use the quote cards.
                 </p>
                 <div className="flex flex-wrap items-center gap-2">

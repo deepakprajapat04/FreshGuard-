@@ -128,7 +128,7 @@ export function NotificationsPanel({
                 <Bell className="w-4 h-4 text-[#4684AD] dark:text-blue-300" />
                 Alerts
                 {unreadCount > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-500">
+                  <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-rose-500">
                     {unreadCount} new
                   </span>
                 )}
@@ -142,7 +142,7 @@ export function NotificationsPanel({
                 <button
                   type="button"
                   onClick={markAllRead}
-                  className="text-[10px] font-semibold text-[#4684AD] dark:text-blue-300 hover:text-sky-800 dark:hover:text-sky-200 px-2 py-1"
+                  className="text-[11px] font-semibold text-[#4684AD] dark:text-blue-300 hover:text-sky-800 dark:hover:text-sky-200 px-2 py-1"
                 >
                   Mark all read
                 </button>
@@ -170,7 +170,7 @@ export function NotificationsPanel({
                   type="button"
                   onClick={() => setCategoryFilter(tab)}
                   className={cn(
-                    'px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide whitespace-nowrap transition-colors',
+                    'px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wide whitespace-nowrap transition-colors',
                     categoryFilter === tab
                       ? tab === 'Urgent'
                         ? 'bg-rose-600 text-white'
@@ -224,14 +224,14 @@ export function NotificationsPanel({
                             </span>
                             <span
                               className={cn(
-                                'text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md',
+                                'text-[11px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded-md',
                                 categoryBadgeClass(n.category)
                               )}
                             >
                               {n.category}
                             </span>
                           </div>
-                          <div className="text-[10px] text-slate-500 mt-0.5 flex items-center gap-1.5">
+                          <div className="text-[11px] text-slate-500 mt-0.5 flex items-center gap-1.5">
                             <Radio className="w-3 h-3" />
                             {n.module}
                             <span>·</span>
@@ -258,7 +258,7 @@ export function NotificationsPanel({
                             navigate(n.href!);
                             onClose();
                           }}
-                          className="mt-2 text-[10px] font-bold uppercase text-[#2F5472] dark:text-sky-400 hover:underline"
+                          className="mt-2 text-[11px] font-bold uppercase text-[#2F5472] dark:text-sky-400 hover:underline"
                         >
                           Open module →
                         </button>

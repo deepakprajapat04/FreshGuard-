@@ -1,7 +1,7 @@
 /**
- * Supplier portal — awarded request for quote → upload shipping → PO created.
+ * Supplier portal — fruit contracts → upload shipping → PO created; vegetable POs separately.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { Link } from 'react-router';
 import {
   CheckCircle2,
@@ -39,6 +39,7 @@ import {
   loadFruitsRfqs,
   resetFruitsRfqDemo,
   SUPPLIER_SEEN_RFQS_KEY,
+  toContractNumber,
   type FruitsRfq,
   type FruitsRfqCadence,
 } from '../../lib/fruitsRfqFlow';
@@ -82,6 +83,20 @@ type ShipRow = {
   containerNumber: string;
   shipDate: string;
   eta: string;
+  originalEta: string;
+  transportMode: string;
+  carrier: string;
+  vessel: string;
+  voyage: string;
+  origin: string;
+  destination: string;
+  incoterms: string;
+  billOfLading: string;
+  customs: string;
+  tempRange: string;
+  qtyExpected: string;
+  qtyActual: string;
+  amount: string;
 };
 
 function toDateInputValue(raw?: string): string {
@@ -102,6 +117,37 @@ function formatWhen(iso?: string) {
   });
 }
 
+function unitPriceFor(rfq: FruitsRfq): number {
+  const quote = getAwardedQuote(rfq);
+  return quote?.pricePerCase ?? rfq.unitPrice ?? 0;
+}
+
+function defaultShipRow(rfq: FruitsRfq): ShipRow {
+  const expected = getRfqDropQty(rfq);
+  const price = unitPriceFor(rfq);
+  const tail = rfq.id.split('-').pop() ?? Date.now().toString().slice(-4);
+  return {
+    asnNumber: `ASN-${tail}`,
+    containerNumber: '',
+    shipDate: toDateInputValue(),
+    eta: '3 Days',
+    originalEta: '3 Days',
+    transportMode: 'ocean',
+    carrier: 'Maersk Reefer',
+    vessel: 'MV Andes Fresh',
+    voyage: 'AF-118W',
+    origin: 'Valparaíso, Chile',
+    destination: rfq.destination,
+    incoterms: 'FOB Valparaíso',
+    billOfLading: '',
+    customs: 'Pending clearance',
+    tempRange: rfq.specifications.tempRange,
+    qtyExpected: String(expected),
+    qtyActual: String(expected),
+    amount: (expected * price).toFixed(2),
+  };
+}
+
 function loadSeenRfqIds(): Set<string> {
   try {
     const raw = localStorage.getItem(SUPPLIER_SEEN_RFQS_KEY);
@@ -118,6 +164,24 @@ function markRfqSeen(id: string) {
   localStorage.setItem(SUPPLIER_SEEN_RFQS_KEY, JSON.stringify([...seen]));
 }
 
+const SHIP_TEXT_FIELDS: { key: keyof ShipRow; label: string; wide?: boolean }[] = [
+  { key: 'asnNumber', label: 'ASN number' },
+  { key: 'containerNumber', label: 'Container' },
+  { key: 'shipDate', label: 'Ship date' },
+  { key: 'eta', label: 'ETA' },
+  { key: 'originalEta', label: 'Original ETA' },
+  { key: 'transportMode', label: 'Transport mode' },
+  { key: 'carrier', label: 'Carrier' },
+  { key: 'vessel', label: 'Vessel' },
+  { key: 'voyage', label: 'Voyage' },
+  { key: 'origin', label: 'Origin', wide: true },
+  { key: 'destination', label: 'Destination' },
+  { key: 'incoterms', label: 'Incoterms' },
+  { key: 'billOfLading', label: 'Bill of lading' },
+  { key: 'customs', label: 'Customs' },
+  { key: 'tempRange', label: 'Temp range' },
+];
+
 function ShippingEntryTable({
   rfqs,
   rows,
@@ -128,59 +192,86 @@ function ShippingEntryTable({
   onChange: (rfqId: string, patch: Partial<ShipRow>) => void;
 }) {
   const inputClass =
-    'w-full min-w-[7.5rem] rounded-md border border-slate-200 dark:border-slate-700 px-2 py-1.5 text-xs dark:bg-slate-900 outline-none focus:ring-2 focus:ring-[#4684AD]/40';
+    'w-full min-w-[6.5rem] rounded-md border border-slate-200 dark:border-slate-700 px-2 py-1.5 text-xs dark:bg-slate-900 outline-none focus:ring-2 focus:ring-[#4684AD]/40';
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-      <table className="w-full min-w-[720px] text-left text-xs">
-        <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+      <table className="w-full min-w-[1680px] text-left text-xs">
+        <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] font-bold uppercase tracking-wide text-slate-400">
           <tr>
-            <th className="px-3 py-2.5">RFQ</th>
+            <th className="px-3 py-2.5">Contract</th>
             <th className="px-3 py-2.5">Item</th>
-            <th className="px-3 py-2.5">ASN number</th>
-            <th className="px-3 py-2.5">Container</th>
-            <th className="px-3 py-2.5">Ship date</th>
-            <th className="px-3 py-2.5">ETA</th>
+            {SHIP_TEXT_FIELDS.map((f) => (
+              <th key={f.key} className="px-3 py-2.5 whitespace-nowrap">
+                {f.label}
+              </th>
+            ))}
+            <th className="px-3 py-2.5 whitespace-nowrap">Qty expected</th>
+            <th className="px-3 py-2.5 whitespace-nowrap">Qty actual</th>
+            <th className="px-3 py-2.5">Amount</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
           {rfqs.map((rfq) => {
-            const row = rows[rfq.id] ?? defaultShipRow(rfq.id);
+            const row = rows[rfq.id] ?? defaultShipRow(rfq);
+            const price = unitPriceFor(rfq);
             return (
               <tr key={rfq.id}>
                 <td className="px-3 py-2 font-code font-semibold text-[#4684AD] whitespace-nowrap">
-                  {rfq.id}
+                  {toContractNumber(rfq.id)}
                 </td>
-                <td className="px-3 py-2 max-w-[180px]">
+                <td className="px-3 py-2 max-w-[160px]">
                   <div className="font-medium text-slate-900 dark:text-white truncate">{rfq.item}</div>
                 </td>
+                {SHIP_TEXT_FIELDS.map((f) => (
+                  <td key={f.key} className="px-2 py-1.5">
+                    <input
+                      type={f.key === 'shipDate' ? 'date' : 'text'}
+                      value={row[f.key]}
+                      onChange={(e) => onChange(rfq.id, { [f.key]: e.target.value })}
+                      className={cn(
+                        inputClass,
+                        f.wide && 'min-w-[9rem]',
+                        (f.key === 'asnNumber' ||
+                          f.key === 'containerNumber' ||
+                          f.key === 'billOfLading' ||
+                          f.key === 'voyage') &&
+                          'font-code'
+                      )}
+                      placeholder={f.label}
+                    />
+                  </td>
+                ))}
                 <td className="px-2 py-1.5">
                   <input
-                    value={row.asnNumber}
-                    onChange={(e) => onChange(rfq.id, { asnNumber: e.target.value })}
-                    className={cn(inputClass, 'font-code')}
+                    value={row.qtyExpected}
+                    onChange={(e) => onChange(rfq.id, { qtyExpected: e.target.value })}
+                    className={cn(inputClass, 'tabular-nums')}
+                    inputMode="numeric"
                   />
                 </td>
                 <td className="px-2 py-1.5">
                   <input
-                    value={row.containerNumber}
-                    onChange={(e) => onChange(rfq.id, { containerNumber: e.target.value })}
-                    className={cn(inputClass, 'font-code')}
-                    placeholder="Container"
+                    value={row.qtyActual}
+                    onChange={(e) => {
+                      const qtyActual = e.target.value;
+                      const n = Number(qtyActual.replace(/,/g, ''));
+                      onChange(rfq.id, {
+                        qtyActual,
+                        amount:
+                          Number.isFinite(n) && n >= 0 ? (n * price).toFixed(2) : row.amount,
+                      });
+                    }}
+                    className={cn(inputClass, 'tabular-nums')}
+                    inputMode="numeric"
                   />
                 </td>
                 <td className="px-2 py-1.5">
                   <input
-                    type="date"
-                    value={row.shipDate}
-                    onChange={(e) => onChange(rfq.id, { shipDate: e.target.value })}
-                    className={inputClass}
-                  />
-                </td>
-                <td className="px-2 py-1.5">
-                  <input
-                    value={row.eta}
-                    onChange={(e) => onChange(rfq.id, { eta: e.target.value })}
-                    className={inputClass}
+                    value={row.amount}
+                    onChange={(e) => onChange(rfq.id, { amount: e.target.value })}
+                    className={cn(inputClass, 'tabular-nums')}
+                    inputMode="decimal"
+                    placeholder="USD"
                   />
                 </td>
               </tr>
@@ -192,23 +283,13 @@ function ShippingEntryTable({
   );
 }
 
-function defaultShipRow(rfqId: string): ShipRow {
-  const tail = rfqId.split('-').pop() ?? Date.now().toString().slice(-4);
-  return {
-    asnNumber: `ASN-${tail}`,
-    containerNumber: '',
-    shipDate: toDateInputValue(),
-    eta: '3 Days',
-  };
-}
-
 function SelectedRfqsTable({ rfqs }: { rfqs: FruitsRfq[] }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
       <table className="w-full min-w-[640px] text-left text-xs">
-        <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+        <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] font-bold uppercase tracking-wide text-slate-400">
           <tr>
-            <th className="px-3 py-2.5">RFQ</th>
+            <th className="px-3 py-2.5">Contract</th>
             <th className="px-3 py-2.5">Item</th>
             <th className="px-3 py-2.5">Cadence</th>
             <th className="px-3 py-2.5">Price / case</th>
@@ -224,11 +305,11 @@ function SelectedRfqsTable({ rfqs }: { rfqs: FruitsRfq[] }) {
             return (
               <tr key={rfq.id} className="align-top">
                 <td className="px-3 py-2.5 font-code font-semibold text-[#4684AD] whitespace-nowrap">
-                  {rfq.id}
+                  {toContractNumber(rfq.id)}
                 </td>
                 <td className="px-3 py-2.5">
                   <div className="font-medium text-slate-900 dark:text-white">{rfq.item}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">{rfq.destination}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">{rfq.destination}</div>
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">{formatRepeatSummary(repeat)}</td>
                 <td className="px-3 py-2.5 tabular-nums font-semibold">
@@ -280,6 +361,8 @@ export function SupplierRfqPortal() {
   const [search, setSearch] = useState('');
   const [cadenceFilter, setCadenceFilter] = useState<CadenceFilter>('all');
   const [vegStatusFilter, setVegStatusFilter] = useState<VegStatusFilter>('all');
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const [pomsBatch, setPomsBatch] = useState<
     { poNumber: string; rfqId: string; item: string }[] | null
   >(null);
@@ -298,6 +381,7 @@ export function SupplierRfqPortal() {
       const quote = getAwardedQuote(r);
       const haystack = [
         r.id,
+        toContractNumber(r.id),
         r.item,
         r.fruitItem,
         r.destination,
@@ -316,7 +400,11 @@ export function SupplierRfqPortal() {
     const q = search.trim().toLowerCase();
     if (!q) return completed;
     return completed.filter((r) =>
-      [r.id, r.item, r.fruitItem, r.poNumber].filter(Boolean).join(' ').toLowerCase().includes(q)
+      [r.id, toContractNumber(r.id), r.item, r.fruitItem, r.poNumber]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(q)
     );
   }, [completed, search]);
 
@@ -351,6 +439,24 @@ export function SupplierRfqPortal() {
   useEffect(() => {
     refresh();
   }, []);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointer);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointer);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [filterOpen]);
 
   useEffect(() => {
     setCheckedIds((ids) => ids.filter((id) => awaiting.some((r) => r.id === id)));
@@ -429,7 +535,7 @@ export function SupplierRfqPortal() {
       let changed = false;
       for (const rfq of panelRfqs) {
         if (!next[rfq.id]) {
-          next[rfq.id] = defaultShipRow(rfq.id);
+          next[rfq.id] = defaultShipRow(rfq);
           changed = true;
         }
       }
@@ -437,18 +543,25 @@ export function SupplierRfqPortal() {
     });
   }, [panelRfqs]);
 
+  const resolveRfq = (rfqId: string) =>
+    panelRfqs.find((r) => r.id === rfqId) ??
+    awaiting.find((r) => r.id === rfqId) ??
+    loadFruitsRfqs().find((r) => r.id === rfqId);
+
   const patchShipRow = (rfqId: string, patch: Partial<ShipRow>) => {
-    setShippingByRfq((prev) => ({
-      ...prev,
-      [rfqId]: { ...(prev[rfqId] ?? defaultShipRow(rfqId)), ...patch },
-    }));
+    setShippingByRfq((prev) => {
+      const rfq = resolveRfq(rfqId);
+      const base = prev[rfqId] ?? (rfq ? defaultShipRow(rfq) : undefined);
+      if (!base) return prev;
+      return { ...prev, [rfqId]: { ...base, ...patch } };
+    });
   };
 
   const applySlipCapture = (asnNumber?: string, containerNumber?: string) => {
     setShippingByRfq((prev) => {
       const next = { ...prev };
       panelRfqs.forEach((rfq, i) => {
-        const current = next[rfq.id] ?? defaultShipRow(rfq.id);
+        const current = next[rfq.id] ?? defaultShipRow(rfq);
         next[rfq.id] = {
           ...current,
           asnNumber: asnNumber
@@ -466,33 +579,39 @@ export function SupplierRfqPortal() {
   const persistCreatedShipment = (
     poNumber: string,
     rfq: FruitsRfq,
-    shipping: { asnNumber: string; containerNumber: string; eta: string }
+    shipping: {
+      asnNumber: string;
+      containerNumber: string;
+      eta: string;
+      qtyActual: number;
+      transportMode: string;
+    }
   ) => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
       const list = stored ? JSON.parse(stored) : [];
-      const dropQty = getRfqDropQty(rfq);
+      const qty = shipping.qtyActual;
       list.unshift({
         id: poNumber,
         containerNumber: shipping.containerNumber,
         asnNumber: shipping.asnNumber,
         vendor: FRUITS_RFQ_SUPPLIER,
         product: rfq.item,
-        item: `${dropQty} cases`,
-        quantity: dropQty,
+        item: `${qty} cases`,
+        quantity: qty,
         unit: 'Cases',
         stage: 'packing',
         status: 'on-time',
         eta: shipping.eta,
         destination: rfq.destination,
-        transportMode: 'ocean',
+        transportMode: shipping.transportMode,
         linkedPos: [poNumber],
         cargoLines: [
           {
             poNumber,
             product: rfq.fruitItem,
             item: rfq.fruitItem,
-            quantity: dropQty,
+            quantity: qty,
             unit: 'Cases',
           },
         ],
@@ -504,44 +623,93 @@ export function SupplierRfqPortal() {
   };
 
   const applyMassShippingRows = (
-    rows: { rfqId: string; asnNumber: string; containerNumber: string; shipDate: string; eta: string }[]
+    rows: {
+      rfqId: string;
+      asnNumber: string;
+      containerNumber: string;
+      shipDate: string;
+      eta: string;
+      originalEta?: string;
+      transportMode?: string;
+      carrier?: string;
+      vessel?: string;
+      voyage?: string;
+      origin?: string;
+      destination?: string;
+      incoterms?: string;
+      billOfLading?: string;
+      customs?: string;
+      tempRange?: string;
+      qtyExpected?: string;
+      qtyActual?: string;
+      amount?: string;
+    }[]
   ) => {
     const created: { poNumber: string; rfqId: string; item: string }[] = [];
     const skipped: string[] = [];
     const notifications: Parameters<typeof upsertMany>[0] = [];
 
     for (const row of rows) {
-      const rfq = awaiting.find((r) => r.id === row.rfqId) ?? getRfqsAwaitingShipping(FRUITS_RFQ_SUPPLIER).find((r) => r.id === row.rfqId);
+      const rfq =
+        awaiting.find((r) => r.id === row.rfqId) ??
+        getRfqsAwaitingShipping(FRUITS_RFQ_SUPPLIER).find((r) => r.id === row.rfqId);
       if (!rfq) {
-        skipped.push(row.rfqId);
+        skipped.push(toContractNumber(row.rfqId));
         continue;
       }
       if (!row.asnNumber.trim()) {
-        skipped.push(`${row.rfqId} (no ASN)`);
+        skipped.push(`${toContractNumber(row.rfqId)} (no ASN)`);
         continue;
       }
+      const expectedDefault = getRfqDropQty(rfq);
+      const qtyExpected = Number(String(row.qtyExpected ?? '').replace(/,/g, '')) || expectedDefault;
+      const qtyActual = Number(String(row.qtyActual ?? '').replace(/,/g, '')) || qtyExpected;
+      const amountParsed = Number(String(row.amount ?? '').replace(/,/g, ''));
+      const amount =
+        Number.isFinite(amountParsed) && amountParsed > 0
+          ? amountParsed
+          : qtyActual * unitPriceFor(rfq);
+      const transportMode = row.transportMode?.trim() || 'ocean';
+      const incoterms = row.incoterms?.trim() || 'FOB Valparaíso';
+      const eta = row.eta.trim() || '3 Days';
       const result = createPoFromFruitsRfqShipping({
         rfqId: row.rfqId,
         asnNumber: row.asnNumber.trim(),
         containerNumber: row.containerNumber.trim(),
         shipDate: normalizeShipDate(row.shipDate),
-        eta: row.eta.trim() || '3 Days',
-        quantity: getRfqDropQty(rfq),
+        eta,
+        quantity: qtyActual,
+        quantityExpected: qtyExpected,
+        quantityActual: qtyActual,
+        amount,
+        transportMode,
+        incoterms,
+        originalEta: row.originalEta?.trim() || eta,
+        carrier: row.carrier?.trim(),
+        vessel: row.vessel?.trim(),
+        voyage: row.voyage?.trim(),
+        origin: row.origin?.trim(),
+        destination: row.destination?.trim() || rfq.destination,
+        billOfLading: row.billOfLading?.trim(),
+        customs: row.customs?.trim(),
+        tempRange: row.tempRange?.trim() || rfq.specifications.tempRange,
       });
       if (!result) {
-        skipped.push(`${row.rfqId} (already fulfilled)`);
+        skipped.push(`${toContractNumber(row.rfqId)} (already fulfilled)`);
         continue;
       }
       persistCreatedShipment(result.po.po, rfq, {
         asnNumber: row.asnNumber.trim(),
         containerNumber: row.containerNumber.trim(),
-        eta: row.eta.trim() || '3 Days',
+        eta,
+        qtyActual,
+        transportMode,
       });
       created.push({ poNumber: result.po.po, rfqId: rfq.id, item: rfq.item });
       notifications.push({
         id: `n-ship-${rfq.id}`,
         title: 'Shipping details uploaded',
-        message: `${FRUITS_RFQ_SUPPLIER} submitted shipping for ${rfq.id} (${rfq.item}). Alert sent to DC Purchasing. After approval, DC will be notified that the PO is created.`,
+        message: `${FRUITS_RFQ_SUPPLIER} submitted shipping for ${toContractNumber(rfq.id)} (${rfq.item}). Alert sent to DC Purchasing. After approval, DC will be notified that the PO is created.`,
         severity: 'info',
         category: 'Regular',
         timestamp: new Date().toISOString(),
@@ -561,12 +729,12 @@ export function SupplierRfqPortal() {
   const downloadSelectedExcel = () => {
     const target = checkedRfqs.length > 0 ? checkedRfqs : awaiting;
     if (target.length === 0) {
-      setMassMsg('No pending RFQs to download.');
+      setMassMsg('No pending contracts to download.');
       return;
     }
     downloadMassShippingExcel(target);
     setMassMsg(
-      `Downloaded ${target.length} RFQ${target.length > 1 ? 's' : ''}. Fill ASN number, container, ship date and ETA, then upload.`
+      `Downloaded ${target.length} contract${target.length > 1 ? 's' : ''}. Fill ASN number, container, ship date and ETA, then upload.`
     );
   };
 
@@ -577,12 +745,12 @@ export function SupplierRfqPortal() {
       const rows = parseMassShippingExcel(String(reader.result || ''));
       const fillable = rows.filter((r) => r.asnNumber.trim());
       if (rows.length === 0) {
-        setMassMsg('Could not read RFQ ID column. Use the downloaded Excel template.');
+        setMassMsg('Could not read Contract number column. Use the downloaded Excel template.');
         return;
       }
       if (fillable.length === 0) {
         setMassMsg(
-          `Found ${rows.length} RFQ row${rows.length > 1 ? 's' : ''} but no ASN numbers. Fill ASN number (and container / ship date / ETA) then upload again.`
+          `Found ${rows.length} contract row${rows.length > 1 ? 's' : ''} but no ASN numbers. Fill ASN number (and container / ship date / ETA) then upload again.`
         );
         return;
       }
@@ -594,7 +762,7 @@ export function SupplierRfqPortal() {
           setPomsResult(null);
           setPomsBatch(created);
         }
-        const parts = [`Submitted shipping for ${created.length} RFQ${created.length === 1 ? '' : 's'}. Alert sent to DC.`];
+        const parts = [`Submitted shipping for ${created.length} contract${created.length === 1 ? '' : 's'}. Alert sent to DC.`];
         if (skipped.length) parts.push(`Skipped: ${skipped.join(', ')}.`);
         setMassMsg(parts.join(' '));
       }, 500);
@@ -609,11 +777,11 @@ export function SupplierRfqPortal() {
     }
     const ids = checkedRfqs.length > 0 ? checkedRfqs.map((r) => r.id) : awaiting.map((r) => r.id);
     if (ids.length === 0) {
-      setMassMsg('Select RFQs first, then attach a packing slip.');
+      setMassMsg('Select contracts first, then attach a packing slip.');
       return;
     }
     setMassMsg(
-      `Attached ${file.name} to ${ids.length} selected RFQ${ids.length > 1 ? 's' : ''}. Fill shipping in Excel or submit each request.`
+      `Attached ${file.name} to ${ids.length} selected contract${ids.length > 1 ? 's' : ''}. Fill shipping in Excel or submit each contract.`
     );
   };
 
@@ -636,7 +804,7 @@ export function SupplierRfqPortal() {
         setSlipMsg(
           cap
             ? panelRfqs.length > 1
-              ? `Captured from ${file.name} — unique ASN applied to each RFQ.`
+              ? `Captured from ${file.name} — unique ASN applied to each contract.`
               : `Captured from ${file.name}`
             : 'Could not parse file.'
         );
@@ -646,7 +814,7 @@ export function SupplierRfqPortal() {
       applySlipCapture(SAMPLE_ASN_CAPTURE.asnNumber, SAMPLE_ASN_CAPTURE.containerNumber);
       setSlipMsg(
         panelRfqs.length > 1
-          ? 'Sample ASN captured — unique ASN applied to each RFQ.'
+          ? 'Sample ASN captured — unique ASN applied to each contract.'
           : 'Sample ASN captured.'
       );
     } else {
@@ -656,17 +824,31 @@ export function SupplierRfqPortal() {
 
   const submitShipping = () => {
     const rows = panelRfqs.map((rfq) => {
-      const row = shippingByRfq[rfq.id] ?? defaultShipRow(rfq.id);
+      const row = shippingByRfq[rfq.id] ?? defaultShipRow(rfq);
       return {
         rfqId: rfq.id,
         asnNumber: row.asnNumber.trim(),
         containerNumber: row.containerNumber.trim(),
         shipDate: row.shipDate,
         eta: row.eta.trim() || '3 Days',
+        originalEta: row.originalEta,
+        transportMode: row.transportMode,
+        carrier: row.carrier,
+        vessel: row.vessel,
+        voyage: row.voyage,
+        origin: row.origin,
+        destination: row.destination,
+        incoterms: row.incoterms,
+        billOfLading: row.billOfLading,
+        customs: row.customs,
+        tempRange: row.tempRange,
+        qtyExpected: row.qtyExpected,
+        qtyActual: row.qtyActual,
+        amount: row.amount,
       };
     });
     if (rows.length === 0 || rows.some((r) => !r.asnNumber)) {
-      setSlipMsg('Enter an ASN number for every selected RFQ.');
+      setSlipMsg('Enter an ASN number for every selected contract.');
       return;
     }
     setSaving(true);
@@ -727,52 +909,9 @@ export function SupplierRfqPortal() {
 
       {!detailExpanded && (
         <div className={cn(statGridClass, 'shrink-0')}>
-          <StatCard label="Fruit RFQs pending" value={String(awaiting.length)} tone="amber" />
+          <StatCard label="Fruit contracts pending" value={String(awaiting.length)} tone="amber" />
           <StatCard label="Vegetable POs" value={String(vegPos.length)} />
           <StatCard label="PO created" value={String(completed.length)} tone="emerald" />
-        </div>
-      )}
-
-      {lane === 'fruits' && awaiting.length > 0 && !detailExpanded && (
-        <div className="shrink-0 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 px-4 py-3 flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mr-1">
-            Mass shipping
-          </span>
-          <button type="button" onClick={downloadSelectedExcel} className={btnSecondaryClass}>
-            <Download className="w-3.5 h-3.5" />
-            Download Excel{checkedRfqs.length > 0 ? ` (${checkedRfqs.length})` : ''}
-          </button>
-          <label className={cn(btnSecondaryClass, 'cursor-pointer')}>
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            {massSaving ? 'Creating POs…' : 'Upload Excel'}
-            <input
-              type="file"
-              accept=".csv,.xls,.xlsx,.txt,text/csv"
-              className="sr-only"
-              disabled={massSaving}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (f) onMassExcelUpload(f);
-              }}
-            />
-          </label>
-          <label className={cn(btnSecondaryClass, 'cursor-pointer')}>
-            <Upload className="w-3.5 h-3.5" />
-            Mass upload document
-            <input
-              type="file"
-              accept="image/*,.csv,.txt,.pdf,.xls,.xlsx"
-              className="sr-only"
-              disabled={massSaving}
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = '';
-                if (f) onMassDocumentUpload(f);
-              }}
-            />
-          </label>
-          {massMsg && <p className="w-full text-xs text-emerald-800 mt-1">{massMsg}</p>}
         </div>
       )}
 
@@ -797,19 +936,19 @@ export function SupplierRfqPortal() {
                 type="button"
                 onClick={() => setLane('fruits')}
                 className={cn(
-                  'flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide border',
+                  'flex-1 px-2 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide border',
                   lane === 'fruits'
                     ? 'bg-[#4684AD] text-white border-[#4684AD]'
                     : 'border-slate-200 text-slate-500 dark:border-slate-700'
                 )}
               >
-                Fruits · RFQ
+                Fruits · Contracts
               </button>
               <button
                 type="button"
                 onClick={() => setLane('vegetables')}
                 className={cn(
-                  'flex-1 px-2 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide border',
+                  'flex-1 px-2 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide border',
                   lane === 'vegetables'
                     ? 'bg-[#4684AD] text-white border-[#4684AD]'
                     : 'border-slate-200 text-slate-500 dark:border-slate-700'
@@ -818,79 +957,117 @@ export function SupplierRfqPortal() {
                 Vegetables · PO
               </button>
             </div>
-            <p className="text-[10px] text-slate-400">
+            <p className="text-[11px] text-slate-400">
               {lane === 'fruits'
-                ? `${filteredAwaiting.length} of ${awaiting.length} fruit RFQs`
-                : `${filteredVegPos.length} of ${vegPos.length} vegetable POs`}
+                ? `${filteredAwaiting.length} of ${awaiting.length} fruit contracts${
+                    cadenceFilter !== 'all' ? ` · ${CADENCE_FILTER_LABELS[cadenceFilter]}` : ''
+                  }`
+                : `${filteredVegPos.length} of ${vegPos.length} vegetable POs${
+                    vegStatusFilter !== 'all' ? ` · ${VEG_STATUS_FILTER_LABELS[vegStatusFilter]}` : ''
+                  }`}
             </p>
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={
-                  lane === 'fruits' ? 'Search RFQ, item, cadence…' : 'Search PO, item, supplier…'
-                }
-                className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
-              />
+            <div className="flex items-center gap-2">
+              <div className="relative flex-1 min-w-0">
+                <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={
+                    lane === 'fruits'
+                      ? 'Search contract, item, cadence…'
+                      : 'Search PO, item, supplier…'
+                  }
+                  className="w-full rounded-lg border border-slate-200 dark:border-slate-700 py-2 pl-8 pr-3 text-xs outline-none focus:ring-2 focus:ring-[#4684AD]/40"
+                />
+              </div>
+              <div className="relative shrink-0" ref={filterRef}>
+                <button
+                  type="button"
+                  onClick={() => setFilterOpen((v) => !v)}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                    (lane === 'fruits' ? cadenceFilter !== 'all' : vegStatusFilter !== 'all') ||
+                      filterOpen
+                      ? 'border-[#4684AD] bg-[#C0D5E5]/50 text-[#2F5472]'
+                      : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+                  )}
+                  aria-expanded={filterOpen}
+                  aria-haspopup="listbox"
+                  title={lane === 'fruits' ? 'Filter by cadence' : 'Filter by status'}
+                >
+                  <Filter className="w-3.5 h-3.5" />
+                  Filter
+                </button>
+                {filterOpen && (
+                  <div
+                    role="listbox"
+                    className="absolute right-0 top-full z-20 mt-1 w-48 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-lg py-1"
+                  >
+                    {lane === 'fruits' ? (
+                      <>
+                        <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                          Cadence
+                        </div>
+                        {(Object.keys(CADENCE_FILTER_LABELS) as CadenceFilter[]).map((f) => (
+                          <button
+                            key={f}
+                            type="button"
+                            role="option"
+                            aria-selected={cadenceFilter === f}
+                            onClick={() => {
+                              setCadenceFilter(f);
+                              setFilterOpen(false);
+                            }}
+                            className={cn(
+                              'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                              cadenceFilter === f
+                                ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            )}
+                          >
+                            {CADENCE_FILTER_LABELS[f]}
+                          </button>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                          Status
+                        </div>
+                        {(Object.keys(VEG_STATUS_FILTER_LABELS) as VegStatusFilter[]).map((f) => (
+                          <button
+                            key={f}
+                            type="button"
+                            role="option"
+                            aria-selected={vegStatusFilter === f}
+                            onClick={() => {
+                              setVegStatusFilter(f);
+                              setFilterOpen(false);
+                            }}
+                            className={cn(
+                              'w-full text-left px-3 py-2 text-xs font-medium transition-colors',
+                              vegStatusFilter === f
+                                ? 'bg-[#C0D5E5]/60 text-[#2F5472]'
+                                : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800'
+                            )}
+                          >
+                            {VEG_STATUS_FILTER_LABELS[f]}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-            {lane === 'fruits' ? (
-              <div className="space-y-1">
-                <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400 flex items-center gap-1">
-                  <Filter className="w-3 h-3" />
-                  Cadence
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {(Object.keys(CADENCE_FILTER_LABELS) as CadenceFilter[]).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setCadenceFilter(f)}
-                      className={cn(
-                        'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
-                        cadenceFilter === f
-                          ? 'bg-[#4684AD] text-white border-[#4684AD]'
-                          : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
-                      )}
-                    >
-                      {CADENCE_FILTER_LABELS[f]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-1">
-                <div className="text-[9px] font-bold uppercase tracking-wide text-slate-400 flex items-center gap-1">
-                  <Filter className="w-3 h-3" />
-                  Status
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {(Object.keys(VEG_STATUS_FILTER_LABELS) as VegStatusFilter[]).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => setVegStatusFilter(f)}
-                      className={cn(
-                        'px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition-colors',
-                        vegStatusFilter === f
-                          ? 'bg-[#4684AD] text-white border-[#4684AD]'
-                          : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
-                      )}
-                    >
-                      {VEG_STATUS_FILTER_LABELS[f]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
             {lane === 'fruits' && filteredAwaiting.length > 0 && (
               <button
                 type="button"
                 onClick={() =>
                   setCheckedIds(allPendingChecked ? [] : filteredAwaiting.map((r) => r.id))
                 }
-                className="text-[10px] font-bold uppercase tracking-wide text-[#4684AD] hover:underline"
+                className="text-[11px] font-bold uppercase tracking-wide text-[#4684AD] hover:underline"
               >
                 {allPendingChecked ? 'Clear selection' : 'Select all pending'}
               </button>
@@ -902,7 +1079,7 @@ export function SupplierRfqPortal() {
               awaiting.length === 0 ? (
                 <p className="p-4 text-sm text-slate-500">No pending shipping — check completed below.</p>
               ) : filteredAwaiting.length === 0 ? (
-                <p className="p-4 text-sm text-slate-500">No RFQs match your search or filters.</p>
+                <p className="p-4 text-sm text-slate-500">No contracts match your search or filters.</p>
               ) : (
                 filteredAwaiting.map((r) => {
                   const isNew = !seenIds.has(r.id);
@@ -924,7 +1101,11 @@ export function SupplierRfqPortal() {
                         type="button"
                         onClick={() => toggleChecked(r.id)}
                         className="shrink-0 p-3 text-slate-400 hover:text-[#4684AD]"
-                        aria-label={checked ? `Unselect ${r.id}` : `Select ${r.id}`}
+                        aria-label={
+                          checked
+                            ? `Unselect ${toContractNumber(r.id)}`
+                            : `Select ${toContractNumber(r.id)}`
+                        }
                       >
                         {checked ? (
                           <CheckSquare className="w-4 h-4 text-[#4684AD]" />
@@ -938,19 +1119,21 @@ export function SupplierRfqPortal() {
                         className="flex-1 min-w-0 text-left py-3 pr-4"
                       >
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-code font-semibold text-[#4684AD]">{r.id}</span>
+                          <span className="text-xs font-code font-semibold text-[#4684AD]">
+                            {toContractNumber(r.id)}
+                          </span>
                           {isNew && (
-                            <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
+                            <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
                               New
                             </span>
                           )}
                         </div>
                         <div className="text-sm font-medium mt-0.5 truncate">{r.item}</div>
-                        <div className="text-[10px] text-slate-500 mt-1">
+                        <div className="text-[11px] text-slate-500 mt-1">
                           {formatRepeatSummary(quote ? getQuoteRepeat(quote, r) : r.repeat)} ·{' '}
                           {getRfqDropQty(r).toLocaleString()} cs/drop · $
                           {quote?.pricePerCase.toFixed(2)}
-                          /case · awarded {formatWhen(r.awardedAt)}
+                          /case · assigned {formatWhen(r.awardedAt)}
                         </div>
                       </button>
                     </div>
@@ -982,13 +1165,13 @@ export function SupplierRfqPortal() {
                     <div className="flex items-center gap-2 mt-2">
                       <span
                         className={cn(
-                          'text-[10px] font-bold uppercase px-2 py-0.5 rounded border',
+                          'text-[11px] font-bold uppercase px-2 py-0.5 rounded border',
                           poStatusClass(displayStatus)
                         )}
                       >
                         {displayStatus}
                       </span>
-                      <span className="text-[10px] text-slate-400">
+                      <span className="text-[11px] text-slate-400">
                         {o.orderedQty.toLocaleString()} cases · {o.supplier}
                       </span>
                     </div>
@@ -1001,7 +1184,7 @@ export function SupplierRfqPortal() {
           {lane === 'fruits' && filteredCompleted.length > 0 && (
             <>
               <div className="px-4 py-2 border-t border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-800/40">
-                <h3 className="text-[10px] font-bold uppercase text-slate-400">Completed · PO created</h3>
+                <h3 className="text-[11px] font-bold uppercase text-slate-400">Completed · PO created</h3>
               </div>
               <div className="max-h-48 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800">
                 {filteredCompleted.map((r) => (
@@ -1018,7 +1201,7 @@ export function SupplierRfqPortal() {
                   >
                     <div className="font-code font-semibold text-emerald-700">{r.poNumber}</div>
                     <div className="text-slate-500 truncate">{r.item}</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">{r.id}</div>
+                    <div className="text-[11px] text-slate-400 mt-0.5">{toContractNumber(r.id)}</div>
                   </button>
                 ))}
               </div>
@@ -1034,7 +1217,7 @@ export function SupplierRfqPortal() {
                   <span className="text-xs font-code font-bold text-[#4684AD]">{selectedVeg.po}</span>
                   <span
                     className={cn(
-                      'text-[10px] font-bold uppercase px-2 py-0.5 rounded border',
+                      'text-[11px] font-bold uppercase px-2 py-0.5 rounded border',
                       poStatusClass(getPoDisplayStatus(selectedVeg))
                     )}
                   >
@@ -1049,25 +1232,25 @@ export function SupplierRfqPortal() {
               </div>
               <div className="p-5 space-y-4 flex-1">
                 <p className="text-sm text-slate-600 dark:text-slate-300">
-                  Vegetable lane ships against an existing purchase order — not an RFQ.
+                  Vegetable lane ships against an existing purchase order — not a fruit contract.
                 </p>
                 <div className="grid sm:grid-cols-3 gap-2">
                   <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                    <div className="text-[10px] uppercase text-slate-400 font-bold">Buyer</div>
+                    <div className="text-[11px] uppercase text-slate-400 font-bold">Buyer</div>
                     <div className="text-sm font-bold">{selectedVeg.buyer}</div>
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                    <div className="text-[10px] uppercase text-slate-400 font-bold">Quantity</div>
+                    <div className="text-[11px] uppercase text-slate-400 font-bold">Quantity</div>
                     <div className="text-sm font-bold">{selectedVeg.orderedQty.toLocaleString()} cases</div>
                   </div>
                   <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                    <div className="text-[10px] uppercase text-slate-400 font-bold">Cold chain</div>
+                    <div className="text-[11px] uppercase text-slate-400 font-bold">Cold chain</div>
                     <div className="text-sm font-bold">{selectedVeg.itemDetail.storageTemp}</div>
                   </div>
                 </div>
                 {selectedVeg.shipmentDetail && (
                   <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 text-xs space-y-1.5">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">Shipping</div>
+                    <div className="text-[11px] font-bold uppercase text-slate-400 mb-1">Shipping</div>
                     <div>
                       <span className="text-slate-400">ASN · </span>
                       {selectedVeg.shipmentDetail.asnNumber || '—'}
@@ -1112,7 +1295,7 @@ export function SupplierRfqPortal() {
                   Shipment detail uploaded successfully
                 </h2>
                 <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                  Shipping for {pomsBatch.length} RFQ{pomsBatch.length === 1 ? '' : 's'} was submitted
+                  Shipping for {pomsBatch.length} contract{pomsBatch.length === 1 ? '' : 's'} was submitted
                   successfully. An alert has been sent to DC Purchasing. After approval, they will be
                   notified that the PO is created.
                 </p>
@@ -1120,7 +1303,7 @@ export function SupplierRfqPortal() {
               <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 text-left text-xs w-full max-w-sm space-y-1.5">
                 {pomsBatch.map((row) => (
                   <div key={row.rfqId} className="flex justify-between gap-2">
-                    <span className="font-code text-[#4684AD]">{row.rfqId}</span>
+                    <span className="font-code text-[#4684AD]">{toContractNumber(row.rfqId)}</span>
                     <span className="text-slate-500 truncate">{row.item}</span>
                   </div>
                 ))}
@@ -1154,9 +1337,9 @@ export function SupplierRfqPortal() {
                   Shipment detail uploaded successfully
                 </h2>
                 <p className="text-sm text-slate-500 mt-1 max-w-md mx-auto">
-                  Shipping for <strong>{pomsResult.rfqId}</strong> was submitted successfully. An alert
-                  has been sent to DC Purchasing. After approval, they will be notified that the PO is
-                  created.
+                  Shipping for <strong>{toContractNumber(pomsResult.rfqId)}</strong> was submitted
+                  successfully. An alert has been sent to DC Purchasing. After approval, they will be
+                  notified that the PO is created.
                 </p>
               </div>
               <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 text-left text-xs w-full max-w-sm space-y-1">
@@ -1191,7 +1374,7 @@ export function SupplierRfqPortal() {
                     setSelectedId(next?.id ?? null);
                   }}
                 >
-                  Next award
+                  Next contract
                 </button>
               </div>
             </div>
@@ -1201,8 +1384,10 @@ export function SupplierRfqPortal() {
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-code font-bold text-[#4684AD]">{selectedCompleted.id}</span>
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded border bg-emerald-50 text-emerald-800 border-emerald-200">
+                      <span className="text-xs font-code font-bold text-[#4684AD]">
+                        {toContractNumber(selectedCompleted.id)}
+                      </span>
+                      <span className="text-[11px] font-bold uppercase px-2 py-0.5 rounded border bg-emerald-50 text-emerald-800 border-emerald-200">
                         PO created
                       </span>
                     </div>
@@ -1232,17 +1417,17 @@ export function SupplierRfqPortal() {
                 {awardedQuote && (
                   <div className="grid sm:grid-cols-3 gap-2">
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                      <div className="text-[10px] uppercase text-slate-400 font-bold">Awarded price</div>
+                      <div className="text-[11px] uppercase text-slate-400 font-bold">Contract price</div>
                       <div className="text-sm font-bold">${awardedQuote.pricePerCase.toFixed(2)}/case</div>
                     </div>
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                      <div className="text-[10px] uppercase text-slate-400 font-bold">Per drop</div>
+                      <div className="text-[11px] uppercase text-slate-400 font-bold">Per drop</div>
                       <div className="text-sm font-bold">
                         {getRfqDropQty(selectedCompleted).toLocaleString()} cases
                       </div>
                     </div>
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
-                      <div className="text-[10px] uppercase text-slate-400 font-bold">Destination</div>
+                      <div className="text-[11px] uppercase text-slate-400 font-bold">Destination</div>
                       <div className="text-sm font-bold">{selectedCompleted.destination}</div>
                     </div>
                   </div>
@@ -1250,7 +1435,7 @@ export function SupplierRfqPortal() {
 
                 {linkedPo?.shipmentDetail && (
                   <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 text-xs space-y-1.5">
-                    <div className="text-[10px] font-bold uppercase text-slate-400 mb-1">
+                    <div className="text-[11px] font-bold uppercase text-slate-400 mb-1">
                       Shipping submitted
                     </div>
                     <div>
@@ -1292,34 +1477,76 @@ export function SupplierRfqPortal() {
               <div className="shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                      {panelRfqs.length === 1 ? 'Selected RFQ' : `${panelRfqs.length} RFQs selected`}
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      {panelRfqs.length === 1 ? 'Selected contract' : `${panelRfqs.length} contracts selected`}
                     </div>
+                    {panelRfqs.length === 1 && (
+                      <div className="text-sm font-code font-bold text-[#4684AD] mt-1">
+                        {toContractNumber(panelRfqs[0].id)}
+                      </div>
+                    )}
                     <h2 className="text-lg font-bold mt-1">
                       {panelRfqs.length === 1
                         ? panelRfqs[0].item
-                        : 'Submit shipping for selected awards'}
+                        : 'Submit shipping for selected contracts'}
                     </h2>
                     <p className="text-xs text-slate-500 mt-1">
                       {panelRfqs.length === 1
                         ? `Standing order · ${formatRepeatSummary(panelRfqs[0].repeat)} · first drop to ${panelRfqs[0].destination} ${panelRfqs[0].deliveryDate}`
-                        : panelRfqs.map((r) => r.item.split(' — ')[0]).join(' · ')}
+                        : panelRfqs.map((r) => toContractNumber(r.id)).join(' · ')}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setDetailExpanded((v) => !v)}
-                    className="shrink-0 p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#2F5472] hover:border-[#4684AD]/50 transition-colors"
-                    title={detailExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
-                    aria-label={detailExpanded ? 'Exit full screen' : 'Expand to full screen'}
-                  >
-                    {detailExpanded ? (
-                      <Minimize2 className="w-3.5 h-3.5" />
-                    ) : (
-                      <Maximize2 className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+                  <div className="shrink-0 flex flex-wrap items-center justify-end gap-2">
+                    <button type="button" onClick={downloadSelectedExcel} className={btnSecondaryClass}>
+                      <Download className="w-3.5 h-3.5" />
+                      Download Excel{checkedRfqs.length > 0 ? ` (${checkedRfqs.length})` : ''}
+                    </button>
+                    <label className={cn(btnSecondaryClass, 'cursor-pointer')}>
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      {massSaving ? 'Creating POs…' : 'Upload Excel'}
+                      <input
+                        type="file"
+                        accept=".csv,.xls,.xlsx,.txt,text/csv"
+                        className="sr-only"
+                        disabled={massSaving}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = '';
+                          if (f) onMassExcelUpload(f);
+                        }}
+                      />
+                    </label>
+                    <label className={cn(btnSecondaryClass, 'cursor-pointer')}>
+                      <Upload className="w-3.5 h-3.5" />
+                      Mass upload document
+                      <input
+                        type="file"
+                        accept="image/*,.csv,.txt,.pdf,.xls,.xlsx"
+                        className="sr-only"
+                        disabled={massSaving}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          e.target.value = '';
+                          if (f) onMassDocumentUpload(f);
+                        }}
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setDetailExpanded((v) => !v)}
+                      className="shrink-0 p-1.5 rounded-md border border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-900/70 text-slate-500 hover:text-[#2F5472] hover:border-[#4684AD]/50 transition-colors"
+                      title={detailExpanded ? 'Exit full screen (Esc)' : 'Expand to full screen'}
+                      aria-label={detailExpanded ? 'Exit full screen' : 'Expand to full screen'}
+                    >
+                      {detailExpanded ? (
+                        <Minimize2 className="w-3.5 h-3.5" />
+                      ) : (
+                        <Maximize2 className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
+                {massMsg && <p className="text-xs text-emerald-800 mt-2 text-right">{massMsg}</p>}
               </div>
 
               <div className="p-5 space-y-4 flex-1 overflow-y-auto">
@@ -1328,7 +1555,7 @@ export function SupplierRfqPortal() {
                 <p className="text-sm text-slate-600 dark:text-slate-300">
                   {panelRfqs.length === 1
                     ? 'No PO exists yet. Submit ASN / container details. After creation, DC Purchasing is notified.'
-                    : `Enter shipping for each of the ${panelRfqs.length} selected RFQs. After creation, DC Purchasing is notified.`}
+                    : `Enter shipping for each of the ${panelRfqs.length} selected contracts. After creation, DC Purchasing is notified.`}
                 </p>
 
                 <label className="block rounded-lg border border-dashed border-slate-300 p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40">
@@ -1355,7 +1582,7 @@ export function SupplierRfqPortal() {
                   disabled={
                     saving ||
                     panelRfqs.some(
-                      (r) => !(shippingByRfq[r.id] ?? defaultShipRow(r.id)).asnNumber.trim()
+                      (r) => !(shippingByRfq[r.id] ?? defaultShipRow(r)).asnNumber.trim()
                     )
                   }
                   onClick={submitShipping}
@@ -1371,8 +1598,7 @@ export function SupplierRfqPortal() {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center p-8 text-center text-slate-500 text-sm">
-              Select a request from the list, or wait for DC to award your quote on Request
-              for Quote.
+              Select a contract from the list to submit shipping.
             </div>
           )}
         </section>

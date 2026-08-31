@@ -67,7 +67,7 @@ function ActionCard({ action }: { action: ShipmentNextAction }) {
       <div className="flex flex-wrap items-center gap-1.5">
         <span
           className={cn(
-            'text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border',
+            'text-[11px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded border',
             action.priority === 'urgent'
               ? 'bg-rose-600 text-white border-rose-700'
               : action.priority === 'soon'
@@ -77,16 +77,16 @@ function ActionCard({ action }: { action: ShipmentNextAction }) {
         >
           {action.priority}
         </span>
-        <span className="text-[9px] font-bold uppercase text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
+        <span className="text-[11px] font-bold uppercase text-slate-500 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800">
           {action.owner}
         </span>
         {action.status === 'in_progress' && (
-          <span className="text-[9px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5]">In progress</span>
+          <span className="text-[11px] font-bold uppercase text-[#2F5472] dark:text-[#C0D5E5]">In progress</span>
         )}
       </div>
       <div className="text-xs font-bold text-slate-900 dark:text-slate-100">{action.title}</div>
       <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{action.detail}</p>
-      <div className="text-[10px] font-mono text-slate-400">{action.dueHint}</div>
+      <div className="text-[11px] font-mono text-slate-400">{action.dueHint}</div>
     </div>
   );
 }
@@ -144,35 +144,35 @@ export function PsaEventTimeline({
         <div className="px-5 py-3.5 bg-white dark:bg-slate-900 flex flex-wrap items-center justify-between gap-2">
           <div>
             <h3 className="text-sm font-black font-mono uppercase tracking-wider text-slate-900 dark:text-white">{title}</h3>
-            <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
               Newest at top · scroll down for earlier moves
             </p>
           </div>
-          <span className="text-[10px] font-mono text-emerald-600 dark:text-emerald-300 font-bold flex items-center gap-1.5">
+          <span className="text-[11px] font-mono text-emerald-600 dark:text-emerald-300 font-bold flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
             {syncedLabel}
           </span>
         </div>
 
-        <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[10px]">
+        <div className="px-5 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-2 text-[11px]">
           <span className="inline-flex items-center gap-1 font-bold uppercase tracking-wide text-slate-500">
             <ArrowDown className="w-3.5 h-3.5 text-[#4684AD]" />
             Flow: Latest → Origin
           </span>
           <span className="w-px h-3 bg-slate-200 dark:bg-slate-700" />
-          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold', KIND_META.movement.badge)}>
+          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold', KIND_META.movement.badge)}>
             <span className={cn('w-1.5 h-1.5 rounded-full', KIND_META.movement.dot)} />
             Movement {moveCount}
           </span>
-          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold', KIND_META.alert.badge)}>
+          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold', KIND_META.alert.badge)}>
             <span className={cn('w-1.5 h-1.5 rounded-full', KIND_META.alert.dot)} />
             Alert {alertCount}
           </span>
-          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold', KIND_META.warning.badge)}>
+          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold', KIND_META.warning.badge)}>
             <span className={cn('w-1.5 h-1.5 rounded-full', KIND_META.warning.dot)} />
             ETA change
           </span>
-          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[9px] font-bold', KIND_META.milestone.badge)}>
+          <span className={cn('inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-bold', KIND_META.milestone.badge)}>
             <span className={cn('w-1.5 h-1.5 rounded-full', KIND_META.milestone.dot)} />
             Milestone
           </span>
@@ -206,14 +206,14 @@ export function PsaEventTimeline({
             <ClipboardList className="w-4 h-4 text-[#4684AD] dark:text-[#C0D5E5] shrink-0" />
             <div>
               <h3 className="text-sm font-black font-mono uppercase tracking-wider">Next actions</h3>
-              <p className="text-[10px] text-slate-400 mt-0.5">
+              <p className="text-[11px] text-slate-400 mt-0.5">
                 {transportMismatch.isMismatch
                   ? `Mismatch proceedings · ${shipment.containerNumber || shipment.id}`
                   : `Prep for arrival · ${shipment.containerNumber || shipment.id} · ETA ${shipment.eta || 'TBD'}`}
               </p>
             </div>
           </div>
-          <span className="text-[10px] font-semibold px-2 py-1 rounded-lg bg-[#C0D5E5]/300/20 text-[#C0D5E5] border border-[#4684AD]/30">
+          <span className="text-[11px] font-semibold px-2 py-1 rounded-lg bg-[#C0D5E5]/300/20 text-[#C0D5E5] border border-[#4684AD]/30">
             {(transportMismatch.isMismatch ? mismatchActions : nextActions).filter((a) => a.status !== 'done').length} open
           </span>
         </div>
@@ -227,19 +227,19 @@ export function PsaEventTimeline({
                 </div>
                 <div className="min-w-0 flex-1 space-y-2">
                   <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase tracking-wide text-rose-800 dark:text-rose-200">
+                    <span className="text-[11px] font-bold uppercase tracking-wide text-rose-800 dark:text-rose-200">
                       Mode mismatch — take action
                     </span>
                     {transportMismatch.incotermCode && (
-                      <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-200 border border-rose-200/60 dark:border-rose-800/50">
+                      <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-900/60 text-slate-700 dark:text-slate-200 border border-rose-200/60 dark:border-rose-800/50">
                         {transportMismatch.incotermCode}
                       </span>
                     )}
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/50 dark:text-[#C0D5E5]">
+                    <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-[#C0D5E5]/40 text-[#2F5472] dark:bg-sky-950/50 dark:text-[#C0D5E5]">
                       Expected {expectedLabel}
                     </span>
-                    <span className="text-[9px] text-slate-400">→</span>
-                    <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300">
+                    <span className="text-[11px] text-slate-400">→</span>
+                    <span className="text-[11px] font-bold uppercase px-1.5 py-0.5 rounded bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-300">
                       Seeing {actualLabel}
                     </span>
                   </div>
@@ -253,14 +253,14 @@ export function PsaEventTimeline({
                     <button
                       type="button"
                       onClick={onNotifyCarrier}
-                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[10px] font-black uppercase"
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-black uppercase"
                     >
                       Notify carrier
                     </button>
                     <button
                       type="button"
                       onClick={onEscalateBuyer}
-                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[10px] font-black uppercase"
+                      className="inline-flex items-center px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-black uppercase"
                     >
                       Escalate to buyer
                     </button>
@@ -268,7 +268,7 @@ export function PsaEventTimeline({
                       <button
                         type="button"
                         onClick={onOpenAlerts}
-                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#4684AD] hover:bg-[#4684AD] text-white text-[10px] font-black uppercase"
+                        className="inline-flex items-center px-3 py-1.5 rounded-lg bg-[#4684AD] hover:bg-[#4684AD] text-white text-[11px] font-black uppercase"
                       >
                         Open alerts
                       </button>
@@ -280,7 +280,7 @@ export function PsaEventTimeline({
 
             {mismatchActions.length > 0 && (
               <div>
-                <div className="text-[10px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 mb-2 px-0.5">
+                <div className="text-[11px] font-bold uppercase tracking-wide text-rose-700 dark:text-rose-300 mb-2 px-0.5">
                   Mismatch proceedings ({mismatchActions.length})
                 </div>
                 <div className="grid sm:grid-cols-2 gap-2.5">
@@ -298,7 +298,7 @@ export function PsaEventTimeline({
         <div className="p-4 space-y-2">
           {!transportMismatch.isMismatch && otherActions.length > 0 && (
             <>
-              <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 px-0.5">
+              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400 px-0.5">
                 Arrival prep
               </div>
               <div className="grid sm:grid-cols-2 gap-3">
@@ -350,20 +350,20 @@ function TimelineEventRow({
       >
         <div className="flex flex-wrap items-center gap-1.5 mb-1">
           {isLatest && (
-            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#4684AD] text-white">
+            <span className="text-[11px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#4684AD] text-white">
               Latest
             </span>
           )}
           {isOldest && (
-            <span className="text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-600 text-white">
+            <span className="text-[11px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-slate-600 text-white">
               Origin
             </span>
           )}
-          <span className={cn('inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border', meta.badge)}>
+          <span className={cn('inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border', meta.badge)}>
             <Icon className="w-3 h-3" />
             {meta.label}
           </span>
-          <span className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-700">
+          <span className="text-[11px] font-mono uppercase px-1.5 py-0.5 rounded bg-white/80 dark:bg-slate-900 text-slate-500 border border-slate-200 dark:border-slate-700">
             {ev.source}
           </span>
         </div>
@@ -382,7 +382,7 @@ function TimelineEventRow({
             {ev.details}
           </div>
         )}
-        <div className="text-[10px] font-mono text-slate-400 mt-1.5">
+        <div className="text-[11px] font-mono text-slate-400 mt-1.5">
           {format(new Date(ev.timestamp), 'MMM d, yyyy · HH:mm')}
         </div>
       </div>

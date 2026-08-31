@@ -34,36 +34,36 @@ function MoveDetailPanel({ move }: { move: ReallocationMove }) {
         <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed">{move.reason}</p>
         <dl className="grid grid-cols-2 gap-3 text-[11px]">
           <div>
-            <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[10px]">Destination</dt>
+            <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[11px]">Destination</dt>
             <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5">{move.toLabel}</dd>
           </div>
           <div>
-            <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[10px]">Item / cases</dt>
+            <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[11px]">Item / cases</dt>
             <dd className="font-semibold text-slate-800 dark:text-slate-100 mt-0.5 tabular-nums">
               {move.cases} · {move.item}
             </dd>
           </div>
           {move.toOnHand != null && (
             <div>
-              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[10px]">On hand</dt>
+              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[11px]">On hand</dt>
               <dd className="font-semibold tabular-nums mt-0.5">{move.toOnHand}</dd>
             </div>
           )}
           {move.toDailyDemand != null && (
             <div>
-              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[10px]">Daily demand</dt>
+              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[11px]">Daily demand</dt>
               <dd className="font-semibold tabular-nums mt-0.5">{move.toDailyDemand}/d</dd>
             </div>
           )}
           {move.toPendingOrders != null && (
             <div>
-              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[10px]">Pending orders</dt>
+              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[11px]">Pending orders</dt>
               <dd className="font-semibold tabular-nums mt-0.5">{move.toPendingOrders}</dd>
             </div>
           )}
           {move.toDaysCover != null && (
             <div>
-              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[10px]">Current cover</dt>
+              <dt className="text-slate-400 uppercase font-semibold tracking-wide text-[11px]">Current cover</dt>
               <dd className="font-semibold tabular-nums mt-0.5">{move.toDaysCover.toFixed(1)}d</dd>
             </div>
           )}
@@ -206,7 +206,7 @@ export function ReallocationMovesDrawer({
                     >
                       <Icon className="w-3.5 h-3.5 shrink-0" />
                       {TAB_META[t].label}
-                      <span className="tabular-nums text-[10px] opacity-70">({count})</span>
+                      <span className="tabular-nums text-[11px] opacity-70">({count})</span>
                     </button>
                   );
                 })}
@@ -258,7 +258,7 @@ export function ReallocationMovesDrawer({
                           </div>
                           <div className="text-right shrink-0 tabular-nums">
                             <div className="text-xs font-bold">{move.cases}</div>
-                            <div className="text-[10px] text-slate-500">{move.item}</div>
+                            <div className="text-[11px] text-slate-500">{move.item}</div>
                           </div>
                           <ChevronDown
                             className={cn(

@@ -95,7 +95,7 @@ function StepBar({ current }: { current: number }) {
             >
               <span
                 className={cn(
-                  'grid h-4 w-4 place-items-center rounded-full text-[9px] font-bold',
+                  'grid h-4 w-4 place-items-center rounded-full text-[11px] font-bold',
                   active
                     ? 'bg-[#4684AD] text-white'
                     : done
@@ -118,7 +118,7 @@ function StepBar({ current }: { current: number }) {
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 dark:border-slate-700 dark:bg-slate-900">
-      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</div>
       <div className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</div>
     </div>
   );
@@ -130,7 +130,7 @@ function DecisionChip({ decision }: { decision: QcDecision }) {
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase',
+        'inline-flex items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-bold uppercase',
         tone.chip
       )}
     >
@@ -185,7 +185,7 @@ function PhotoEvidence({
               <button
                 type="button"
                 onClick={() => onRemove(photo.id)}
-                className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[9px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
+                className="absolute inset-x-0 bottom-0 bg-black/55 px-1 py-0.5 text-[11px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100"
               >
                 Remove
               </button>
@@ -445,7 +445,7 @@ export default function QualityControl() {
                     <span className="text-xs font-bold text-slate-900 dark:text-slate-100">{p.po}</span>
                     <span
                       className={cn(
-                        'rounded border px-1.5 py-0.5 text-[10px] font-bold',
+                        'rounded border px-1.5 py-0.5 text-[11px] font-bold',
                         checked === poLines.length
                           ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                           : 'border-slate-200 bg-slate-50 text-slate-500'
@@ -548,7 +548,7 @@ export default function QualityControl() {
                                   {record ? (
                                     <DecisionChip decision={record.decision} />
                                   ) : (
-                                    <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-500">
+                                    <span className="rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[11px] font-bold uppercase text-slate-500">
                                       Awaiting check
                                     </span>
                                   )}
@@ -864,7 +864,7 @@ function DecisionButton({
           {title}
           </span>
         {recommended && (
-          <span className="rounded bg-white/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide">
+          <span className="rounded bg-white/70 px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide">
             Recommended
           </span>
         )}

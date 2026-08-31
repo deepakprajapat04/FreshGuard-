@@ -67,12 +67,12 @@ export function RiskActionFooter({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2 min-w-0">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Approval
           </span>
           <span
             className={cn(
-              'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+              'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
               action.status === 'pending_approval' || action.status === 'pending_category_approval'
                 ? 'bg-amber-100 text-amber-900 border-amber-200'
                 : action.status === 'approved'

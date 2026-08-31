@@ -75,47 +75,47 @@ export function ShelfLifePanel({
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               On-hand shelf life
             </div>
             <div className="text-lg font-bold tabular-nums text-emerald-700 mt-0.5">
               {onHandShelfLifeDays}d
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               expires {formatShortDate(onHandExpiresDate)}
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Planned DC
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-700 dark:text-slate-200 mt-0.5">
               {formatShortDate(proposal.originalEta)}
             </div>
-            <div className="text-[10px] text-slate-400">original ETA</div>
+            <div className="text-[11px] text-slate-400">original ETA</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               DC arrival
             </div>
             <div className="text-lg font-bold tabular-nums text-amber-800 mt-0.5">
               {formatShortDate(proposal.revisedEta)}
             </div>
-            <div className="text-[10px] text-slate-400">current ETA</div>
+            <div className="text-[11px] text-slate-400">current ETA</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Store shelf
             </div>
             <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
               {formatShortDate(storeShelfDate)}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               DC + {STORE_TRANSIT_BUFFER_DAYS}d dock-to-shelf
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Stock at risk
             </div>
             <div
@@ -126,7 +126,7 @@ export function ShelfLifePanel({
             >
               {maxGapDays > 0 ? `${maxGapDays}d` : 'None'}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {maxGapDays > 0
                 ? `${itemsAtRisk} item${itemsAtRisk === 1 ? '' : 's'} with OOS gap`
                 : 'covered until store'}
@@ -247,13 +247,13 @@ export function ShelfLifePanel({
 
         <div className="p-4 grid grid-cols-2 gap-4 border-t border-slate-100 dark:border-slate-800">
           <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 bg-rose-50/40 dark:bg-rose-950/10">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Items with OOS gap
             </div>
             <div className="text-lg font-bold tabular-nums text-rose-700 mt-1">{itemsAtRisk}</div>
           </div>
           <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-3 bg-amber-50/40 dark:bg-amber-950/10">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Markdown recommended
             </div>
             <div className="text-lg font-bold tabular-nums text-amber-800 mt-1">{markdownItems}</div>
@@ -263,12 +263,12 @@ export function ShelfLifePanel({
         {shelfAction && !hideApproval && (
           <div className="mx-4 mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Approval
               </span>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+                  'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
                   shelfAction.status === 'pending_approval'
                     ? 'bg-amber-100 text-amber-900 border-amber-200'
                     : shelfAction.status === 'approved'

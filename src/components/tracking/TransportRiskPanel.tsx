@@ -67,7 +67,7 @@ export function TransportRiskPanel({
               : 'border-emerald-300 bg-emerald-50/70 text-emerald-950'
           )}
         >
-          <div className="text-[10px] font-semibold uppercase tracking-wide opacity-70">
+          <div className="text-[11px] font-semibold uppercase tracking-wide opacity-70">
             Tied to overstock decision
           </div>
           <p className="mt-1 font-medium">{impact.capacityNote}</p>
@@ -78,12 +78,12 @@ export function TransportRiskPanel({
         <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-slate-100 dark:divide-slate-800">
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Inbound trucks</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Inbound trucks</div>
               <div className="text-lg font-bold tabular-nums mt-0.5">{impact.trucksBooked}</div>
-              <div className="text-[10px] text-slate-400">pull to {formatShortDate(impact.revisedPickup)}</div>
+              <div className="text-[11px] text-slate-400">pull to {formatShortDate(impact.revisedPickup)}</div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Store-haul trucks</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Store-haul trucks</div>
               <div
                 className={cn(
                   'text-lg font-bold tabular-nums mt-0.5',
@@ -92,25 +92,25 @@ export function TransportRiskPanel({
               >
                 {impact.storeHaulTrucks ?? 0}
               </div>
-              <div className="text-[10px] text-slate-400">
+              <div className="text-[11px] text-slate-400">
                 {(impact.storeHaulCases ?? 0) > 0
                   ? `${impact.storeHaulCases!.toLocaleString()} overflow cases`
                   : 'none — BAU'}
               </div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">Store legs</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">Store legs</div>
               <div className="text-lg font-bold tabular-nums mt-0.5">
                 {impact.storeHaulLegs?.length ?? 0}
               </div>
-              <div className="text-[10px] text-slate-400">outbound routes</div>
+              <div className="text-[11px] text-slate-400">outbound routes</div>
             </div>
             <div className="px-3 py-2.5">
-              <div className="text-[10px] font-semibold uppercase text-slate-500">From later loads</div>
+              <div className="text-[11px] font-semibold uppercase text-slate-500">From later loads</div>
               <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
                 {impact.trucksReassigned}
               </div>
-              <div className="text-[10px] text-slate-400">pulled forward</div>
+              <div className="text-[11px] text-slate-400">pulled forward</div>
             </div>
           </div>
         </div>
@@ -119,38 +119,38 @@ export function TransportRiskPanel({
       <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Planned pickup
             </div>
             <div className="text-lg font-bold tabular-nums text-slate-700 dark:text-slate-200 mt-0.5">
               {formatShortDate(impact.plannedPickup)}
             </div>
-            <div className="text-[10px] text-slate-400">original booking</div>
+            <div className="text-[11px] text-slate-400">original booking</div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Revised pickup
             </div>
             <div className="text-lg font-bold tabular-nums text-amber-800 mt-0.5">
               {formatShortDate(impact.revisedPickup)}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {late ? `+${impact.delayDays}d vs plan` : `${Math.abs(impact.delayDays)}d earlier`}
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Trucks booked
             </div>
             <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
               {impact.trucksBooked}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               reefers · {impact.cases.toLocaleString()} cases
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Idle if held
             </div>
             <div
@@ -161,18 +161,18 @@ export function TransportRiskPanel({
             >
               {impact.idleTruckDays > 0 ? `${impact.idleTruckDays}` : 'None'}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               {impact.idleTruckDays > 0 ? 'truck-days' : 'no idle time'}
             </div>
           </div>
           <div className="px-3 py-2.5">
-            <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+            <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
               Reassigned
             </div>
             <div className="text-lg font-bold tabular-nums text-emerald-700 mt-0.5">
               {impact.trucksReassigned}
             </div>
-            <div className="text-[10px] text-slate-400">
+            <div className="text-[11px] text-slate-400">
               of {impact.trucksBooked} moved to other loads
             </div>
           </div>
@@ -292,12 +292,12 @@ export function TransportRiskPanel({
         {transportAction && !hideApproval && (
           <div className="mx-4 my-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Approval
               </span>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded border',
+                  'text-[11px] font-semibold uppercase px-2 py-0.5 rounded border',
                   transportAction.status === 'pending_approval'
                     ? 'bg-amber-100 text-amber-900 border-amber-200'
                     : transportAction.status === 'approved'

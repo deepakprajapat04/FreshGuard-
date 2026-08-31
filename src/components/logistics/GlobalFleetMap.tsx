@@ -179,7 +179,7 @@ export function GlobalFleetMap({
               type="button"
               onClick={() => setBasemap('street')}
               className={cn(
-                'px-2.5 py-1 rounded-md text-[10px] font-bold uppercase',
+                'px-2.5 py-1 rounded-md text-[11px] font-bold uppercase',
                 basemap === 'street' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               )}
             >
@@ -189,7 +189,7 @@ export function GlobalFleetMap({
               type="button"
               onClick={() => setBasemap('satellite')}
               className={cn(
-                'px-2.5 py-1 rounded-md text-[10px] font-bold uppercase',
+                'px-2.5 py-1 rounded-md text-[11px] font-bold uppercase',
                 basemap === 'satellite' ? 'bg-emerald-600 text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
               )}
             >
@@ -199,7 +199,7 @@ export function GlobalFleetMap({
         </div>
 
         <div className="flex items-center gap-2 pointer-events-auto">
-          <div className="bg-white dark:bg-slate-900/95 text-slate-800 dark:text-white text-[10px] font-semibold px-2.5 py-1.5 rounded-lg shadow-md border border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-slate-900/95 text-slate-800 dark:text-white text-[11px] font-semibold px-2.5 py-1.5 rounded-lg shadow-md border border-slate-200 dark:border-slate-700">
             In transit: {counts.all}
           </div>
           <div className="flex bg-white dark:bg-slate-900/95 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 p-0.5">
@@ -216,7 +216,7 @@ export function GlobalFleetMap({
                 type="button"
                 onClick={() => onFilterChange(id)}
                 className={cn(
-                  'px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase flex items-center gap-1',
+                  'px-2.5 py-1.5 rounded-md text-[11px] font-bold uppercase flex items-center gap-1',
                   filter === id ? 'bg-[#4684AD] text-white' : 'text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white'
                 )}
                 title={label}
@@ -232,7 +232,7 @@ export function GlobalFleetMap({
 
       {/* Legend */}
       <div className="absolute bottom-3 left-3 z-[500] pointer-events-none">
-        <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-3 py-2 text-[9px] text-slate-700 space-y-1 shadow-md">
+        <div className="bg-white/95 backdrop-blur border border-slate-200 rounded-lg px-3 py-2 text-[11px] text-slate-700 space-y-1 shadow-md">
           <div className="font-bold uppercase tracking-wide text-slate-500 mb-1">Marker color</div>
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-orange-500" /> Sea (ocean)
@@ -253,7 +253,7 @@ export function GlobalFleetMap({
         key={`fleet-${basemap}`}
         center={[20, 0]}
         zoom={2}
-        className="h-full w-full [&_.leaflet-control-attribution]:text-[9px] [&_.leaflet-control-attribution]:bg-white/80"
+        className="h-full w-full [&_.leaflet-control-attribution]:text-[11px] [&_.leaflet-control-attribution]:bg-white/80"
         style={{ height: '100%', width: '100%', minHeight: 420, position: 'absolute', inset: 0 }}
         zoomControl
         scrollWheelZoom
@@ -331,7 +331,7 @@ export function GlobalFleetMap({
                     </div>
                     <button
                       type="button"
-                      className="mt-1 text-[10px] font-bold uppercase text-[#2F5472]"
+                      className="mt-1 text-[11px] font-bold uppercase text-[#2F5472]"
                       onClick={() => (onOpenLot || onSelect)(s.id)}
                     >
                       Open one-lot map

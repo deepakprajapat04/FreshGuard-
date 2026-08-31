@@ -87,47 +87,47 @@ function InboundTimingStrip({
     <div className="rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden">
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 divide-x divide-y lg:divide-y-0 divide-slate-100 dark:divide-slate-800">
         <div className="px-3 py-2.5">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             On-hand shelf life
           </div>
           <div className="text-lg font-bold tabular-nums text-emerald-700 mt-0.5">
             {onHandShelfLifeDays}d
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[11px] text-slate-400">
             as of {formatShortDate(asOfDate)} → {formatShortDate(onHandExpiresDate)}
           </div>
         </div>
         <div className="px-3 py-2.5">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Planned DC
           </div>
           <div className="text-lg font-bold tabular-nums text-slate-700 dark:text-slate-200 mt-0.5">
             {formatShortDate(originalDc)}
           </div>
-          <div className="text-[10px] text-slate-400">original ETA</div>
+          <div className="text-[11px] text-slate-400">original ETA</div>
         </div>
         <div className="px-3 py-2.5">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             DC arrival
           </div>
           <div className="text-lg font-bold tabular-nums text-amber-800 mt-0.5">
             {formatShortDate(revisedDc)}
           </div>
-          <div className="text-[10px] text-slate-400">current ETA</div>
+          <div className="text-[11px] text-slate-400">current ETA</div>
         </div>
         <div className="px-3 py-2.5">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Store arrival
           </div>
           <div className="text-lg font-bold tabular-nums text-[#2F5472] mt-0.5">
             {formatShortDate(storeShelfDate)}
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[11px] text-slate-400">
             DC + {bufferDays}d dock-to-shelf
           </div>
         </div>
         <div className="px-3 py-2.5">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 tracking-wide">
+          <div className="text-[11px] font-semibold uppercase text-slate-500 tracking-wide">
             Stock at risk
           </div>
           <div
@@ -138,7 +138,7 @@ function InboundTimingStrip({
           >
             {stockAtRiskDays > 0 ? `${stockAtRiskDays}d` : 'None'}
           </div>
-          <div className="text-[10px] text-slate-400">
+          <div className="text-[11px] text-slate-400">
             {stockAtRiskDays > 0
               ? `gap ${formatShortDate(onHandExpiresDate)} → ${formatShortDate(storeShelfDate)}`
               : 'covered until store'}
@@ -184,11 +184,11 @@ function MoveCategoryCard({
         </div>
         <dl className="flex gap-6 mt-3 text-xs">
           <div>
-            <dt className="text-slate-500 uppercase text-[10px] font-semibold tracking-wide">Total moves</dt>
+            <dt className="text-slate-500 uppercase text-[11px] font-semibold tracking-wide">Total moves</dt>
             <dd className="font-bold text-lg tabular-nums text-slate-900 dark:text-slate-100">{moves.length}</dd>
           </div>
           <div>
-            <dt className="text-slate-500 uppercase text-[10px] font-semibold tracking-wide">Total cases</dt>
+            <dt className="text-slate-500 uppercase text-[11px] font-semibold tracking-wide">Total cases</dt>
             <dd className="font-bold text-lg tabular-nums text-slate-900 dark:text-slate-100">{totalCases}</dd>
           </div>
         </dl>
@@ -400,7 +400,7 @@ export function StockRiskPanel({
                         <span className="font-medium text-rose-700 dark:text-rose-400">
                           Needs stock
                           {(inboundCases > 0 || transferIn > 0) && (
-                            <span className="block text-[10px] font-normal text-slate-500 mt-0.5">
+                            <span className="block text-[11px] font-normal text-slate-500 mt-0.5">
                               +{inboundCases + transferIn} cases inbound
                             </span>
                           )}
@@ -409,7 +409,7 @@ export function StockRiskPanel({
                         <span className="text-emerald-700 font-medium">
                           Can donate
                           {transferOut > 0 && (
-                            <span className="block text-[10px] font-normal text-slate-500 mt-0.5">
+                            <span className="block text-[11px] font-normal text-slate-500 mt-0.5">
                               −{transferOut} cases out
                             </span>
                           )}
@@ -471,7 +471,7 @@ export function StockRiskPanel({
                   <td className="px-3 py-2.5">
                     <span
                       className={cn(
-                        'text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded',
+                        'text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded',
                         'bg-[#C0D5E5] text-[#2F5472]'
                       )}
                     >
@@ -492,7 +492,7 @@ export function StockRiskPanel({
               {storeMoves.map((move, i) => (
                 <tr key={`${move.type}-${move.fromLabel}-${move.toLabel}-${i}`}>
                   <td className="px-3 py-2.5">
-                    <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800">
+                    <span className="text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 dark:bg-slate-800">
                       Store → store
                     </span>
                   </td>
@@ -531,12 +531,12 @@ export function StockRiskPanel({
         {stockAction && !hideApproval && (
           <div className="mx-4 mb-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50/80 dark:bg-slate-950/40 p-4 space-y-3">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Approval workflow
               </span>
               <span
                 className={cn(
-                  'text-[10px] font-semibold uppercase px-2 py-0.5 rounded',
+                  'text-[11px] font-semibold uppercase px-2 py-0.5 rounded',
                   stockAction.status === 'pending_approval'
                     ? 'bg-amber-100 text-amber-900 border border-amber-200'
                     : stockAction.status === 'approved'
