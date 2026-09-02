@@ -77,7 +77,7 @@ const PROFILES: Record<
   category_manager: {
     name: 'Alex Rivera',
     role: 'Fresh Produce Category Manager',
-    title: 'Merchandising & Promotions',
+    title: 'Category Merchandising',
     email: 'alex.rivera@freshguard.retail',
     org: 'FreshGuard Retail HQ',
     location: 'HQ — Chicago',

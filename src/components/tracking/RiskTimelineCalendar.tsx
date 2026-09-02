@@ -3,6 +3,7 @@
  */
 import { cn } from '../../lib/utils';
 import { SAP } from '../../lib/sapTheme';
+import { MVP_HIDE_PROMOTIONS } from '../../lib/mvpFlags';
 import type { PromotionRisk, StoreDemand } from '../../lib/trackingFlow';
 
 type TimelineEvent = {
@@ -65,14 +66,16 @@ export function RiskTimelineCalendar({
         tone: 'oos' as const,
         sub: `${s.item} · OOS ${s.oosStartDate} → ${s.oosEndDate}`,
       })),
-    ...promotions.map((p) => ({
-      id: p.id,
-      label: p.name,
-      start: p.startDate,
-      end: p.endDate,
-      tone: 'promo' as const,
-      sub: `${p.item} · ${p.stores.length} stores`,
-    })),
+    ...(MVP_HIDE_PROMOTIONS
+      ? []
+      : promotions.map((p) => ({
+          id: p.id,
+          label: p.name,
+          start: p.startDate,
+          end: p.endDate,
+          tone: 'promo' as const,
+          sub: `${p.item} · ${p.stores.length} stores`,
+        }))),
   ];
 
   const pct = (iso: string) =>
@@ -133,7 +136,7 @@ export function RiskTimelineCalendar({
       )}
 
       {rows.length === 0 ? (
-        <div className="p-4 text-sm text-slate-500 text-center">No OOS or promotion windows in range.</div>
+        <div className="p-4 text-sm text-slate-500 text-center">No OOS windows in range.</div>
       ) : (
         rows.map((row) => (
           <div
@@ -161,9 +164,11 @@ export function RiskTimelineCalendar({
         <span className="flex items-center gap-1">
           <span className="w-3 h-2 rounded bg-rose-500/85" /> Store OOS window
         </span>
-        <span className="flex items-center gap-1">
-          <span className="w-3 h-2 rounded bg-violet-500/85" /> Promotion
-        </span>
+        {!MVP_HIDE_PROMOTIONS && (
+          <span className="flex items-center gap-1">
+            <span className="w-3 h-2 rounded bg-violet-500/85" /> Promotion
+          </span>
+        )}
         <span className="flex items-center gap-1">
           <span className="w-0.5 h-3 bg-slate-400" /> Original ETA
         </span>

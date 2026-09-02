@@ -19,6 +19,7 @@ import {
   type TrackShipment,
   PERSONA_LABELS,
 } from '../../lib/trackingFlow';
+import { MVP_HIDE_PROMOTIONS } from '../../lib/mvpFlags';
 
 type EarlyClearanceRiskPanelProps = {
   shipment: TrackShipment;
@@ -68,13 +69,20 @@ export function EarlyClearanceRiskPanel({
   if (!proposal) {
     return (
       <div className="rounded-lg border border-dashed border-slate-200 dark:border-slate-700 px-4 py-8 text-center text-sm text-slate-500">
-        No clearance proposal — capacity covers early inbound (BAU). Markdown / promo not required.
+        No clearance proposal — capacity covers early inbound (BAU). Markdown not required.
       </div>
     );
   }
 
+  const visibleOptions = MVP_HIDE_PROMOTIONS
+    ? proposal.options.filter((o) => o.id === 'markdown')
+    : proposal.options;
+
   const effectiveSelectedId =
-    selectedId ?? proposal.selectedOptionId ?? proposal.recommendedOptionId;
+    selectedId ??
+    (MVP_HIDE_PROMOTIONS
+      ? 'markdown'
+      : proposal.selectedOptionId ?? proposal.recommendedOptionId);
   const canSelect =
     (isDcPurchasingPersona(persona) || persona === 'category_manager') &&
     (!clearanceAction ||
@@ -83,6 +91,7 @@ export function EarlyClearanceRiskPanel({
 
   const handleSelect = (optionId: 'markdown' | 'schedule_promotion') => {
     if (!canSelect) return;
+    if (MVP_HIDE_PROMOTIONS && optionId !== 'markdown') return;
     setSelectedId(optionId);
     if (clearanceAction) {
       selectClearanceOption(clearanceAction.id, optionId);
@@ -108,7 +117,9 @@ export function EarlyClearanceRiskPanel({
     <div className="space-y-5">
       <div className="flex items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-100">
         <Megaphone className="w-4 h-4 text-violet-700" />
-        Clear ageing stock — markdown or schedule promotion
+        {MVP_HIDE_PROMOTIONS
+          ? 'Clear ageing stock — markdown'
+          : 'Clear ageing stock — markdown or schedule promotion'}
       </div>
 
       <div className="rounded-lg border border-amber-300 bg-amber-50/70 dark:bg-amber-950/20 px-4 py-3">
@@ -123,13 +134,20 @@ export function EarlyClearanceRiskPanel({
         <p className="text-xs text-slate-600 dark:text-slate-400 mt-1 leading-relaxed">
           Early inbound arrives {formatShortDate(proposal.revisedEta)} ({proposal.earlyDays}d early).
           Capacity is short — clear ageing stock before put-away / store push. Category Manager
-          sign-off required. Tap a card below to choose markdown or promo.
+          sign-off required.
+          {MVP_HIDE_PROMOTIONS
+            ? ' Tap a card below to choose markdown.'
+            : ' Tap a card below to choose markdown or promo.'}
         </p>
       </div>
 
-      <div className="grid sm:grid-cols-2 gap-3" role="radiogroup" aria-label="Clearance options">
-        {proposal.options.map((opt) => {
-          const isRec = opt.id === proposal.recommendedOptionId;
+      <div
+        className={cn('grid gap-3', MVP_HIDE_PROMOTIONS ? 'sm:grid-cols-1' : 'sm:grid-cols-2')}
+        role="radiogroup"
+        aria-label="Clearance options"
+      >
+        {visibleOptions.map((opt) => {
+          const isRec = opt.id === (MVP_HIDE_PROMOTIONS ? 'markdown' : proposal.recommendedOptionId);
           const isSelected = opt.id === effectiveSelectedId;
           const Icon = opt.id === 'markdown' ? Percent : Megaphone;
           return (
@@ -201,7 +219,7 @@ export function EarlyClearanceRiskPanel({
                 )}
                 {opt.promoName && opt.proposedStart && opt.proposedEnd && (
                   <div className="flex justify-between gap-2">
-                    <span className="text-slate-500">Promo window</span>
+                    <span className="text-slate-500">Window</span>
                     <span className="font-bold tabular-nums text-[#2F5472]">
                       {formatShortDate(opt.proposedStart)} → {formatShortDate(opt.proposedEnd)}
                     </span>
@@ -256,7 +274,9 @@ export function EarlyClearanceRiskPanel({
             {' · '}
             Plan:{' '}
             <strong>
-              {effectiveSelectedId === 'markdown' ? 'Markdown' : 'Schedule promotion'}
+              {effectiveSelectedId === 'markdown' || MVP_HIDE_PROMOTIONS
+                ? 'Markdown'
+                : 'Schedule promotion'}
             </strong>
           </p>
 

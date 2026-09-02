@@ -34,6 +34,7 @@ import { OverstockRiskPanel } from '../components/tracking/OverstockRiskPanel';
 import { EarlyClearanceRiskPanel } from '../components/tracking/EarlyClearanceRiskPanel';
 import { DistributionRiskPanel } from '../components/tracking/DistributionRiskPanel';
 import { RiskActionFooter } from '../components/tracking/RiskActionFooter';
+import { MVP_HIDE_PROMOTIONS } from '../lib/mvpFlags';
 import {
   DEMO_SHIPMENTS,
   EVENT_COLORS,
@@ -120,7 +121,7 @@ const REVISED_ETA_ISO: Record<string, string> = {
 
 function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: string }[] {
   if (shipment.eventStatus === 'delayed') {
-    return [
+    const steps: { id: RiskSubStep; label: string }[] = [
       { id: 'stock', label: 'Stock risk' },
       { id: 'sourcing', label: 'Alt supplier' },
       { id: 'promotion', label: 'Promotion risk' },
@@ -128,6 +129,7 @@ function getRiskSubSteps(shipment: TrackShipment): { id: RiskSubStep; label: str
       { id: 'receiving', label: 'Receiving' },
       { id: 'transport', label: 'Transport' },
     ];
+    return MVP_HIDE_PROMOTIONS ? steps.filter((s) => s.id !== 'promotion') : steps;
   }
   if (shipment.eventStatus === 'early') {
     return [
@@ -324,9 +326,13 @@ export default function TrackingHub() {
         id: `n-${action.id}-category-review`,
         title: isClearance
           ? `Clearance ready for approval: ${action.title}`
-          : `Promo change ready for approval: ${action.title}`,
+          : MVP_HIDE_PROMOTIONS
+            ? `Change ready for approval: ${action.title}`
+            : `Promo change ready for approval: ${action.title}`,
         message: isClearance
-          ? `${action.proposal} — Please choose markdown or schedule promotion.`
+          ? MVP_HIDE_PROMOTIONS
+            ? `${action.proposal} — Please choose a markdown plan.`
+            : `${action.proposal} — Please choose markdown or schedule promotion.`
           : `${action.proposal} — Please review and approve reschedule & store mix updates.`,
         severity: 'info' as const,
         category: 'Regular' as const,
@@ -352,10 +358,16 @@ export default function TrackingHub() {
           id: `n-${updated.id}-confirmed`,
           title: isClearance
             ? `Clearance confirmed: ${updated.title}`
-            : `Promo changes confirmed: ${updated.title}`,
+            : MVP_HIDE_PROMOTIONS
+              ? `Changes confirmed: ${updated.title}`
+              : `Promo changes confirmed: ${updated.title}`,
           message: isClearance
-            ? `${updated.proposal} — Apply markdown and/or schedule promo on calendar.`
-            : `${updated.proposal} — Updates applied to promo calendar & store allocations.`,
+            ? MVP_HIDE_PROMOTIONS
+              ? `${updated.proposal} — Apply markdown plan.`
+              : `${updated.proposal} — Apply markdown and/or schedule promo on calendar.`
+            : MVP_HIDE_PROMOTIONS
+              ? `${updated.proposal} — Updates applied to calendar & store allocations.`
+              : `${updated.proposal} — Updates applied to promo calendar & store allocations.`,
           severity: 'success' as const,
           category: 'Regular' as const,
           timestamp: new Date().toISOString(),
@@ -366,8 +378,12 @@ export default function TrackingHub() {
       ]);
       setFlash(
         isClearance
-          ? 'Clearance plan approved — apply markdown and/or schedule promo.'
-          : 'Promo changes approved — POS & marketing updates confirmed.'
+          ? MVP_HIDE_PROMOTIONS
+            ? 'Clearance plan approved — apply markdown.'
+            : 'Clearance plan approved — apply markdown and/or schedule promo.'
+          : MVP_HIDE_PROMOTIONS
+            ? 'Changes approved — POS & marketing updates confirmed.'
+            : 'Promo changes approved — POS & marketing updates confirmed.'
       );
     }
     setTimeout(() => setFlash(null), 5000);
@@ -506,7 +522,7 @@ export default function TrackingHub() {
       const plan =
         activeRiskAction.clearanceProposal.selectedOptionId ??
         activeRiskAction.clearanceProposal.recommendedOptionId;
-      return `Plan: ${plan === 'markdown' ? 'Markdown' : 'Schedule promotion'}`;
+      return `Plan: ${plan === 'markdown' || MVP_HIDE_PROMOTIONS ? 'Markdown' : 'Schedule promotion'}`;
     }
     return undefined;
   }, [activeRiskAction]);
@@ -833,7 +849,7 @@ export default function TrackingHub() {
                           ? `This container is delayed by ${delayDays} day(s). Revised ETA: ${selected.eta}.`
                           : `This container is arriving ${Math.abs(delayDays)} day(s) early. Revised ETA: ${selected.eta}.`
                         : delayDays > 0
-                          ? `Shipment is ${delayDays} day(s) behind plan — downstream stock & promo risks triggered.`
+                          ? `Shipment is ${delayDays} day(s) behind plan — downstream stock risks triggered.`
                           : `Shipment arriving ${Math.abs(delayDays)} day(s) early — overstock & receiving capacity risks triggered.`}
                     </p>
                   )}
@@ -936,7 +952,7 @@ export default function TrackingHub() {
                       />
                     )}
 
-                    {riskSubStep === 'promotion' && (
+                    {riskSubStep === 'promotion' && !MVP_HIDE_PROMOTIONS && (
                       <PromotionRiskPanel
                         shipment={selected}
                         promoAction={promoAction}

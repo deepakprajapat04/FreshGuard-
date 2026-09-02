@@ -27,7 +27,7 @@ type RiskActionFooterProps = {
 
 function approveLabel(action: RiskAction, persona: FreshGuardPersona): string {
   if (persona === 'category_manager') {
-    return action.category === 'clearance' ? 'Approve clearance' : 'Approve promo';
+    return 'Approve clearance';
   }
   if (action.category === 'sourcing') return 'Approve & create PO';
   if (action.category === 'stock') return 'Approve & notify delivery team';
@@ -37,11 +37,10 @@ function approveLabel(action: RiskAction, persona: FreshGuardPersona): string {
 }
 
 function approvedMessage(action: RiskAction): string {
-  if (action.category === 'clearance') return 'Confirmed — apply markdown / promo.';
+  if (action.category === 'clearance') return 'Confirmed — apply markdown.';
   if (action.category === 'sourcing' && action.sourcingProposal?.issuedPo) {
     return `Confirmed — ${action.sourcingProposal.issuedPo} issued.`;
   }
-  if (action.category === 'promotion') return 'Confirmed — update POS & calendar.';
   if (action.category === 'stock') return 'Approved — delivery team notified to execute moves.';
   return 'Ready to execute.';
 }

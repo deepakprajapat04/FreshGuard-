@@ -1057,39 +1057,107 @@ export default function Orders() {
                       </div>
                       <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
                         <RiskStat
-                          label="Planned DC"
-                          value={formatShortDate(selectedRisk.originalEta)}
-                          sub="original ETA"
-                        />
-                        <RiskStat
-                          label="DC arrival"
-                          value={formatShortDate(selectedRisk.revisedEta)}
+                          label="Schedule"
+                          value={
+                            selectedRisk.delayDays > 0
+                              ? `+${selectedRisk.delayDays}d`
+                              : `${Math.abs(selectedRisk.delayDays)}d`
+                          }
                           sub={
                             selectedRisk.delayDays > 0
-                              ? `+${selectedRisk.delayDays}d vs plan`
-                              : `${Math.abs(selectedRisk.delayDays)}d early`
+                              ? `late · DC ${formatShortDate(selectedRisk.revisedEta)}`
+                              : `early · DC ${formatShortDate(selectedRisk.revisedEta)}`
                           }
                           valueClass="text-amber-800"
                         />
                         <RiskStat
-                          label="Store shelf"
-                          value={formatShortDate(selectedRisk.storeShelfDate)}
-                          sub={`${selectedRisk.storesAtRisk} stores · ${selectedRisk.moveCount} transfers`}
-                          valueClass="text-[#2F5472]"
+                          label="Delivery orders"
+                          value={String(selectedRisk.storesWithDeliveryOrders)}
+                          sub={`stores · week of ${formatShortDate(selectedRisk.originalEta)}`}
+                          valueClass={
+                            selectedRisk.storesWithDeliveryOrders > 0
+                              ? 'text-rose-700'
+                              : 'text-emerald-700'
+                          }
                         />
                         <RiskStat
-                          label="Stock at risk"
+                          label="Affect"
                           value={
-                            selectedRisk.oosGapDays > 0 ? `${selectedRisk.oosGapDays}d` : 'None'
+                            selectedRisk.eventStatus === 'early'
+                              ? selectedRisk.earlyCasesToPush > 0
+                                ? selectedRisk.earlyCasesToPush.toLocaleString()
+                                : '—'
+                              : selectedRisk.oosGapDays > 0
+                                ? `${selectedRisk.oosGapDays}d`
+                                : 'None'
                           }
                           sub={
-                            selectedRisk.oosGapDays > 0 ? 'projected OOS gap' : 'within cover'
+                            selectedRisk.eventStatus === 'early'
+                              ? selectedRisk.earlyCasesToPush > 0
+                                ? 'cases on those orders'
+                                : 'no open store orders'
+                              : selectedRisk.oosGapDays > 0
+                                ? 'projected OOS gap'
+                                : 'within cover'
                           }
                           valueClass={
-                            selectedRisk.oosGapDays > 0 ? 'text-rose-700' : 'text-emerald-700'
+                            selectedRisk.eventStatus === 'early'
+                              ? selectedRisk.earlyCasesToPush > 0
+                                ? 'text-amber-800'
+                                : 'text-emerald-700'
+                              : selectedRisk.oosGapDays > 0
+                                ? 'text-rose-700'
+                                : 'text-emerald-700'
                           }
                         />
+                        <RiskStat
+                          label="Original ETA"
+                          value={formatShortDate(selectedRisk.originalEta)}
+                          sub={`${formatShortDate(selectedRisk.originalEtaWeekStart)}–${formatShortDate(selectedRisk.originalEtaWeekEnd)}`}
+                          valueClass="text-[#2F5472]"
+                        />
                       </div>
+                      {selectedRisk.affectedStores.length > 0 ? (
+                        <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Stores with delivery in week of original ETA (
+                            {selectedRisk.storesWithDeliveryOrders})
+                          </div>
+                          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                            {selectedRisk.affectedStores.map((s) => (
+                              <li
+                                key={s.storeId}
+                                className="px-3 py-2 flex flex-wrap items-center justify-between gap-2"
+                              >
+                                <div className="min-w-0">
+                                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                    {s.storeName}
+                                  </span>
+                                  <span className="text-[11px] font-code text-slate-400 ml-2">
+                                    {s.storeId}
+                                  </span>
+                                </div>
+                                <span
+                                  className={cn(
+                                    'text-xs font-semibold shrink-0',
+                                    selectedRisk.eventStatus === 'delayed'
+                                      ? 'text-rose-700'
+                                      : 'text-amber-800'
+                                  )}
+                                >
+                                  {s.deliveryDate
+                                    ? `Delivery ${formatShortDate(s.deliveryDate)}`
+                                    : s.affect}
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <div className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 text-xs text-slate-500 bg-white dark:bg-slate-900">
+                          No store delivery orders in the week of original ETA.
+                        </div>
+                      )}
                     </div>
                   )}
 

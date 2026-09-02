@@ -30,6 +30,7 @@ import { PageHeader } from '../components/PageChrome';
 import { usePersona } from '../context/PersonaContext';
 import { useNotifications } from '../context/NotificationsContext';
 import { contentCanvasClass } from '../lib/sapTheme';
+import { MVP_HIDE_PROMOTIONS } from '../lib/mvpFlags';
 import {
   approveRiskAction,
   rejectRiskAction,
@@ -56,7 +57,7 @@ const TASK_CATEGORY_FILTERS: { id: CategoryFilter; label: string }[] = [
   { id: 'all', label: 'All types' },
   { id: 'stock', label: 'Stock' },
   { id: 'sourcing', label: 'Alt supplier' },
-  { id: 'promotion', label: 'Promotion' },
+  ...(MVP_HIDE_PROMOTIONS ? [] : [{ id: 'promotion' as const, label: 'Promotion' }]),
   { id: 'shelf_life', label: 'Shelf life' },
   { id: 'overstock', label: 'Overstock' },
   { id: 'clearance', label: 'Clearance' },
@@ -438,7 +439,7 @@ function ActionDetailBody({
     );
   }
 
-  if (action.promotionProposal) {
+  if (action.promotionProposal && !MVP_HIDE_PROMOTIONS) {
     const { reschedule, storeChanges } = action.promotionProposal;
     return (
       <div className="space-y-4">
@@ -741,11 +742,18 @@ function ActionDetailBody({
           </p>
           <p className="mt-1 text-slate-600">
             Early inbound {formatShortDate(c.revisedEta)} ({c.earlyDays}d early)
-            {canPick ? ' — tap a card to choose markdown or schedule promo.' : '.'}
+            {canPick
+              ? MVP_HIDE_PROMOTIONS
+                ? ' — tap a card to choose markdown.'
+                : ' — tap a card to choose markdown or schedule promo.'
+              : '.'}
           </p>
         </div>
-        <div className="grid sm:grid-cols-2 gap-3">
-          {c.options.map((opt) => {
+        <div className={cn('grid gap-3', MVP_HIDE_PROMOTIONS ? 'sm:grid-cols-1' : 'sm:grid-cols-2')}>
+          {(MVP_HIDE_PROMOTIONS
+            ? c.options.filter((o) => o.id === 'markdown')
+            : c.options
+          ).map((opt) => {
             const isRec = opt.id === c.recommendedOptionId;
             const isSelected = opt.id === selectedId;
             return (
@@ -979,25 +987,36 @@ export default function Actions() {
   }, [filterOpen]);
 
   const forPersona = useMemo(() => {
-    if (isDcPurchasingPersona(persona)) {
+    const base = (() => {
+      if (isDcPurchasingPersona(persona)) {
+        return actions.filter(
+          (a) =>
+            (a.status === 'pending_approval' && a.approverPersona === persona) ||
+            (a.status === 'pending_category_approval' && a.ownerPersona === persona)
+        );
+      }
+      if (persona === 'category_manager') {
+        return actions.filter(
+          (a) =>
+            a.status === 'pending_category_approval' ||
+            (isCategoryTwoStepAction(a) &&
+              a.notifyPersonas.includes('category_manager') &&
+              a.status === 'approved')
+        );
+      }
       return actions.filter(
-        (a) =>
-          (a.status === 'pending_approval' && a.approverPersona === persona) ||
-          (a.status === 'pending_category_approval' && a.ownerPersona === persona)
+        (a) => a.ownerPersona === persona || a.notifyPersonas.includes(persona) || a.status === 'approved'
       );
-    }
-    if (persona === 'category_manager') {
-      return actions.filter(
-        (a) =>
-          a.status === 'pending_category_approval' ||
-          (isCategoryTwoStepAction(a) &&
-            a.notifyPersonas.includes('category_manager') &&
-            a.status === 'approved')
-      );
-    }
-    return actions.filter(
-      (a) => a.ownerPersona === persona || a.notifyPersonas.includes(persona) || a.status === 'approved'
-    );
+    })();
+    return MVP_HIDE_PROMOTIONS
+      ? base.filter(
+          (a) =>
+            a.category !== 'promotion' &&
+            !a.id.includes('-PROMO') &&
+            !/promo/i.test(a.title) &&
+            !a.promotionProposal
+        )
+      : base;
   }, [actions, persona]);
 
   const pendingCount = forPersona.filter(
@@ -1139,7 +1158,9 @@ export default function Actions() {
         {
           id: `n-${next.id}-category-review`,
           title: `Clearance ready for approval: ${next.title}`,
-          message: `${next.proposal} — Please choose markdown or schedule promotion.`,
+          message: MVP_HIDE_PROMOTIONS
+            ? `${next.proposal} — Please choose a markdown plan.`
+            : `${next.proposal} — Please choose markdown or schedule promotion.`,
           severity: 'info' as const,
           category: 'Regular' as const,
           timestamp: new Date().toISOString(),
@@ -1154,7 +1175,9 @@ export default function Actions() {
         {
           id: `n-${next.id}-confirmed`,
           title: `Clearance confirmed: ${next.title}`,
-          message: `${next.proposal} — Apply markdown and/or schedule promo on calendar.`,
+          message: MVP_HIDE_PROMOTIONS
+            ? `${next.proposal} — Apply markdown plan.`
+            : `${next.proposal} — Apply markdown and/or schedule promo on calendar.`,
           severity: 'success' as const,
           category: 'Regular' as const,
           timestamp: new Date().toISOString(),
@@ -1163,12 +1186,18 @@ export default function Actions() {
           href: '/actions',
         },
       ]);
-      setFlash('Clearance plan approved — apply markdown and/or schedule promo.');
+      setFlash(
+        MVP_HIDE_PROMOTIONS
+          ? 'Clearance plan approved — apply markdown.'
+          : 'Clearance plan approved — apply markdown and/or schedule promo.'
+      );
     } else if (next.category === 'promotion' && next.status === 'pending_category_approval') {
       upsertMany([
         {
           id: `n-${next.id}-category-review`,
-          title: `Promo change ready for approval: ${next.title}`,
+          title: MVP_HIDE_PROMOTIONS
+            ? `Change ready for approval: ${next.title}`
+            : `Promo change ready for approval: ${next.title}`,
           message: `${next.proposal} — Please review and approve reschedule & store mix updates.`,
           severity: 'info' as const,
           category: 'Regular' as const,
@@ -1183,8 +1212,12 @@ export default function Actions() {
       upsertMany([
         {
           id: `n-${next.id}-confirmed`,
-          title: `Promo changes confirmed: ${next.title}`,
-          message: `${next.proposal} — Updates applied to promo calendar & store allocations.`,
+          title: MVP_HIDE_PROMOTIONS
+            ? `Changes confirmed: ${next.title}`
+            : `Promo changes confirmed: ${next.title}`,
+          message: MVP_HIDE_PROMOTIONS
+            ? `${next.proposal} — Updates applied to calendar & store allocations.`
+            : `${next.proposal} — Updates applied to promo calendar & store allocations.`,
           severity: 'success' as const,
           category: 'Regular' as const,
           timestamp: new Date().toISOString(),
@@ -1193,7 +1226,11 @@ export default function Actions() {
           href: '/actions',
         },
       ]);
-      setFlash('Promo changes approved — POS & marketing updates confirmed.');
+      setFlash(
+        MVP_HIDE_PROMOTIONS
+          ? 'Changes approved — POS & marketing updates confirmed.'
+          : 'Promo changes approved — POS & marketing updates confirmed.'
+      );
     } else {
       upsertMany(
         next.notifyPersonas.map((p) => ({
@@ -1666,7 +1703,7 @@ export default function Actions() {
                     >
                       <Check className="w-3.5 h-3.5" />
                       {persona === 'category_manager'
-                        ? selected.category === 'clearance'
+                        ? selected.category === 'clearance' || MVP_HIDE_PROMOTIONS
                           ? 'Approve clearance'
                           : 'Approve promo'
                         : selected.category === 'sourcing'
@@ -1689,7 +1726,9 @@ export default function Actions() {
                     <p className="text-xs text-emerald-700 font-medium flex items-center gap-1.5">
                       <Clock className="w-3.5 h-3.5" />
                       {selected.category === 'clearance'
-                        ? 'Confirmed — apply markdown / promo.'
+                        ? MVP_HIDE_PROMOTIONS
+                          ? 'Confirmed — apply markdown.'
+                          : 'Confirmed — apply markdown / promo.'
                         : selected.category === 'sourcing' && selected.sourcingProposal?.issuedPo
                           ? `Confirmed — ${selected.sourcingProposal.issuedPo} issued.`
                           : selected.category === 'promotion'

@@ -8,6 +8,7 @@ import {
   type BusinessRulesConfig,
 } from './businessRules';
 import { getRfqAlternateSupplierOptions } from './fruitsRfqFlow';
+import { MVP_HIDE_PROMOTIONS } from './mvpFlags';
 
 export type DcPurchasingPersona = 'dc_purchasing_fruits' | 'dc_purchasing_vegetables';
 
@@ -252,6 +253,11 @@ export type StoreDemand = {
   onHandShelfLifeDays: number;
   /** ISO date — current on-hand batch expires on store shelf */
   onHandExpiresDate: string;
+  /**
+   * Scheduled store delivery-order date (ISO). Used to count stores with a
+   * delivery in the calendar week of the PO / shipment Original ETA.
+   */
+  deliveryDate?: string | null;
   item: string;
 };
 
@@ -2537,6 +2543,7 @@ export const STORE_DEMAND: StoreDemand[] = [
     oosEndDate: '2026-08-25',
     onHandShelfLifeDays: 3,
     onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-21',
     item: 'Blueberries',
   },
   {
@@ -2551,6 +2558,52 @@ export const STORE_DEMAND: StoreDemand[] = [
     oosEndDate: null,
     onHandShelfLifeDays: 3,
     onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-20',
+    item: 'Strawberries',
+  },
+  {
+    storeId: 'ST-205',
+    name: 'River North',
+    onHand: 54,
+    dailyDemand: 20,
+    pendingOrders: 70,
+    daysCover: 2.7,
+    stockoutRiskDays: null,
+    oosStartDate: null,
+    oosEndDate: null,
+    onHandShelfLifeDays: 3,
+    onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-21',
+    item: 'Strawberries',
+  },
+  {
+    storeId: 'ST-206',
+    name: 'Hyde Park',
+    onHand: 40,
+    dailyDemand: 18,
+    pendingOrders: 65,
+    daysCover: 2.2,
+    stockoutRiskDays: null,
+    oosStartDate: null,
+    oosEndDate: null,
+    onHandShelfLifeDays: 3,
+    onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-22',
+    item: 'Strawberries',
+  },
+  {
+    storeId: 'ST-207',
+    name: 'South Loop',
+    onHand: 62,
+    dailyDemand: 24,
+    pendingOrders: 90,
+    daysCover: 2.6,
+    stockoutRiskDays: null,
+    oosStartDate: null,
+    oosEndDate: null,
+    onHandShelfLifeDays: 3,
+    onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-19',
     item: 'Strawberries',
   },
   {
@@ -2565,6 +2618,7 @@ export const STORE_DEMAND: StoreDemand[] = [
     oosEndDate: '2026-08-25',
     onHandShelfLifeDays: 3,
     onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-22',
     item: 'Blueberries',
   },
   {
@@ -2579,6 +2633,7 @@ export const STORE_DEMAND: StoreDemand[] = [
     oosEndDate: null,
     onHandShelfLifeDays: 3,
     onHandExpiresDate: '2026-08-24',
+    deliveryDate: '2026-08-20',
     item: 'Blueberries',
   },
 ];
@@ -2596,6 +2651,7 @@ STORE_DEMAND.push({
   oosEndDate: '2026-08-25',
   onHandShelfLifeDays: 3,
   onHandExpiresDate: '2026-08-24',
+  deliveryDate: '2026-08-21',
   item: 'Blueberries',
 });
 
@@ -2964,6 +3020,48 @@ function daysBetween(from: string, to: string): number {
   return Math.round((parseDay(to) - parseDay(from)) / 86400000);
 }
 
+/** Monday–Sunday calendar week that contains `iso` (YYYY-MM-DD). */
+export function isoWeekBounds(iso: string): { start: string; end: string } {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  const day = d.getDay(); // 0 Sun … 6 Sat
+  const mondayOffset = day === 0 ? -6 : 1 - day;
+  const monday = new Date(d);
+  monday.setDate(d.getDate() + mondayOffset);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return {
+    start: monday.toISOString().slice(0, 10),
+    end: sunday.toISOString().slice(0, 10),
+  };
+}
+
+function formatWeekLabel(start: string, end: string): string {
+  const a = new Date(`${start}T12:00:00`);
+  const b = new Date(`${end}T12:00:00`);
+  const opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+  return `${a.toLocaleDateString('en-US', opts)}–${b.toLocaleDateString('en-US', opts)}`;
+}
+
+/** Stores with a delivery order dated in the week of Original ETA (same item as the PO). */
+export function getStoresWithDeliveryInOriginalEtaWeek(
+  item: string,
+  originalEta: string
+): StoreDemand[] {
+  const { start, end } = isoWeekBounds(originalEta.slice(0, 10));
+  const itemMatch = (sItem: string) =>
+    sItem === item ||
+    sItem.startsWith(item) ||
+    item.startsWith(sItem) ||
+    sItem.includes(item) ||
+    item.includes(sItem);
+  return STORE_DEMAND.filter((s) => {
+    if (!itemMatch(s.item)) return false;
+    if (!s.deliveryDate || s.pendingOrders <= 0) return false;
+    const d = s.deliveryDate.slice(0, 10);
+    return d >= start && d <= end;
+  }).sort((a, b) => (a.deliveryDate ?? '').localeCompare(b.deliveryDate ?? ''));
+}
+
 export const SHELF_QC_HOLD_DAYS = 1;
 /** @deprecated Prefer STORE_TRANSIT_BUFFER_DAYS for dock-to-shelf timing */
 export const SHELF_STORE_DISTRIBUTION_DAYS = 2;
@@ -3089,6 +3187,15 @@ export type PoSupplierRequest = {
 };
 
 /** Downstream effect of a shipment event, rolled up to a single purchase order. */
+export type PoAffectedStore = {
+  storeId: string;
+  storeName: string;
+  /** Short affect line, e.g. "1d OOS" or delivery date. */
+  affect: string;
+  /** Store delivery-order date when in Original ETA week. */
+  deliveryDate?: string;
+};
+
 export type PoRiskImpact = {
   po: string;
   item: string;
@@ -3106,6 +3213,19 @@ export type PoRiskImpact = {
   storesTotal: number;
   moveCount: number;
   casesToMove: number;
+  /** Early arrival: stores that need push / space notice. */
+  earlyStoresImpacted: number;
+  earlyCasesToPush: number;
+  /**
+   * Stores with a delivery order in the calendar week of Original ETA.
+   * Primary risk count for delay / early impact.
+   */
+  storesWithDeliveryOrders: number;
+  /** Mon–Sun bounds of the Original ETA week (ISO dates). */
+  originalEtaWeekStart: string;
+  originalEtaWeekEnd: string;
+  /** Named stores impacted — delivery-week stores first. */
+  affectedStores: PoAffectedStore[];
   promosAtRisk: number;
   promoStoreChanges: number;
   markdownPercent: number | null;
@@ -3150,8 +3270,22 @@ export function buildPoRiskImpact(po: SapPurchaseOrder): PoRiskImpact | null {
   const markdownPercent = shelfLine?.markdownRecommended ? shelfLine.markdownPercent : null;
 
   const stock = buildStockRiskProposal(shipment);
-  const itemStores = stock.storeOrders.filter((s) => s.item === po.item);
-  const itemMoves = stock.moves.filter((m) => m.item === po.item);
+  const itemMatch = (item: string) =>
+    item === po.item ||
+    item.startsWith(po.item) ||
+    po.item.startsWith(item) ||
+    item.includes(po.item) ||
+    po.item.includes(item);
+  const itemStores = stock.storeOrders.filter((s) => itemMatch(s.item));
+  const itemMoves = stock.moves.filter((m) => itemMatch(m.item));
+
+  const week = isoWeekBounds(original.slice(0, 10));
+  const deliveryWeekStores = getStoresWithDeliveryInOriginalEtaWeek(po.item, original);
+  const storesWithDeliveryOrders = deliveryWeekStores.length;
+
+  const overstock =
+    shipment.eventStatus === 'early' ? buildOverstockProposal(shipment) : null;
+  const earlyPushes = (overstock?.storePushes ?? []).filter((s) => itemMatch(s.item));
 
   const promos = getPromotionsForShipment(shipment).filter((p) => p.dependsOnPo === po.po);
   const promoStoreChanges = promos.length
@@ -3160,18 +3294,42 @@ export function buildPoRiskImpact(po: SapPurchaseOrder): PoRiskImpact | null {
       ).length
     : 0;
 
+  const storesAtRisk = itemStores.filter((s) => s.stockoutRiskDays != null).length;
+  const earlyStoresImpacted =
+    earlyPushes.length > 0 ? earlyPushes.length : storesWithDeliveryOrders;
+
+  const affectedStores: PoAffectedStore[] = deliveryWeekStores.map((s) => {
+    const oos =
+      s.stockoutRiskDays != null ? ` · ${s.stockoutRiskDays}d OOS` : '';
+    const early =
+      shipment.eventStatus === 'early' ? ' · early inbound' : '';
+    return {
+      storeId: s.storeId,
+      storeName: s.name,
+      deliveryDate: s.deliveryDate ?? undefined,
+      affect: `Delivery ${s.deliveryDate}${oos}${early} · ${s.pendingOrders.toLocaleString()} cases`,
+    };
+  });
+
+  const earlyCasesToPush =
+    earlyPushes.length > 0
+      ? earlyPushes.reduce((n, s) => n + s.cases, 0)
+      : deliveryWeekStores.reduce((n, s) => n + s.pendingOrders, 0);
+
   const severity: PoRiskImpact['severity'] =
-    shipment.eventStatus === 'delayed' && (oosGapDays > 0 || itemStores.some((s) => s.stockoutRiskDays != null))
+    shipment.eventStatus === 'delayed' &&
+    (oosGapDays > 0 || storesAtRisk > 0 || storesWithDeliveryOrders > 0)
       ? 'high'
       : shipment.eventStatus === 'on-time'
         ? 'none'
         : 'watch';
 
+  const weekLbl = formatWeekLabel(week.start, week.end);
   const headline =
     shipment.eventStatus === 'delayed'
-      ? `${delayDays}d late — ${oosGapDays > 0 ? `${oosGapDays}d out-of-stock gap` : 'cover holds'}`
+      ? `${delayDays}d late — ${storesWithDeliveryOrders} store${storesWithDeliveryOrders === 1 ? '' : 's'} with delivery in week of original ETA (${weekLbl})${oosGapDays > 0 ? ` · ${oosGapDays}d OOS` : ''}`
       : shipment.eventStatus === 'early'
-        ? `${Math.abs(delayDays)}d early — dock & storage capacity`
+        ? `${Math.abs(delayDays)}d early — ${storesWithDeliveryOrders} store${storesWithDeliveryOrders === 1 ? '' : 's'} with delivery in week of original ETA (${weekLbl})`
         : 'On plan';
 
   const supplierRequests: PoSupplierRequest[] = [];
@@ -3228,10 +3386,16 @@ export function buildPoRiskImpact(po: SapPurchaseOrder): PoRiskImpact | null {
     storeTransitBufferDays: STORE_TRANSIT_BUFFER_DAYS,
     onHandExpiresDate,
     oosGapDays,
-    storesAtRisk: itemStores.filter((s) => s.stockoutRiskDays != null).length,
+    storesAtRisk,
     storesTotal: itemStores.length,
     moveCount: itemMoves.length,
     casesToMove: itemMoves.reduce((n, m) => n + m.cases, 0),
+    earlyStoresImpacted,
+    earlyCasesToPush,
+    storesWithDeliveryOrders,
+    originalEtaWeekStart: week.start,
+    originalEtaWeekEnd: week.end,
+    affectedStores,
     promosAtRisk: promos.filter((p) => p.atRisk).length,
     promoStoreChanges,
     markdownPercent,
@@ -4066,7 +4230,7 @@ export function buildEarlyClearanceProposal(
   const promoRecovery = Math.round(ageingCases * unitPrice * 0.85);
 
   // Prefer promo when ageing volume is material; otherwise plain markdown is enough.
-  const recommendPromo = ageingCases >= 200;
+  const recommendPromo = !MVP_HIDE_PROMOTIONS && ageingCases >= 200;
 
   const options: EarlyClearanceOption[] = [
     {
@@ -4082,22 +4246,26 @@ export function buildEarlyClearanceProposal(
       markdownPercent: mdPct,
       reason: `On-hand batch has only ${overstock.presentStock.onHandShelfLifeDays}d left (expires ${overstock.presentStock.onHandExpiresDate}). Early inbound ${overstock.earlyDays}d early would sit behind dying stock without clearance.`,
     },
-    {
-      id: 'schedule_promotion',
-      title: `Schedule “${promoName}” for Category Manager`,
-      recommended: recommendPromo,
-      summary: `Run a short clearance promo ${promoStart} → ${promoEnd} at ${promoStores.map((s) => s.storeName).join(', ')} to burn through ageing ${item} before early put-away / store push.`,
-      casesAffected: ageingCases,
-      item,
-      unitPrice,
-      currency,
-      estimatedRecoveryUsd: promoRecovery,
-      promoName,
-      proposedStart: promoStart,
-      proposedEnd: promoEnd,
-      stores: promoStores,
-      reason: `Category-owned promo clears ${ageingCases.toLocaleString()} cases faster than shelf markdown alone and frees bay + store space for the early batch.`,
-    },
+    ...(MVP_HIDE_PROMOTIONS
+      ? []
+      : [
+          {
+            id: 'schedule_promotion' as const,
+            title: `Schedule “${promoName}” for Category Manager`,
+            recommended: recommendPromo,
+            summary: `Run a short clearance promo ${promoStart} → ${promoEnd} at ${promoStores.map((s) => s.storeName).join(', ')} to burn through ageing ${item} before early put-away / store push.`,
+            casesAffected: ageingCases,
+            item,
+            unitPrice,
+            currency,
+            estimatedRecoveryUsd: promoRecovery,
+            promoName,
+            proposedStart: promoStart,
+            proposedEnd: promoEnd,
+            stores: promoStores,
+            reason: `Category-owned promo clears ${ageingCases.toLocaleString()} cases faster than shelf markdown alone and frees bay + store space for the early batch.`,
+          },
+        ]),
   ];
 
   return {
@@ -4555,7 +4723,7 @@ export function isFillInPurchaseOrder(po: SapPurchaseOrder): boolean {
   );
 }
 
-const ACTIONS_KEY = 'freshguard-risk-actions-v16';
+const ACTIONS_KEY = 'freshguard-risk-actions-v17';
 
 function buildActionContextFromShipment(shipment: TrackShipment) {
   const pos = shipment.linkedPos
@@ -4696,8 +4864,8 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
       });
     }
 
-    actions.push(
-      {
+    if (!MVP_HIDE_PROMOTIONS) {
+      actions.push({
         id: `ACT-${shipment.id}-PROMO`,
         shipmentId: shipment.id,
         ...ctx,
@@ -4714,7 +4882,10 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
         detail:
           'Berry Weekend 2-for-1 and Blueberry Boost end-cap depend on delayed PO lines. Category sign-off required for POS & marketing updates.',
         promotionProposal,
-      },
+      });
+    }
+
+    actions.push(
       {
         id: `ACT-${shipment.id}-SHELF`,
         shipmentId: shipment.id,
@@ -4807,24 +4978,38 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
     ];
 
     if (clearanceProposal) {
+      const options = MVP_HIDE_PROMOTIONS
+        ? clearanceProposal.options.filter((o) => o.id === 'markdown')
+        : clearanceProposal.options;
+      const proposal = MVP_HIDE_PROMOTIONS
+        ? {
+            ...clearanceProposal,
+            options,
+            recommendedOptionId: 'markdown' as const,
+            selectedOptionId: 'markdown' as const,
+          }
+        : clearanceProposal;
       const rec =
-        clearanceProposal.options.find((o) => o.id === clearanceProposal.recommendedOptionId) ??
-        clearanceProposal.options[0];
+        proposal.options.find((o) => o.id === proposal.recommendedOptionId) ?? proposal.options[0];
       actions.push({
         id: `ACT-${shipment.id}-CLR`,
         shipmentId: shipment.id,
         ...ctx,
         eventStatus: 'early',
         category: 'clearance',
-        title: 'Clearance proposal — markdown or schedule promo',
-        summary: formatEarlyClearanceProposalSummary(clearanceProposal),
+        title: MVP_HIDE_PROMOTIONS
+          ? 'Clearance proposal — markdown'
+          : 'Clearance proposal — markdown or schedule promo',
+        summary: formatEarlyClearanceProposalSummary(proposal),
         ownerPersona: buyer,
         approverPersona: buyer,
         notifyPersonas: ['category_manager'],
         status: 'pending_approval',
-        proposal: formatEarlyClearanceProposalSummary(clearanceProposal),
-        detail: `Recommended: ${rec.title}. DC Purchasing endorses; Category Manager confirms markdown depth or promo calendar.`,
-        clearanceProposal,
+        proposal: formatEarlyClearanceProposalSummary(proposal),
+        detail: MVP_HIDE_PROMOTIONS
+          ? `Recommended: ${rec.title}. DC Purchasing endorses; Category Manager confirms markdown depth.`
+          : `Recommended: ${rec.title}. DC Purchasing endorses; Category Manager confirms markdown depth or promo calendar.`,
+        clearanceProposal: proposal,
       });
     }
 
@@ -4899,38 +5084,53 @@ export function buildRiskActionsForShipment(shipment: TrackShipment): RiskAction
   return [];
 }
 
+function isHiddenPromotionAction(a: RiskAction): boolean {
+  if (!MVP_HIDE_PROMOTIONS) return false;
+  return (
+    a.category === 'promotion' ||
+    a.id.includes('-PROMO') ||
+    /promo/i.test(a.title) ||
+    Boolean(a.promotionProposal)
+  );
+}
+
 export function loadRiskActions(): RiskAction[] {
-  const fresh = DEMO_SHIPMENTS.flatMap(buildRiskActionsForShipment);
+  const fresh = DEMO_SHIPMENTS.flatMap(buildRiskActionsForShipment).filter(
+    (a) => !isHiddenPromotionAction(a)
+  );
   try {
     const raw = localStorage.getItem(ACTIONS_KEY);
     if (raw) {
       const existing = JSON.parse(raw) as RiskAction[];
       const existingById = new Map(existing.map((a) => [a.id, a]));
-      let added = 0;
-      let refreshed = 0;
       for (const a of fresh) {
         const prev = existingById.get(a.id);
         if (!prev) {
           existingById.set(a.id, a);
-          added += 1;
         } else {
           existingById.set(a.id, {
             ...prev,
+            title: a.title,
+            summary: a.summary,
+            detail: a.detail,
+            proposal: a.proposal,
+            clearanceProposal: a.clearanceProposal ?? prev.clearanceProposal,
             ownerPersona: a.ownerPersona,
             approverPersona: a.approverPersona,
             notifyPersonas: a.notifyPersonas,
           });
-          refreshed += 1;
         }
       }
       const ordered = [
         ...fresh.map((f) => existingById.get(f.id)!),
         ...existing.filter((e) => !fresh.some((f) => f.id === e.id)),
       ].filter((a) => {
+        if (isHiddenPromotionAction(a)) return false;
         const ship = DEMO_SHIPMENTS.find((s) => s.id === a.shipmentId);
         return !ship || getPurchasingLaneForShipment(ship) !== 'vegetables';
       });
-      if (added > 0 || refreshed > 0) saveRiskActions(ordered);
+      // Always rewrite storage so stale promo actions are purged.
+      saveRiskActions(ordered);
       return ordered;
     }
   } catch {
