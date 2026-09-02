@@ -99,14 +99,6 @@ type ShipRow = {
   amount: string;
 };
 
-function toDateInputValue(raw?: string): string {
-  if (!raw) return new Date().toISOString().slice(0, 10);
-  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
-  const d = new Date(raw);
-  if (!Number.isNaN(d.getTime())) return d.toISOString().slice(0, 10);
-  return new Date().toISOString().slice(0, 10);
-}
-
 function formatWhen(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('en-US', {
@@ -122,29 +114,26 @@ function unitPriceFor(rfq: FruitsRfq): number {
   return quote?.pricePerCase ?? rfq.unitPrice ?? 0;
 }
 
-function defaultShipRow(rfq: FruitsRfq): ShipRow {
-  const expected = getRfqDropQty(rfq);
-  const price = unitPriceFor(rfq);
-  const tail = rfq.id.split('-').pop() ?? Date.now().toString().slice(-4);
+function defaultShipRow(_rfq: FruitsRfq): ShipRow {
   return {
-    asnNumber: `ASN-${tail}`,
+    asnNumber: '',
     containerNumber: '',
-    shipDate: toDateInputValue(),
-    eta: '3 Days',
-    originalEta: '3 Days',
-    transportMode: 'ocean',
-    carrier: 'Maersk Reefer',
-    vessel: 'MV Andes Fresh',
-    voyage: 'AF-118W',
-    origin: 'Valparaíso, Chile',
-    destination: rfq.destination,
-    incoterms: 'FOB Valparaíso',
+    shipDate: '',
+    eta: '',
+    originalEta: '',
+    transportMode: '',
+    carrier: '',
+    vessel: '',
+    voyage: '',
+    origin: '',
+    destination: '',
+    incoterms: '',
     billOfLading: '',
-    customs: 'Pending clearance',
-    tempRange: rfq.specifications.tempRange,
-    qtyExpected: String(expected),
-    qtyActual: String(expected),
-    amount: (expected * price).toFixed(2),
+    customs: '',
+    tempRange: '',
+    qtyExpected: '',
+    qtyActual: '',
+    amount: '',
   };
 }
 
