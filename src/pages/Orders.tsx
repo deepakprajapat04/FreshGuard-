@@ -48,6 +48,7 @@ import {
 import {
   createPoFromFruitsRfqShipping,
   FRUITS_RFQ_SUPPLIER,
+  getContractNumberForPo,
   getRfqsAwaitingShipping,
   getRfqAlternateSupplierOptions,
   getRfqDropQty,
@@ -487,6 +488,7 @@ export default function Orders() {
   }, [filteredListedOrders, selectedPo]);
 
   const selected = listedOrders.find((o) => o.po === selectedPo) ?? null;
+  const selectedContractNo = selected ? getContractNumberForPo(selected.po) : null;
   const eligiblePos = visibleOrders.filter((o) => !o.shipmentDetail);
 
   const selectedRisk = selected ? (riskByPo.get(selected.po) ?? null) : null;
@@ -879,6 +881,7 @@ export default function Orders() {
               filteredListedOrders.map((o) => {
                 const active = selectedPo === o.po;
                 const risk = riskByPo.get(o.po);
+                const contractNo = getContractNumberForPo(o.po);
                 return (
                   <button
                     key={o.po}
@@ -904,6 +907,11 @@ export default function Orders() {
                         {statusBadge(getPoDisplayStatus(o))}
                       </div>
                     </div>
+                    {contractNo && (
+                      <div className="font-code text-[11px] font-semibold text-[#4684AD] mt-0.5">
+                        {contractNo}
+                      </div>
+                    )}
                     <div className="text-sm font-semibold mt-1 text-slate-800 dark:text-slate-100">
                       {o.item}
                     </div>
@@ -950,6 +958,11 @@ export default function Orders() {
                       PO detail
                     </h2>
                     <p className="font-code text-sm font-bold mt-0.5">{selected.po}</p>
+                    {selectedContractNo && (
+                      <p className="font-code text-[11px] font-semibold text-[#4684AD] mt-0.5">
+                        {selectedContractNo}
+                      </p>
+                    )}
                     <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                       {selected.item} · {selected.supplier}
                       {isFillInPurchaseOrder(selected) && ' · Alt-supplier fill-in'}
@@ -982,6 +995,12 @@ export default function Orders() {
                 </div>
 
                 <dl className="px-4 pb-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-x-3 gap-y-2">
+                  {selectedContractNo && (
+                    <DetailField
+                      label="Contract"
+                      value={<span className="font-code text-[#4684AD]">{selectedContractNo}</span>}
+                    />
+                  )}
                   <DetailField label="Supplier" value={selected.supplier} />
                   <DetailField label="Buyer" value={selected.buyer} />
                   <DetailField
@@ -1064,9 +1083,7 @@ export default function Orders() {
                             selectedRisk.oosGapDays > 0 ? `${selectedRisk.oosGapDays}d` : 'None'
                           }
                           sub={
-                            selectedRisk.promosAtRisk > 0
-                              ? `${selectedRisk.promosAtRisk} promo${selectedRisk.promosAtRisk === 1 ? '' : 's'}`
-                              : 'no promo impact'
+                            selectedRisk.oosGapDays > 0 ? 'projected OOS gap' : 'within cover'
                           }
                           valueClass={
                             selectedRisk.oosGapDays > 0 ? 'text-rose-700' : 'text-emerald-700'

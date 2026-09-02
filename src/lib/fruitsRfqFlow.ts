@@ -56,6 +56,26 @@ export function fromContractNumber(id: string): string {
   return id.replace(/^CN-/i, 'RFQ-');
 }
 
+/** Demo PO ↔ contract links for seed fruit shipments (before shipping creates poNumber on the RFQ). */
+const DEMO_PO_FOR_CONTRACT: Record<string, string> = {
+  'RFQ-F-2026-001': 'PO-4500012345',
+  'RFQ-F-2026-002': 'PO-4500012346',
+  'RFQ-F-2026-003': 'PO-4500012410',
+  'RFQ-F-2026-004': 'PO-4500012411',
+  'RFQ-F-2026-005': 'PO-4500012395',
+  'RFQ-F-2026-006': 'PO-4500012412',
+  'RFQ-F-2026-007': 'PO-4500012388',
+  'RFQ-F-2026-008': 'PO-4500012413',
+};
+
+/** Associated standing-order contract for a fruit PO, if any. */
+export function getContractNumberForPo(poNumber: string): string | null {
+  const fromRfq = loadFruitsRfqs().find((r) => r.poNumber === poNumber);
+  if (fromRfq) return toContractNumber(fromRfq.id);
+  const demo = Object.entries(DEMO_PO_FOR_CONTRACT).find(([, po]) => po === poNumber);
+  return demo ? toContractNumber(demo[0]) : null;
+}
+
 export function isPendingContractStatus(status: FruitsRfqStatus): boolean {
   return status === 'awarded';
 }

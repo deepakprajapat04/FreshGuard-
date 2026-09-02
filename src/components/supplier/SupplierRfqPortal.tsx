@@ -164,23 +164,35 @@ function markRfqSeen(id: string) {
   localStorage.setItem(SUPPLIER_SEEN_RFQS_KEY, JSON.stringify([...seen]));
 }
 
-const SHIP_TEXT_FIELDS: { key: keyof ShipRow; label: string; wide?: boolean }[] = [
+const SHIP_FIELDS: { key: keyof ShipRow; label: string; type?: 'date' | 'text' | 'number' }[] = [
   { key: 'asnNumber', label: 'ASN number' },
   { key: 'containerNumber', label: 'Container' },
-  { key: 'shipDate', label: 'Ship date' },
+  { key: 'shipDate', label: 'Ship date', type: 'date' },
   { key: 'eta', label: 'ETA' },
   { key: 'originalEta', label: 'Original ETA' },
   { key: 'transportMode', label: 'Transport mode' },
   { key: 'carrier', label: 'Carrier' },
   { key: 'vessel', label: 'Vessel' },
   { key: 'voyage', label: 'Voyage' },
-  { key: 'origin', label: 'Origin', wide: true },
+  { key: 'origin', label: 'Origin' },
   { key: 'destination', label: 'Destination' },
   { key: 'incoterms', label: 'Incoterms' },
   { key: 'billOfLading', label: 'Bill of lading' },
   { key: 'customs', label: 'Customs' },
   { key: 'tempRange', label: 'Temp range' },
+  { key: 'qtyExpected', label: 'Qty expected', type: 'number' },
+  { key: 'qtyActual', label: 'Qty actual', type: 'number' },
+  { key: 'amount', label: 'Amount', type: 'number' },
 ];
+
+/** All shipment fields are required before submit. */
+function isShipRowComplete(row: ShipRow): boolean {
+  return SHIP_FIELDS.every((f) => String(row[f.key] ?? '').trim().length > 0);
+}
+
+function missingShipFields(row: ShipRow): string[] {
+  return SHIP_FIELDS.filter((f) => !String(row[f.key] ?? '').trim()).map((f) => f.label);
+}
 
 function ShippingEntryTable({
   rfqs,
@@ -192,93 +204,111 @@ function ShippingEntryTable({
   onChange: (rfqId: string, patch: Partial<ShipRow>) => void;
 }) {
   const inputClass =
-    'w-full min-w-[6.5rem] rounded-md border border-slate-200 dark:border-slate-700 px-2 py-1.5 text-xs dark:bg-slate-900 outline-none focus:ring-2 focus:ring-[#4684AD]/40';
+    'min-w-0 flex-1 rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-sm font-semibold text-slate-900 dark:text-slate-100 outline-none focus:ring-2 focus:ring-[#4684AD]/40';
+
   return (
-    <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
-      <table className="w-full min-w-[1680px] text-left text-xs">
-        <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] font-bold uppercase tracking-wide text-slate-400">
-          <tr>
-            <th className="px-3 py-2.5">Contract</th>
-            <th className="px-3 py-2.5">Item</th>
-            {SHIP_TEXT_FIELDS.map((f) => (
-              <th key={f.key} className="px-3 py-2.5 whitespace-nowrap">
-                {f.label}
-              </th>
-            ))}
-            <th className="px-3 py-2.5 whitespace-nowrap">Qty expected</th>
-            <th className="px-3 py-2.5 whitespace-nowrap">Qty actual</th>
-            <th className="px-3 py-2.5">Amount</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-          {rfqs.map((rfq) => {
-            const row = rows[rfq.id] ?? defaultShipRow(rfq);
-            const price = unitPriceFor(rfq);
-            return (
-              <tr key={rfq.id}>
-                <td className="px-3 py-2 font-code font-semibold text-[#4684AD] whitespace-nowrap">
-                  {toContractNumber(rfq.id)}
-                </td>
-                <td className="px-3 py-2 max-w-[160px]">
-                  <div className="font-medium text-slate-900 dark:text-white truncate">{rfq.item}</div>
-                </td>
-                {SHIP_TEXT_FIELDS.map((f) => (
-                  <td key={f.key} className="px-2 py-1.5">
+    <div className="space-y-4">
+      {rfqs.map((rfq) => {
+        const row = rows[rfq.id] ?? defaultShipRow(rfq);
+        const price = unitPriceFor(rfq);
+        const missing = missingShipFields(row);
+        return (
+          <div
+            key={rfq.id}
+            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
+          >
+            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                  Shipment details
+                </div>
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 mt-0.5">
+                  <span className="font-code text-sm font-bold text-[#4684AD]">
+                    {toContractNumber(rfq.id)}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate">
+                    {rfq.item}
+                  </span>
+                </div>
+              </div>
+              {missing.length > 0 ? (
+                <span className="text-[11px] font-semibold text-amber-700">
+                  {missing.length} required field{missing.length === 1 ? '' : 's'} left
+                </span>
+              ) : (
+                <span className="text-[11px] font-semibold text-emerald-700">Ready to submit</span>
+              )}
+            </div>
+
+            <div className="p-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-3 gap-y-2">
+              {SHIP_FIELDS.map((f) => {
+                const empty = !String(row[f.key] ?? '').trim();
+                return (
+                  <label
+                    key={f.key}
+                    className={cn(
+                      'flex items-center gap-2 rounded-lg border px-2.5 py-1.5 bg-slate-50/60 dark:bg-slate-950/40',
+                      empty
+                        ? 'border-rose-200 dark:border-rose-900'
+                        : 'border-slate-200 dark:border-slate-700'
+                    )}
+                  >
+                    <span className="shrink-0 w-[6.5rem] text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                      {f.label}
+                      <span className="text-rose-500" aria-hidden>
+                        *
+                      </span>
+                    </span>
                     <input
-                      type={f.key === 'shipDate' ? 'date' : 'text'}
+                      type={f.type === 'date' ? 'date' : 'text'}
+                      required
                       value={row[f.key]}
-                      onChange={(e) => onChange(rfq.id, { [f.key]: e.target.value })}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (f.key === 'qtyActual') {
+                          const n = Number(value.replace(/,/g, ''));
+                          onChange(rfq.id, {
+                            qtyActual: value,
+                            amount:
+                              Number.isFinite(n) && n >= 0
+                                ? (n * price).toFixed(2)
+                                : row.amount,
+                          });
+                          return;
+                        }
+                        onChange(rfq.id, { [f.key]: value });
+                      }}
                       className={cn(
                         inputClass,
-                        f.wide && 'min-w-[9rem]',
                         (f.key === 'asnNumber' ||
                           f.key === 'containerNumber' ||
                           f.key === 'billOfLading' ||
                           f.key === 'voyage') &&
-                          'font-code'
+                          'font-code',
+                        (f.type === 'number' ||
+                          f.key === 'qtyExpected' ||
+                          f.key === 'qtyActual' ||
+                          f.key === 'amount') &&
+                          'tabular-nums'
                       )}
+                      inputMode={
+                        f.type === 'number' ||
+                        f.key === 'qtyExpected' ||
+                        f.key === 'qtyActual' ||
+                        f.key === 'amount'
+                          ? 'decimal'
+                          : undefined
+                      }
                       placeholder={f.label}
+                      aria-required
                     />
-                  </td>
-                ))}
-                <td className="px-2 py-1.5">
-                  <input
-                    value={row.qtyExpected}
-                    onChange={(e) => onChange(rfq.id, { qtyExpected: e.target.value })}
-                    className={cn(inputClass, 'tabular-nums')}
-                    inputMode="numeric"
-                  />
-                </td>
-                <td className="px-2 py-1.5">
-                  <input
-                    value={row.qtyActual}
-                    onChange={(e) => {
-                      const qtyActual = e.target.value;
-                      const n = Number(qtyActual.replace(/,/g, ''));
-                      onChange(rfq.id, {
-                        qtyActual,
-                        amount:
-                          Number.isFinite(n) && n >= 0 ? (n * price).toFixed(2) : row.amount,
-                      });
-                    }}
-                    className={cn(inputClass, 'tabular-nums')}
-                    inputMode="numeric"
-                  />
-                </td>
-                <td className="px-2 py-1.5">
-                  <input
-                    value={row.amount}
-                    onChange={(e) => onChange(rfq.id, { amount: e.target.value })}
-                    className={cn(inputClass, 'tabular-nums')}
-                    inputMode="decimal"
-                    placeholder="USD"
-                  />
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -823,6 +853,19 @@ export function SupplierRfqPortal() {
   };
 
   const submitShipping = () => {
+    const incomplete = panelRfqs.find((rfq) => {
+      const row = shippingByRfq[rfq.id] ?? defaultShipRow(rfq);
+      return !isShipRowComplete(row);
+    });
+    if (incomplete) {
+      const row = shippingByRfq[incomplete.id] ?? defaultShipRow(incomplete);
+      const missing = missingShipFields(row);
+      setSlipMsg(
+        `Fill all required fields for ${toContractNumber(incomplete.id)}: ${missing.slice(0, 4).join(', ')}${missing.length > 4 ? '…' : ''}.`
+      );
+      return;
+    }
+
     const rows = panelRfqs.map((rfq) => {
       const row = shippingByRfq[rfq.id] ?? defaultShipRow(rfq);
       return {
@@ -847,10 +890,6 @@ export function SupplierRfqPortal() {
         amount: row.amount,
       };
     });
-    if (rows.length === 0 || rows.some((r) => !r.asnNumber)) {
-      setSlipMsg('Enter an ASN number for every selected contract.');
-      return;
-    }
     setSaving(true);
     setTimeout(() => {
       const { created, skipped } = applyMassShippingRows(rows);
@@ -1581,8 +1620,9 @@ export function SupplierRfqPortal() {
                   type="button"
                   disabled={
                     saving ||
+                    panelRfqs.length === 0 ||
                     panelRfqs.some(
-                      (r) => !(shippingByRfq[r.id] ?? defaultShipRow(r)).asnNumber.trim()
+                      (r) => !isShipRowComplete(shippingByRfq[r.id] ?? defaultShipRow(r))
                     )
                   }
                   onClick={submitShipping}
