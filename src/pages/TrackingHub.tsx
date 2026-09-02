@@ -531,11 +531,11 @@ export default function TrackingHub() {
     <div
       className={cn(
         contentCanvasClass,
-        'w-full h-full min-h-0 overflow-y-auto text-slate-900 dark:text-slate-100'
+        'w-full h-full min-h-0 flex flex-col overflow-hidden text-slate-900 dark:text-slate-100'
       )}
     >
-      {/* Scrolls away: title + KPIs */}
-      <div className="px-3 sm:px-4 pt-3 sm:pt-4 space-y-3">
+      {/* Fixed chrome: title + KPIs stay pinned; list/detail scroll below */}
+      <div className="shrink-0 px-3 sm:px-4 pt-3 sm:pt-4 space-y-3">
         {!detailExpanded && (
           <PageHeader title="FreshGuard · Shipment intelligence">
             <Link
@@ -581,15 +581,9 @@ export default function TrackingHub() {
         )}
       </div>
 
-      {/*
-        Sticky workspace: after KPIs scroll away, this pins under the app bar
-        and fills the remaining viewport. Padding is inside the sticky box so
-        height matches the scrollport and content is not clipped.
-      */}
       <div
         className={cn(
-          'sticky top-0 z-20 box-border px-3 sm:px-4 pt-3 pb-3 sm:pb-4',
-          'h-[calc(100dvh-3.5rem)] max-h-[calc(100dvh-3.5rem)]',
+          'flex-1 min-h-0 box-border px-3 sm:px-4 pt-3 pb-3 sm:pb-4',
           'grid gap-3 grid-rows-1',
           detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(280px,340px)_1fr]'
         )}

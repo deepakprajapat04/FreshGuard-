@@ -17,6 +17,7 @@ import {
   Filter,
   CheckCircle2,
   FileText,
+  ArrowRight,
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { PageHeader } from '../components/PageChrome';
@@ -25,6 +26,7 @@ import { btnPrimaryClass, btnSecondaryClass, contentCanvasClass } from '../lib/s
 import {
   buildPoRiskImpact,
   buildSourcingProposal,
+  buildStockRiskProposal,
   getPoDisplayStatus,
   getPoLineCount,
   getPoNetValue,
@@ -34,8 +36,10 @@ import {
   getShipmentEtaIso,
   getShipmentForPo,
   isFillInPurchaseOrder,
+  loadRiskActions,
   poVisibleToPersona,
   type PoRiskImpact,
+  type ReallocationMove,
   type SapPurchaseOrder,
   type TrackShipment,
 } from '../lib/trackingFlow';
@@ -62,7 +66,7 @@ const SUPPLIER_NAME = FRUITS_RFQ_SUPPLIER;
 const STORAGE_KEY = 'freshguard-active-shipments-v6';
 
 type PoStatusFilter = 'all' | 'in-transit' | 'asn-submitted' | 'received';
-type PoRiskFilter = 'all' | 'late' | 'early' | 'on-time';
+type PoRiskFilter = 'all' | 'late' | 'early' | 'on-time' | 'at-risk';
 
 const PO_STATUS_FILTER_LABELS: Record<PoStatusFilter, string> = {
   all: 'All',
@@ -76,6 +80,7 @@ const PO_RISK_FILTER_LABELS: Record<PoRiskFilter, string> = {
   late: 'Late',
   early: 'Early',
   'on-time': 'On time',
+  'at-risk': 'At risk',
 };
 
 const STAGE_LABELS: Record<TrackShipment['stage'], string> = {
@@ -180,6 +185,86 @@ function RiskStat({
       </div>
       <div className="text-[11px] text-slate-400">{sub}</div>
     </div>
+  );
+}
+
+function itemMatchesPo(item: string, poItem: string) {
+  return (
+    item === poItem ||
+    item.startsWith(poItem) ||
+    poItem.startsWith(item) ||
+    item.includes(poItem) ||
+    poItem.includes(item)
+  );
+}
+
+/** Stock-risk reallocation moves for this PO (from the related risk action). */
+function getStockMovesForPo(po: SapPurchaseOrder): ReallocationMove[] {
+  const shipment = getShipmentForPo(po);
+  if (!shipment) return [];
+  const action = loadRiskActions().find(
+    (a) => a.shipmentId === shipment.id && a.category === 'stock' && a.stockProposal
+  );
+  const moves = action?.stockProposal?.moves ?? buildStockRiskProposal(shipment).moves;
+  return moves.filter((m) => itemMatchesPo(m.item, po.item));
+}
+
+function PoReallocationMovesTable({ moves }: { moves: ReallocationMove[] }) {
+  if (moves.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-slate-300 px-3 py-4 text-xs text-slate-500 text-center">
+        No stock reallocation actions for this PO.
+      </div>
+    );
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-900">
+      <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500 border-b border-slate-100 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-950/40">
+        Reallocation moves
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="bg-slate-50 dark:bg-slate-950/60 text-left border-b border-slate-200 dark:border-slate-700">
+              <th className="px-3 py-2.5 font-semibold text-slate-500">Type</th>
+              <th className="px-3 py-2.5 font-semibold text-slate-500">From</th>
+              <th className="px-1 py-2.5 font-semibold text-slate-500 w-6" />
+              <th className="px-3 py-2.5 font-semibold text-slate-500">To</th>
+              <th className="px-3 py-2.5 font-semibold text-slate-500">Item</th>
+              <th className="px-3 py-2.5 font-semibold text-slate-500 text-right">Cases</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            {moves.map((m, i) => (
+              <tr key={`${m.fromLabel}-${m.toLabel}-${m.item}-${i}`}>
+                <td className="px-3 py-2.5">
+                  <span
+                    className={cn(
+                      'text-[11px] font-semibold uppercase px-1.5 py-0.5 rounded',
+                      m.type === 'dc_to_store'
+                        ? 'bg-[#C0D5E5] text-[#2F5472]'
+                        : 'bg-slate-100 text-slate-600 dark:bg-slate-800'
+                    )}
+                  >
+                    {m.type === 'dc_to_store' ? 'DC → store' : 'Store → store'}
+                  </span>
+                </td>
+                <td className="px-3 py-2.5 font-semibold">{m.fromLabel}</td>
+                <td className="px-1 py-2.5 text-slate-300">
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </td>
+                <td className="px-3 py-2.5 font-semibold">{m.toLabel}</td>
+                <td className="px-3 py-2.5 text-slate-600">{m.item}</td>
+                <td className="px-3 py-2.5 text-right tabular-nums font-bold text-[#2F5472]">
+                  {m.cases}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -377,7 +462,11 @@ export default function Orders() {
   const [detailExpanded, setDetailExpanded] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PoStatusFilter>('all');
-  const [riskFilter, setRiskFilter] = useState<PoRiskFilter>('all');
+  const [riskFilter, setRiskFilter] = useState<PoRiskFilter>(() => {
+    const risk = new URLSearchParams(window.location.search).get('risk');
+    if (risk === 'late' || risk === 'early' || risk === 'on-time' || risk === 'at-risk') return risk;
+    return 'all';
+  });
   const [filterOpen, setFilterOpen] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
   const [linkedRfqId, setLinkedRfqId] = useState<string | null>(null);
@@ -385,6 +474,7 @@ export default function Orders() {
   const [pomsSuccess, setPomsSuccess] = useState<{ poNumber: string; rfqId: string; item: string } | null>(
     null
   );
+  const [riskPanelTab, setRiskPanelTab] = useState<'risk' | 'actions'>('risk');
 
   const refreshFruitsRfqState = () => {
     setAwaitingRfqs(getRfqsAwaitingShipping(SUPPLIER_NAME));
@@ -396,6 +486,10 @@ export default function Orders() {
     const params = new URLSearchParams(window.location.search);
     const fromQuery = params.get('po');
     if (fromQuery) setSelectedPo(fromQuery);
+    const risk = params.get('risk');
+    if (risk === 'late' || risk === 'early' || risk === 'on-time' || risk === 'at-risk') {
+      setRiskFilter(risk);
+    }
   }, []);
 
   useEffect(() => {
@@ -455,6 +549,7 @@ export default function Orders() {
       if (riskFilter === 'late' && !(risk && risk.delayDays > 0)) return false;
       if (riskFilter === 'early' && !(risk && risk.delayDays < 0)) return false;
       if (riskFilter === 'on-time' && risk && risk.delayDays !== 0) return false;
+      if (riskFilter === 'at-risk' && !(risk && risk.severity !== 'none')) return false;
 
       if (!q) return true;
       const haystack = [
@@ -493,6 +588,15 @@ export default function Orders() {
 
   const selectedRisk = selected ? (riskByPo.get(selected.po) ?? null) : null;
   const selectedShipment = selected ? getShipmentForPo(selected) : undefined;
+  const selectedStockMoves = useMemo(
+    () => (selected ? getStockMovesForPo(selected) : []),
+    [selected]
+  );
+
+  useEffect(() => {
+    setRiskPanelTab('risk');
+  }, [selectedPo]);
+
   const selectedTimeline = useMemo(
     () => (selected ? buildPoTimeline(selected, selectedShipment, selectedRisk ?? undefined) : []),
     [selected, selectedShipment, selectedRisk]
@@ -757,7 +861,10 @@ export default function Orders() {
       )}
     >
       {!detailExpanded && (
-        <PageHeader title="Purchase Order" className="shrink-0">
+        <PageHeader
+          title="Purchase Order"
+          className="sticky top-0 z-20 shrink-0 bg-white dark:bg-slate-900"
+        >
           {isFruitsBuyer && (
             <Link to="/fruits-rfq" className={btnSecondaryClass}>
               <FileText className="w-4 h-4" />
@@ -1022,7 +1129,7 @@ export default function Orders() {
 
               <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(200px,240px)]">
                 <div className="p-4 space-y-5 border-b lg:border-b-0 lg:border-r border-slate-200/80 dark:border-slate-700">
-                  {/* Compact delivery risk */}
+                  {/* Compact delivery risk — Risk / Actions tabs */}
                   {!selectedRisk ? (
                     <div className="rounded-lg border border-dashed border-slate-300 px-3 py-2.5 text-xs text-slate-500">
                       No shipment linked yet — risk appears once an ASN is submitted.
@@ -1036,127 +1143,140 @@ export default function Orders() {
                       </span>
                     </div>
                   ) : (
-                    <div
-                      className={cn(
-                        'rounded-lg border overflow-hidden',
-                        selectedRisk.severity === 'high'
-                          ? 'border-rose-200 dark:border-rose-900'
-                          : 'border-amber-200 dark:border-amber-900'
-                      )}
-                    >
+                    <div className="space-y-3">
                       <div
-                        className={cn(
-                          'px-3 py-2 flex items-center gap-1.5 text-xs font-bold',
-                          selectedRisk.severity === 'high'
-                            ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30'
-                            : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30'
-                        )}
+                        role="tablist"
+                        aria-label="Delivery risk views"
+                        className="inline-flex w-full sm:w-auto rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-100/80 dark:bg-slate-800/60 p-1 gap-1"
                       >
-                        <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                        <span className="min-w-0 truncate">{selectedRisk.headline}</span>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={riskPanelTab === 'risk'}
+                          onClick={() => setRiskPanelTab('risk')}
+                          className={cn(
+                            'flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wide transition-all',
+                            riskPanelTab === 'risk'
+                              ? 'bg-[#4684AD] text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 hover:bg-white/70 dark:hover:bg-slate-900/50'
+                          )}
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5" />
+                          Risk
+                        </button>
+                        <button
+                          type="button"
+                          role="tab"
+                          aria-selected={riskPanelTab === 'actions'}
+                          onClick={() => setRiskPanelTab('actions')}
+                          className={cn(
+                            'flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-md text-xs font-bold uppercase tracking-wide transition-all',
+                            riskPanelTab === 'actions'
+                              ? 'bg-[#4684AD] text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-800 hover:bg-white/70 dark:hover:bg-slate-900/50'
+                          )}
+                        >
+                          <CheckSquare className="w-3.5 h-3.5" />
+                          Actions
+                        </button>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
-                        <RiskStat
-                          label="Schedule"
-                          value={
-                            selectedRisk.delayDays > 0
-                              ? `+${selectedRisk.delayDays}d`
-                              : `${Math.abs(selectedRisk.delayDays)}d`
-                          }
-                          sub={
-                            selectedRisk.delayDays > 0
-                              ? `late · DC ${formatShortDate(selectedRisk.revisedEta)}`
-                              : `early · DC ${formatShortDate(selectedRisk.revisedEta)}`
-                          }
-                          valueClass="text-amber-800"
-                        />
-                        <RiskStat
-                          label="Delivery orders"
-                          value={String(selectedRisk.storesWithDeliveryOrders)}
-                          sub={`stores · week of ${formatShortDate(selectedRisk.originalEta)}`}
-                          valueClass={
-                            selectedRisk.storesWithDeliveryOrders > 0
-                              ? 'text-rose-700'
-                              : 'text-emerald-700'
-                          }
-                        />
-                        <RiskStat
-                          label="Affect"
-                          value={
-                            selectedRisk.eventStatus === 'early'
-                              ? selectedRisk.earlyCasesToPush > 0
-                                ? selectedRisk.earlyCasesToPush.toLocaleString()
-                                : '—'
-                              : selectedRisk.oosGapDays > 0
-                                ? `${selectedRisk.oosGapDays}d`
-                                : 'None'
-                          }
-                          sub={
-                            selectedRisk.eventStatus === 'early'
-                              ? selectedRisk.earlyCasesToPush > 0
-                                ? 'cases on those orders'
-                                : 'no open store orders'
-                              : selectedRisk.oosGapDays > 0
-                                ? 'projected OOS gap'
-                                : 'within cover'
-                          }
-                          valueClass={
-                            selectedRisk.eventStatus === 'early'
-                              ? selectedRisk.earlyCasesToPush > 0
-                                ? 'text-amber-800'
-                                : 'text-emerald-700'
-                              : selectedRisk.oosGapDays > 0
-                                ? 'text-rose-700'
-                                : 'text-emerald-700'
-                          }
-                        />
-                        <RiskStat
-                          label="Original ETA"
-                          value={formatShortDate(selectedRisk.originalEta)}
-                          sub={`${formatShortDate(selectedRisk.originalEtaWeekStart)}–${formatShortDate(selectedRisk.originalEtaWeekEnd)}`}
-                          valueClass="text-[#2F5472]"
-                        />
-                      </div>
-                      {selectedRisk.affectedStores.length > 0 ? (
-                        <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
-                          <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            Stores with delivery in week of original ETA (
-                            {selectedRisk.storesWithDeliveryOrders})
+
+                      {riskPanelTab === 'risk' ? (
+                        <div
+                          className={cn(
+                            'rounded-lg border overflow-hidden',
+                            selectedRisk.severity === 'high'
+                              ? 'border-rose-200 dark:border-rose-900'
+                              : 'border-amber-200 dark:border-amber-900'
+                          )}
+                        >
+                          <div
+                            className={cn(
+                              'px-3 py-2 flex items-center gap-1.5 text-xs font-bold',
+                              selectedRisk.severity === 'high'
+                                ? 'bg-rose-50 text-rose-800 dark:bg-rose-950/30'
+                                : 'bg-amber-50 text-amber-900 dark:bg-amber-950/30'
+                            )}
+                          >
+                            <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                            <span className="min-w-0 truncate">{selectedRisk.headline}</span>
                           </div>
-                          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {selectedRisk.affectedStores.map((s) => (
-                              <li
-                                key={s.storeId}
-                                className="px-3 py-2 flex flex-wrap items-center justify-between gap-2"
-                              >
-                                <div className="min-w-0">
-                                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
-                                    {s.storeName}
-                                  </span>
-                                  <span className="text-[11px] font-code text-slate-400 ml-2">
-                                    {s.storeId}
-                                  </span>
-                                </div>
-                                <span
-                                  className={cn(
-                                    'text-xs font-semibold shrink-0',
-                                    selectedRisk.eventStatus === 'delayed'
-                                      ? 'text-rose-700'
-                                      : 'text-amber-800'
-                                  )}
-                                >
-                                  {s.deliveryDate
-                                    ? `Delivery ${formatShortDate(s.deliveryDate)}`
-                                    : s.affect}
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
+                          <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-slate-800 bg-white dark:bg-slate-900">
+                            <RiskStat
+                              label="Schedule"
+                              value={
+                                selectedRisk.delayDays > 0
+                                  ? `+${selectedRisk.delayDays}d`
+                                  : `${Math.abs(selectedRisk.delayDays)}d`
+                              }
+                              sub={
+                                selectedRisk.delayDays > 0
+                                  ? `late · DC ${formatShortDate(selectedRisk.revisedEta)}`
+                                  : `early · DC ${formatShortDate(selectedRisk.revisedEta)}`
+                              }
+                              valueClass="text-amber-800"
+                            />
+                            <RiskStat
+                              label="Delivery orders"
+                              value={String(selectedRisk.storesWithDeliveryOrders)}
+                              sub={`stores · week of ${formatShortDate(selectedRisk.originalEta)}`}
+                              valueClass={
+                                selectedRisk.storesWithDeliveryOrders > 0
+                                  ? 'text-rose-700'
+                                  : 'text-emerald-700'
+                              }
+                            />
+                            <RiskStat
+                              label="Original ETA"
+                              value={formatShortDate(selectedRisk.originalEta)}
+                              sub={`${formatShortDate(selectedRisk.originalEtaWeekStart)}–${formatShortDate(selectedRisk.originalEtaWeekEnd)}`}
+                              valueClass="text-[#2F5472]"
+                            />
+                          </div>
+                          {selectedRisk.affectedStores.length > 0 ? (
+                            <div className="border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
+                              <div className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                Stores with delivery in week of original ETA (
+                                {selectedRisk.storesWithDeliveryOrders})
+                              </div>
+                              <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                                {selectedRisk.affectedStores.map((s) => (
+                                  <li
+                                    key={s.storeId}
+                                    className="px-3 py-2 flex flex-wrap items-center justify-between gap-2"
+                                  >
+                                    <div className="min-w-0">
+                                      <span className="text-sm font-semibold text-slate-800 dark:text-slate-100">
+                                        {s.storeName}
+                                      </span>
+                                      <span className="text-[11px] font-code text-slate-400 ml-2">
+                                        {s.storeId}
+                                      </span>
+                                    </div>
+                                    <span
+                                      className={cn(
+                                        'text-xs font-semibold shrink-0',
+                                        selectedRisk.eventStatus === 'delayed'
+                                          ? 'text-rose-700'
+                                          : 'text-amber-800'
+                                      )}
+                                    >
+                                      {s.deliveryDate
+                                        ? `Delivery ${formatShortDate(s.deliveryDate)}`
+                                        : s.affect}
+                                    </span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <div className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 text-xs text-slate-500 bg-white dark:bg-slate-900">
+                              No store delivery orders in the week of original ETA.
+                            </div>
+                          )}
                         </div>
                       ) : (
-                        <div className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 text-xs text-slate-500 bg-white dark:bg-slate-900">
-                          No store delivery orders in the week of original ETA.
-                        </div>
+                        <PoReallocationMovesTable moves={selectedStockMoves} />
                       )}
                     </div>
                   )}

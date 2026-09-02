@@ -204,9 +204,9 @@ function ShippingEntryTable({
         return (
           <div
             key={rfq.id}
-            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 overflow-hidden"
+            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900"
           >
-            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <div className="px-4 py-2.5 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-2 sticky top-0 z-10 bg-white dark:bg-slate-900 rounded-t-xl">
               <div className="min-w-0">
                 <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
                   Shipment details
@@ -306,7 +306,7 @@ function SelectedRfqsTable({ rfqs }: { rfqs: FruitsRfq[] }) {
   return (
     <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
       <table className="w-full min-w-[640px] text-left text-xs">
-        <thead className="bg-slate-50 dark:bg-slate-800/60 text-[11px] font-bold uppercase tracking-wide text-slate-400">
+        <thead className="sticky top-0 z-10 bg-slate-50 dark:bg-slate-800/95 text-[11px] font-bold uppercase tracking-wide text-slate-400">
           <tr>
             <th className="px-3 py-2.5">Contract</th>
             <th className="px-3 py-2.5">Item</th>
@@ -920,11 +920,14 @@ export function SupplierRfqPortal() {
     <div
       className={cn(
         contentCanvasClass,
-        'p-3 sm:p-4 w-full h-full min-h-0 flex flex-col gap-3 overflow-y-auto text-slate-900 dark:text-slate-100'
+        'p-3 sm:p-4 w-full h-full min-h-0 flex flex-col gap-3 overflow-hidden text-slate-900 dark:text-slate-100'
       )}
     >
       {!detailExpanded && (
-        <PageHeader title="Shipment details" className="shrink-0">
+        <PageHeader
+          title="Shipment details"
+          className="sticky top-0 z-30 shrink-0 bg-white dark:bg-slate-900"
+        >
           <button
             type="button"
             onClick={handleResetDemo}
@@ -945,7 +948,7 @@ export function SupplierRfqPortal() {
 
       <div
         className={cn(
-          'flex-1 min-h-[640px] grid gap-3 grid-rows-1',
+          'flex-1 min-h-0 grid gap-3 grid-rows-1',
           detailExpanded ? 'grid-cols-1' : 'lg:grid-cols-[minmax(260px,320px)_1fr]'
         )}
       >
@@ -955,7 +958,7 @@ export function SupplierRfqPortal() {
             detailExpanded && 'hidden'
           )}
         >
-          <div className="px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0 space-y-2">
+          <div className="sticky top-0 z-20 px-4 py-3 border-b border-slate-100 dark:border-slate-800 shrink-0 space-y-2 bg-white dark:bg-slate-900">
             <h2 className="text-xs font-bold uppercase tracking-wide text-slate-500">
               Shipping detail
             </h2>
@@ -1237,10 +1240,10 @@ export function SupplierRfqPortal() {
           )}
         </section>
 
-        <section className="min-h-0 h-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-y-auto flex flex-col">
+        <section className="min-h-0 h-full rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden flex flex-col">
           {lane === 'vegetables' && selectedVeg ? (
             <>
-              <div className="shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="sticky top-0 z-20 shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-xs font-code font-bold text-[#4684AD]">{selectedVeg.po}</span>
                   <span
@@ -1258,7 +1261,7 @@ export function SupplierRfqPortal() {
                   {selectedVeg.destination} {selectedVeg.deliveryDate}
                 </p>
               </div>
-              <div className="p-5 space-y-4 flex-1">
+              <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
                 <p className="text-sm text-slate-600 dark:text-slate-300">
                   Vegetable lane ships against an existing purchase order — not a fruit contract.
                 </p>
@@ -1408,7 +1411,7 @@ export function SupplierRfqPortal() {
             </div>
           ) : selectedCompleted && panelRfqs.length === 0 ? (
             <>
-              <div className="shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="sticky top-0 z-20 shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
@@ -1441,7 +1444,7 @@ export function SupplierRfqPortal() {
                 </div>
               </div>
 
-              <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+              <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
                 {awardedQuote && (
                   <div className="grid sm:grid-cols-3 gap-2">
                     <div className="rounded-lg border border-slate-200 dark:border-slate-700 px-3 py-2">
@@ -1502,7 +1505,7 @@ export function SupplierRfqPortal() {
             </>
           ) : panelRfqs.length > 0 ? (
             <>
-              <div className="shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
+              <div className="sticky top-0 z-20 shrink-0 px-5 py-4 border-b border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
@@ -1577,7 +1580,7 @@ export function SupplierRfqPortal() {
                 {massMsg && <p className="text-xs text-emerald-800 mt-2 text-right">{massMsg}</p>}
               </div>
 
-              <div className="p-5 space-y-4 flex-1 overflow-y-auto">
+              <div className="p-5 space-y-4 flex-1 min-h-0 overflow-y-auto">
                 <SelectedRfqsTable rfqs={panelRfqs} />
 
                 <p className="text-sm text-slate-600 dark:text-slate-300">

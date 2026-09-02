@@ -955,7 +955,11 @@ export default function Actions() {
   const { upsertMany } = useNotifications();
   const [actions, setActions] = useState<RiskAction[]>(() => loadRiskActions());
   const [flash, setFlash] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const status = new URLSearchParams(window.location.search).get('status');
+    if (status === 'pending' || status === 'approved') return status;
+    return 'all';
+  });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detailExpanded, setDetailExpanded] = useState(false);
   const [taskSearch, setTaskSearch] = useState('');
@@ -966,6 +970,8 @@ export default function Actions() {
 
   useEffect(() => {
     setActions(loadRiskActions());
+    const status = new URLSearchParams(window.location.search).get('status');
+    if (status === 'pending' || status === 'approved') setStatusFilter(status);
   }, []);
 
   useEffect(() => {

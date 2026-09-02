@@ -1,5 +1,5 @@
 /**
- * Dashboard — period KPIs (year / quarter / month) plus live operations snapshot.
+ * Dashboard — date-range KPIs (default last calendar month) plus live operations snapshot.
  */
 import { useMemo, useState } from 'react';
 import { Link, Navigate } from 'react-router';
@@ -49,13 +49,11 @@ import {
   type FruitsRfq,
 } from '../lib/fruitsRfqFlow';
 import {
-  MONTH_LABELS,
-  buildYearMonthSeries,
-  periodLabel,
-  quarterOfMonth,
-  selectPeriodRows,
+  buildDateRangeSeries,
+  dateRangeLabel,
+  defaultLastMonthRange,
+  normalizeDateRange,
   sumMonthKpis,
-  type PeriodGranularity,
 } from '../lib/dashboardPeriod';
 
 type DeliveryStatus = 'delayed' | 'early' | 'on-time' | 'pending';
@@ -203,22 +201,8 @@ function eventTone(status: TrackShipment['eventStatus']) {
   return 'text-slate-600';
 }
 
-const GRANULARITY_OPTIONS: { id: PeriodGranularity; label: string }[] = [
-  { id: 'year', label: 'Year' },
-  { id: 'quarter', label: 'Quarter' },
-  { id: 'month', label: 'Month' },
-];
-
-const pillClass = (active: boolean) =>
-  cn(
-    'px-2.5 py-1 rounded-md text-[11px] font-bold uppercase tracking-wide border transition-colors',
-    active
-      ? 'bg-[#4684AD] text-white border-[#4684AD]'
-      : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
-  );
-
-const selectClass =
-  'rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#4684AD]/40';
+const dateInputClass =
+  'rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-2 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-[#4684AD]/40';
 
 export default function HealthCheck() {
   const { persona } = usePersona();
@@ -226,13 +210,9 @@ export default function HealthCheck() {
   const showContracts = persona === 'dc_purchasing_fruits' || persona === 'category_manager';
   const supplier = isSupplierPersona(persona);
 
-  const liveMonth = Number(DEMO_TODAY.slice(5, 7)) || 8;
-  const liveYear = Number(DEMO_TODAY.slice(0, 4)) || 2026;
-
-  const [granularity, setGranularity] = useState<PeriodGranularity>('year');
-  const [year, setYear] = useState(liveYear);
-  const [quarter, setQuarter] = useState<1 | 2 | 3 | 4>(() => quarterOfMonth(liveMonth));
-  const [month, setMonth] = useState(liveMonth);
+  const lastMonth = useMemo(() => defaultLastMonthRange(DEMO_TODAY), []);
+  const [rangeFrom, setRangeFrom] = useState(lastMonth.from);
+  const [rangeTo, setRangeTo] = useState(lastMonth.to);
 
   const shipments = useMemo(
     () =>
@@ -316,18 +296,20 @@ export default function HealthCheck() {
     ]
   );
 
-  const yearSeries = useMemo(
-    () => buildYearMonthSeries(year, liveMonth, liveBaseline),
-    [year, liveMonth, liveBaseline]
+  const dateRange = useMemo(
+    () => normalizeDateRange(rangeFrom, rangeTo),
+    [rangeFrom, rangeTo]
   );
 
   const periodRows = useMemo(
-    () => selectPeriodRows(yearSeries, granularity, quarter, month),
-    [yearSeries, granularity, quarter, month]
+    () => buildDateRangeSeries(dateRange.from, dateRange.to, DEMO_TODAY, liveBaseline),
+    [dateRange.from, dateRange.to, liveBaseline]
   );
 
   const periodTotals = useMemo(() => sumMonthKpis(periodRows), [periodRows]);
-  const activePeriodLabel = periodLabel(year, granularity, quarter, month);
+  const activePeriodLabel = dateRangeLabel(dateRange.from, dateRange.to);
+  const isLastMonth =
+    dateRange.from === lastMonth.from && dateRange.to === lastMonth.to;
 
   const chartData = useMemo(
     () =>
@@ -342,13 +324,22 @@ export default function HealthCheck() {
     [periodRows]
   );
 
+  const applyLastMonth = () => {
+    setRangeFrom(lastMonth.from);
+    setRangeTo(lastMonth.to);
+  };
+
   if (supplier) {
     return <Navigate to="/orders" replace />;
   }
 
   return (
     <div className={pageShellClass}>
-      <PageHeader eyebrow="Operations" title="Dashboard">
+      <PageHeader
+        eyebrow="Operations"
+        title="Dashboard"
+        className="sticky top-0 z-20 bg-white dark:bg-slate-900"
+      >
         <Link to="/tracking" className={btnSecondaryClass}>
           <Truck className="w-4 h-4" />
           Shipment intelligence
@@ -369,58 +360,40 @@ export default function HealthCheck() {
         <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400 mr-1">
           Period
         </div>
-        <div className="flex flex-wrap gap-1">
-          {GRANULARITY_OPTIONS.map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => setGranularity(opt.id)}
-              className={pillClass(granularity === opt.id)}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-        <select
-          value={year}
-          onChange={(e) => setYear(Number(e.target.value))}
-          className={selectClass}
-          aria-label="Year"
+        <button
+          type="button"
+          onClick={applyLastMonth}
+          className={cn(
+            'px-2.5 py-1.5 rounded-md text-[11px] font-bold uppercase tracking-wide border transition-colors',
+            isLastMonth
+              ? 'bg-[#4684AD] text-white border-[#4684AD]'
+              : 'border-slate-200 text-slate-500 hover:border-[#4684AD]/40 dark:border-slate-700'
+          )}
         >
-          {[liveYear - 1, liveYear, liveYear + 1].map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
-        {granularity === 'quarter' && (
-          <select
-            value={quarter}
-            onChange={(e) => setQuarter(Number(e.target.value) as 1 | 2 | 3 | 4)}
-            className={selectClass}
-            aria-label="Quarter"
-          >
-            {[1, 2, 3, 4].map((q) => (
-              <option key={q} value={q}>
-                Q{q}
-              </option>
-            ))}
-          </select>
-        )}
-        {granularity === 'month' && (
-          <select
-            value={month}
-            onChange={(e) => setMonth(Number(e.target.value))}
-            className={selectClass}
-            aria-label="Month"
-          >
-            {MONTH_LABELS.map((label, i) => (
-              <option key={label} value={i + 1}>
-                {label}
-              </option>
-            ))}
-          </select>
-        )}
+          Last month
+        </button>
+        <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          From
+          <input
+            type="date"
+            value={rangeFrom}
+            max={rangeTo || undefined}
+            onChange={(e) => setRangeFrom(e.target.value)}
+            className={dateInputClass}
+            aria-label="Range start"
+          />
+        </label>
+        <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+          To
+          <input
+            type="date"
+            value={rangeTo}
+            min={rangeFrom || undefined}
+            onChange={(e) => setRangeTo(e.target.value)}
+            className={dateInputClass}
+            aria-label="Range end"
+          />
+        </label>
         <span className="text-xs font-semibold text-[#2F5472] dark:text-blue-300 ml-auto">
           {activePeriodLabel}
         </span>
@@ -432,30 +405,35 @@ export default function HealthCheck() {
           value={String(periodTotals.contracts)}
           tone="sap"
           className="!rounded-xl !py-2.5 !px-3"
+          to={showContracts ? '/fruits-rfq' : '/orders'}
         />
         <StatCard
           label="Pending"
           value={String(periodTotals.pending)}
           tone="amber"
           className="!rounded-xl !py-2.5 !px-3"
+          to={showContracts ? '/fruits-rfq?status=pending' : '/actions?status=pending'}
         />
         <StatCard
           label="Delayed"
           value={String(periodTotals.delayed)}
           tone="rose"
           className="!rounded-xl !py-2.5 !px-3"
+          to="/orders?risk=late"
         />
         <StatCard
           label="Early"
           value={String(periodTotals.early)}
           tone="cyan"
           className="!rounded-xl !py-2.5 !px-3"
+          to="/orders?risk=early"
         />
         <StatCard
           label="At risk"
           value={String(periodTotals.atRisk)}
           tone={periodTotals.atRisk > 0 ? 'rose' : 'emerald'}
           className="!rounded-xl !py-2.5 !px-3"
+          to="/orders?risk=at-risk"
         />
         {!statusOnly ? (
           <StatCard
@@ -463,6 +441,7 @@ export default function HealthCheck() {
             value={String(periodTotals.riskActions)}
             tone={periodTotals.riskActions ? 'amber' : 'emerald'}
             className="!rounded-xl !py-2.5 !px-3"
+            to="/actions?status=pending"
           />
         ) : (
           <StatCard
@@ -472,6 +451,7 @@ export default function HealthCheck() {
             )}
             tone="emerald"
             className="!rounded-xl !py-2.5 !px-3"
+            to="/orders?risk=on-time"
           />
         )}
       </div>
@@ -505,9 +485,18 @@ export default function HealthCheck() {
                   {contractRows.map((row) => (
                     <tr key={row.rfqId}>
                       <td className="px-2 py-2 font-code font-semibold text-[#4684AD] whitespace-nowrap">
-                        <Link to="/fruits-rfq" className="hover:underline">
-                          {row.contractNo}
-                        </Link>
+                        {row.poNumber !== '—' ? (
+                          <Link
+                            to={`/orders?po=${row.poNumber}`}
+                            className="hover:underline"
+                          >
+                            {row.contractNo}
+                          </Link>
+                        ) : (
+                          <Link to="/fruits-rfq" className="hover:underline">
+                            {row.contractNo}
+                          </Link>
+                        )}
                       </td>
                       <td className="px-2 py-2 font-code text-slate-800 dark:text-slate-100 whitespace-nowrap">
                         {row.poNumber !== '—' ? (
@@ -651,16 +640,7 @@ export default function HealthCheck() {
         </Panel>
       )}
 
-      <Panel
-        title="Trend"
-        subtitle={
-          granularity === 'year'
-            ? `Monthly breakdown · ${year}`
-            : granularity === 'quarter'
-              ? `Months in Q${quarter} ${year}`
-              : `${MONTH_LABELS[month - 1]} ${year}`
-        }
-      >
+      <Panel title="Trend" subtitle={`Weekly breakdown · ${activePeriodLabel}`}>
         <div className="h-56 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} margin={{ top: 8, right: 8, left: -12, bottom: 0 }}>

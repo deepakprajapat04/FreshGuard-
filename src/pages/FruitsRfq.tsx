@@ -130,13 +130,21 @@ export default function FruitsRfq() {
   const [selectedId, setSelectedId] = useState<string>('RFQ-F-2026-001');
   const [toast, setToast] = useState<string | null>(null);
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>('all');
+  const [statusFilter, setStatusFilter] = useState<ContractStatusFilter>(() => {
+    const status = new URLSearchParams(window.location.search).get('status');
+    if (status === 'awarded' || status === 'po_created') return status;
+    if (status === 'pending') return 'awarded';
+    return 'all';
+  });
   const [filterOpen, setFilterOpen] = useState(false);
   const [detailExpanded, setDetailExpanded] = useState(false);
   const filterRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setRfqs(loadFruitsRfqs());
+    const status = new URLSearchParams(window.location.search).get('status');
+    if (status === 'awarded' || status === 'po_created') setStatusFilter(status);
+    if (status === 'pending') setStatusFilter('awarded');
   }, []);
 
   useEffect(() => {

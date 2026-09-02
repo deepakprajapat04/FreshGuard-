@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Link } from 'react-router';
 import { cn } from '../lib/utils';
 import { contentCanvasClass } from '../lib/sapTheme';
 
@@ -115,6 +116,7 @@ export function StatCard({
   tone = 'sap',
   compact = false,
   className,
+  to,
 }: {
   label: string;
   value: ReactNode;
@@ -122,16 +124,12 @@ export function StatCard({
   tone?: StatTone;
   compact?: boolean;
   className?: string;
+  /** When set, the card navigates here on click. */
+  to?: string;
 }) {
   const t = STAT_TONES[tone] ?? STAT_TONES.sap;
-  return (
-    <div
-      className={cn(
-        'relative overflow-hidden border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm',
-        compact ? 'rounded-xl px-3 py-2' : 'rounded-2xl px-3.5 py-3',
-        className
-      )}
-    >
+  const body = (
+    <>
       <div className={cn('absolute inset-0 bg-gradient-to-br to-transparent', t.accent)} />
       {compact ? (
         <div className="relative flex items-center justify-between gap-3 min-w-0">
@@ -164,6 +162,23 @@ export function StatCard({
           {sub && <div className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">{sub}</div>}
         </div>
       )}
-    </div>
+    </>
   );
+
+  const shellClass = cn(
+    'relative overflow-hidden border border-slate-200/90 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm block',
+    compact ? 'rounded-xl px-3 py-2' : 'rounded-2xl px-3.5 py-3',
+    to && 'hover:border-[#4684AD]/50 hover:shadow-md transition-all cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4684AD]/40',
+    className
+  );
+
+  if (to) {
+    return (
+      <Link to={to} className={shellClass} aria-label={`Open ${label}`}>
+        {body}
+      </Link>
+    );
+  }
+
+  return <div className={shellClass}>{body}</div>;
 }

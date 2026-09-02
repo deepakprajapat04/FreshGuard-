@@ -166,7 +166,10 @@ export default function BusinessRules() {
 
   return (
     <div className={pageShellClass}>
-      <PageHeader title="Business Rules">
+      <PageHeader
+        title="Business Rules"
+        className="sticky top-0 z-20 bg-white dark:bg-slate-900"
+      >
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={openAddAlert} className={btnGhostClass}>
             <Plus className="w-4 h-4" />
