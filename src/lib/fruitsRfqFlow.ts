@@ -718,7 +718,11 @@ function buildPoFromRfq(rfq: FruitsRfq, input: FruitsRfqShippingInput): SapPurch
   const transportMode: 'ocean' | 'air' | 'road' =
     transportRaw === 'air' || transportRaw.includes('air')
       ? 'air'
-      : transportRaw === 'road' || transportRaw.includes('truck') || transportRaw.includes('road')
+      : transportRaw === 'road' ||
+          transportRaw === 'land' ||
+          transportRaw.includes('truck') ||
+          transportRaw.includes('road') ||
+          transportRaw.includes('land')
         ? 'road'
         : 'ocean';
 

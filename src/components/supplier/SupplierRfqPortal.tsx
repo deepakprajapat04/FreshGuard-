@@ -153,13 +153,25 @@ function markRfqSeen(id: string) {
   localStorage.setItem(SUPPLIER_SEEN_RFQS_KEY, JSON.stringify([...seen]));
 }
 
-const SHIP_FIELDS: { key: keyof ShipRow; label: string; type?: 'date' | 'text' | 'number' }[] = [
+const TRANSPORT_MODE_OPTIONS = ['Sea', 'Land', 'Air'] as const;
+
+const SHIP_FIELDS: {
+  key: keyof ShipRow;
+  label: string;
+  type?: 'date' | 'text' | 'number' | 'select';
+  options?: readonly string[];
+}[] = [
   { key: 'asnNumber', label: 'ASN number' },
   { key: 'containerNumber', label: 'Container' },
   { key: 'shipDate', label: 'Ship date', type: 'date' },
-  { key: 'eta', label: 'ETA' },
-  { key: 'originalEta', label: 'Original ETA' },
-  { key: 'transportMode', label: 'Transport mode' },
+  { key: 'eta', label: 'ETA', type: 'date' },
+  { key: 'originalEta', label: 'Original ETA', type: 'date' },
+  {
+    key: 'transportMode',
+    label: 'Transport mode',
+    type: 'select',
+    options: TRANSPORT_MODE_OPTIONS,
+  },
   { key: 'carrier', label: 'Carrier' },
   { key: 'vessel', label: 'Vessel' },
   { key: 'voyage', label: 'Voyage' },
@@ -248,49 +260,68 @@ function ShippingEntryTable({
                         *
                       </span>
                     </span>
-                    <input
-                      type={f.type === 'date' ? 'date' : 'text'}
-                      required
-                      value={row[f.key]}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (f.key === 'qtyActual') {
-                          const n = Number(value.replace(/,/g, ''));
-                          onChange(rfq.id, {
-                            qtyActual: value,
-                            amount:
-                              Number.isFinite(n) && n >= 0
-                                ? (n * price).toFixed(2)
-                                : row.amount,
-                          });
-                          return;
-                        }
-                        onChange(rfq.id, { [f.key]: value });
-                      }}
-                      className={cn(
-                        inputClass,
-                        (f.key === 'asnNumber' ||
-                          f.key === 'containerNumber' ||
-                          f.key === 'billOfLading' ||
-                          f.key === 'voyage') &&
-                          'font-code',
-                        (f.type === 'number' ||
+                    {f.type === 'select' ? (
+                      <select
+                        required
+                        value={row[f.key]}
+                        onChange={(e) => onChange(rfq.id, { [f.key]: e.target.value })}
+                        className={cn(inputClass, empty && 'text-slate-400')}
+                        aria-required
+                      >
+                        <option value="" disabled>
+                          Select…
+                        </option>
+                        {(f.options ?? []).map((opt) => (
+                          <option key={opt} value={opt}>
+                            {opt}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type={f.type === 'date' ? 'date' : 'text'}
+                        required
+                        value={row[f.key]}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (f.key === 'qtyActual') {
+                            const n = Number(value.replace(/,/g, ''));
+                            onChange(rfq.id, {
+                              qtyActual: value,
+                              amount:
+                                Number.isFinite(n) && n >= 0
+                                  ? (n * price).toFixed(2)
+                                  : row.amount,
+                            });
+                            return;
+                          }
+                          onChange(rfq.id, { [f.key]: value });
+                        }}
+                        className={cn(
+                          inputClass,
+                          (f.key === 'asnNumber' ||
+                            f.key === 'containerNumber' ||
+                            f.key === 'billOfLading' ||
+                            f.key === 'voyage') &&
+                            'font-code',
+                          (f.type === 'number' ||
+                            f.key === 'qtyExpected' ||
+                            f.key === 'qtyActual' ||
+                            f.key === 'amount') &&
+                            'tabular-nums'
+                        )}
+                        inputMode={
+                          f.type === 'number' ||
                           f.key === 'qtyExpected' ||
                           f.key === 'qtyActual' ||
-                          f.key === 'amount') &&
-                          'tabular-nums'
-                      )}
-                      inputMode={
-                        f.type === 'number' ||
-                        f.key === 'qtyExpected' ||
-                        f.key === 'qtyActual' ||
-                        f.key === 'amount'
-                          ? 'decimal'
-                          : undefined
-                      }
-                      placeholder={f.label}
-                      aria-required
-                    />
+                          f.key === 'amount'
+                            ? 'decimal'
+                            : undefined
+                        }
+                        placeholder={f.label}
+                        aria-required
+                      />
+                    )}
                   </label>
                 );
               })}
@@ -690,7 +721,7 @@ export function SupplierRfqPortal() {
           : qtyActual * unitPriceFor(rfq);
       const transportMode = row.transportMode?.trim() || 'ocean';
       const incoterms = row.incoterms?.trim() || 'FOB Valparaíso';
-      const eta = row.eta.trim() || '3 Days';
+      const eta = row.eta.trim() ? normalizeShipDate(row.eta) : '';
       const result = createPoFromFruitsRfqShipping({
         rfqId: row.rfqId,
         asnNumber: row.asnNumber.trim(),
@@ -703,7 +734,9 @@ export function SupplierRfqPortal() {
         amount,
         transportMode,
         incoterms,
-        originalEta: row.originalEta?.trim() || eta,
+        originalEta: row.originalEta?.trim()
+          ? normalizeShipDate(row.originalEta)
+          : eta,
         carrier: row.carrier?.trim(),
         vessel: row.vessel?.trim(),
         voyage: row.voyage?.trim(),
@@ -862,8 +895,8 @@ export function SupplierRfqPortal() {
         asnNumber: row.asnNumber.trim(),
         containerNumber: row.containerNumber.trim(),
         shipDate: row.shipDate,
-        eta: row.eta.trim() || '3 Days',
-        originalEta: row.originalEta,
+        eta: row.eta.trim() ? normalizeShipDate(row.eta) : '',
+        originalEta: row.originalEta.trim() ? normalizeShipDate(row.originalEta) : '',
         transportMode: row.transportMode,
         carrier: row.carrier,
         vessel: row.vessel,
