@@ -973,7 +973,7 @@ export function SupplierRfqPortal() {
 
       {!detailExpanded && (
         <div className={cn(statGridClass, 'shrink-0')}>
-          <StatCard label="Fruit contracts pending" value={String(awaiting.length)} tone="amber" />
+          <StatCard label="Fruits Shipment upload pending" value={String(awaiting.length)} tone="amber" />
           <StatCard label="Vegetable POs" value={String(vegPos.length)} />
           <StatCard label="PO created" value={String(completed.length)} tone="emerald" />
         </div>
